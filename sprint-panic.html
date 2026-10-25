@@ -160,7 +160,7 @@
 
 <!-- MENÜ -->
 <section class="screen on" id="menu">
-  <a class="back" href="index.html" aria-label="Zurück zum Spielemenü">←</a>
+  <a class="back" href="index.html" aria-label="Zurück zum Spielemenü">←</a><button class="back" id="syncb" style="left:auto;right:calc(10px + env(safe-area-inset-right));border:0" aria-label="Sync und Backup">☁️</button>
   <div class="logo">🔥</div>
   <h1>Sprint Panic</h1>
   <div class="mut" style="font-size:14px;max-width:320px">Sechs Sprints bis zum Release. Du bist Scrum Master und Product Owner in einem.</div>
@@ -229,6 +229,7 @@
 <div id="toast"></div>
 <canvas id="fx"></canvas>
 
+<script src="sync.js"></script>
 <script>
 (() => {
   'use strict';
@@ -244,7 +245,7 @@
   const KEY = 'sprintPanic.v1';
   const save = { best: 0, bestStars: 0, muted: false };
   try { Object.assign(save, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
-  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} };
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} if (window.AppSync && !persist.quiet) AppSync.changed(); };
 
   // ---------- Audio ----------
   let AC = null;
@@ -756,6 +757,11 @@
   addEventListener('resize', fxResize);
 
   function menuLine() { $('bestLine').textContent = save.best ? 'Rekord: 💎 ' + save.best + '  ' + '★'.repeat(save.bestStars) : ''; }
+  $('syncb').onclick = () => AppSync.open();
+  AppSync.init({ name: 'sprint-panic', label: 'Sprint Panic',
+    getData: () => ({ best: save.best, bestStars: save.bestStars }),
+    setData: d => { ['best', 'bestStars'].forEach(k => { if (d[k] !== undefined) save[k] = d[k]; }); persist.quiet = true; persist(); persist.quiet = false; menuLine(); },
+    hasData: () => save.best > 0 });
   menuLine(); fxResize();
 
   let last = performance.now(), uiT = 0;

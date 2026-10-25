@@ -93,6 +93,7 @@
 <body>
 <div id="app"></div>
 <div id="toast"></div>
+<script src="sync.js"></script>
 <script>
 (() => {
   'use strict';
@@ -106,7 +107,7 @@
   const KEY = 'planningPoker.v1';
   let st = { names: ['Anna', 'Ben', 'Cem'], deck: 'fib', history: [], tab: 'pass' };
   try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
-  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} if (window.AppSync && !persist.quiet) AppSync.changed(); };
   const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const num = v => v === '½' ? 0.5 : (isFinite(parseFloat(v)) && /^[\d.]+$/.test(v) ? parseFloat(v) : null);
   const TSIZE = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
@@ -121,9 +122,10 @@
   function setup() {
     clearInterval(tmr); S = null;
     const app = $('app');
-    app.innerHTML = '<div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1>🃏 Planning Poker</h1><button class="ibtn" id="hBtn" aria-label="Verlauf">📋</button></div>' +
+    app.innerHTML = '<div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1 style="flex:1">🃏 Planning Poker</h1><button class="ibtn" id="syncb" aria-label="Sync und Backup">☁️</button><button class="ibtn" id="hBtn" aria-label="Verlauf">📋</button></div>' +
       '<div class="tabs"><button data-t="pass" class="' + (st.tab === 'pass' ? 'on' : '') + '">Gerät herumreichen</button><button data-t="solo" class="' + (st.tab === 'solo' ? 'on' : '') + '">Eigene Karte</button></div>' +
       '<div class="scroll" id="sc"></div>';
+    $('syncb').onclick = () => AppSync.open();
     document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { st.tab = b.dataset.t; persist(); setup(); });
     $('hBtn').onclick = history;
     const sc = $('sc');
@@ -239,6 +241,10 @@
   }
 
   document.addEventListener('gesturestart', e => e.preventDefault());
+  AppSync.init({ name: 'planning-poker', label: 'Planning Poker',
+    getData: () => ({ names: st.names, deck: st.deck, history: st.history }),
+    setData: d => { ['names', 'deck', 'history'].forEach(k => { if (d[k] !== undefined) st[k] = d[k]; }); persist.quiet = true; persist(); persist.quiet = false; if (!S) setup(); },
+    hasData: () => st.history.length > 0 });
   setup();
   window.__PP = { get S() { return S; }, st, start, reveal, stats };
 })();

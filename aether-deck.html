@@ -150,6 +150,7 @@
 <div id="bg"></div>
 <div id="app"></div>
 <div class="ov" id="ov"></div>
+<script src="sync.js"></script>
 <script>
 (() => {
   'use strict';
@@ -166,7 +167,7 @@
   const KEY = 'aetherDeck.v1', RUNKEY = 'aetherDeck.run';
   const meta = { wins: 0, bestZone: 0, runs: 0, muted: false };
   try { Object.assign(meta, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
-  const saveMeta = () => { try { localStorage.setItem(KEY, JSON.stringify(meta)); } catch (e) {} };
+  const saveMeta = () => { try { localStorage.setItem(KEY, JSON.stringify(meta)); } catch (e) {} if (window.AppSync && !saveMeta.quiet) AppSync.changed(); };
 
   // ---------- Audio ----------
   let AC = null;
@@ -311,7 +312,7 @@
     geist: { n: 'Funkengeist', ico: '👻', hp: 20, seq: [{ a: 3, h: 3 }, { b: 6, str: 1 }, { a: 3, h: 3 }] },
     golem: { n: 'Kristallgolem', ico: '🗿', hp: 40, seq: [{ b: 10 }, { a: 11 }, { a: 7, vuln: 1 }] },
     waechter: { n: 'Obsidian-Wächter', ico: '🛡️', hp: 70, elite: true, seq: [{ str: 2, b: 8 }, { a: 10 }, { a: 7, h: 2 }, { a: 5, vuln: 2 }] },
-    koenig: { n: 'Schrottkönig', ico: '👑', hp: 105, boss: true, seq: [{ a: 9 }, { str: 3, b: 10 }, { a: 5, h: 3 }, { weak: 2, vuln: 2 }, { a: 16 }] },
+    koenig: { n: 'Schrottkönig', ico: '👑', hp: 88, boss: true, seq: [{ a: 8 }, { str: 2, b: 8 }, { a: 5, h: 2 }, { weak: 1, vuln: 2 }, { a: 13 }] },
     wolf: { n: 'Nebelwolf', ico: '🐺', hp: 32, seq: [{ a: 5, h: 2 }, { a: 9 }, { str: 2 }] },
     bluete: { n: 'Sporenblüte', ico: '🌺', hp: 36, seq: [{ poison: 5 }, { b: 10, a: 4 }, { a: 9 }] },
     ranke: { n: 'Mech-Ranke', ico: '🌿', hp: 30, seq: [{ a: 5, h: 2 }, { vuln: 2 }, { a: 12 }] },
@@ -356,7 +357,7 @@
       if (f === F - 1) { fl[0].type = 'boss'; return; }
       fl.forEach(n => {
         if (f === 0) { n.type = 'fight'; return; }
-        if (f === F - 2) { n.type = pick(['rest', 'rest', 'shop']); return; }
+        if (f === F - 2) { n.type = pick(['rest', 'rest', 'rest', 'shop']); return; }
         const w = [['fight', 44], ['event', 22], ['elite', f >= 1 ? 12 : 0], ['rest', 10], ['shop', 8], ['treasure', f === 2 ? 8 : 3]];
         let r = Math.random() * w.reduce((a, x) => a + x[1], 0);
         for (const x of w) { r -= x[1]; if (r <= 0) { n.type = x[0]; break; } }
@@ -806,18 +807,23 @@
   function showMenu() {
     theme(0); const app = $('app'); app.style.removeProperty('--cw');
     const saved = loadRun();
-    app.innerHTML = '<a class="back" href="index.html" aria-label="Zurück">←</a><div class="scr menu"><div style="font-size:60px;filter:drop-shadow(0 0 20px #8f7bff)">🌌</div><h1>Aether Deck</h1>' +
+    app.innerHTML = '<a class="back" href="index.html" aria-label="Zurück">←</a><button class="back" id="syncb" style="left:auto;right:calc(10px + env(safe-area-inset-right));border:0" aria-label="Sync und Backup">☁️</button><div class="scr menu"><div style="font-size:60px;filter:drop-shadow(0 0 20px #8f7bff)">🌌</div><h1>Aether Deck</h1>' +
       '<div class="mut" style="font-size:13px;max-width:320px;line-height:1.45">Baue dein Deck, durchquere drei zerbrochene Welten und stürze den Nullkönig.</div>' +
       (saved ? '<button class="btn" id="resume" style="min-width:240px">▶ Run fortsetzen (Zone ' + (saved.zone + 1) + ' · ' + HEROES[saved.hero].av + ')</button>' : '') +
       '<div style="font-weight:800;margin-top:4px">' + (saved ? 'Oder neuer Run mit:' : 'Wähle deine Heldin / deinen Helden') + '</div>' +
       '<div class="heroes">' + Object.values(HEROES).map(H => '<button class="hero" data-h="' + H.id + '" style="--c:' + H.c + '"><div class="av">' + H.av + '</div><b>' + H.n + '</b><span>' + H.d + '</span><span>❤️ ' + H.hp + '</span></button>').join('') + '</div>' +
       '<div class="mut" style="font-size:12px;line-height:1.5">Tippe eine Karte an, dann einen Gegner (oder nochmal die Karte).<br>🏆 ' + meta.wins + ' Siege · ' + meta.runs + ' Runs</div></div>';
     document.querySelectorAll('.hero').forEach(b => b.onclick = () => { sfx.tap(); newRun(b.dataset.h); });
+    $('syncb').onclick = () => AppSync.open();
     const r = $('resume'); if (r) r.onclick = () => { R = saved; sfx.tap(); showMap(); };
   }
 
   addEventListener('resize', () => { if (C && !C.over) renderCombat(); });
   document.addEventListener('gesturestart', e => e.preventDefault());
+  AppSync.init({ name: 'aether-deck', label: 'Aether Deck',
+    getData: () => ({ wins: meta.wins, bestZone: meta.bestZone, runs: meta.runs }),
+    setData: d => { ['wins', 'bestZone', 'runs'].forEach(k => { if (d[k] !== undefined) meta[k] = d[k]; }); saveMeta.quiet = true; saveMeta(); saveMeta.quiet = false; if (!R || R.over) showMenu(); },
+    hasData: () => meta.runs > 0 });
   showMenu();
 
   window.__DK = { get R() { return R; }, get C() { return C; }, newRun, setFast: v => { FAST = v; }, playCard, endTurn, cardEff, enterNode, nodeById, reachable, reward: n => n, get busy() { return busy; }, showMap, mk, CARDS };
