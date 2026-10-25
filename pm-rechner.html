@@ -59,12 +59,13 @@
 </head>
 <body>
 <div id="app">
-  <div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1>🧮 PM-Rechner</h1><button class="ibtn" id="reset" aria-label="Zurücksetzen">↺</button></div>
+  <div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1 style="flex:1">🧮 PM-Rechner</h1><button class="ibtn" id="syncb" aria-label="Sync und Backup">☁️</button><button class="ibtn" id="reset" aria-label="Zurücksetzen">↺</button></div>
   <div class="tabs" id="tabs">
     <button data-t="pert">PERT</button><button data-t="cap">Kapazität</button><button data-t="fc">Prognose</button><button data-t="risk">Risiken</button>
   </div>
   <div class="scroll" id="sc"></div>
 </div>
+<script src="sync.js"></script>
 <script>
 (() => {
   'use strict';
@@ -79,7 +80,7 @@
   });
   let st = DEF();
   try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) st = Object.assign(DEF(), s); } catch (e) {}
-  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} if (window.AppSync && !persist.quiet) AppSync.changed(); };
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const n = v => { const x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? x : 0; };
   const f1 = x => (Math.round(x * 10) / 10).toLocaleString('de-DE');
@@ -245,6 +246,11 @@
   $('reset').onclick = () => { if (confirm('Alle Eingaben dieses Tabs zurücksetzen?')) { const d = DEF(); st[st.tab] = d[st.tab]; persist(); view(); } };
   document.addEventListener('gesturestart', e => e.preventDefault());
   tabs(); view();
+  $('syncb').onclick = () => AppSync.open();
+  AppSync.init({ name: 'pm-rechner', label: 'PM-Rechner',
+    getData: () => { const c = JSON.parse(JSON.stringify(st)); delete c.tab; return c; },
+    setData: d => { const tab = st.tab; st = Object.assign(DEF(), d, { tab }); persist.quiet = true; persist(); persist.quiet = false; view(); },
+    hasData: () => localStorage.getItem(KEY) !== null });
   window.__PM = { get st() { return st; }, pertCalc, sprintsNeeded };
 })();
 </script>

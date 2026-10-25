@@ -85,7 +85,7 @@
 </head>
 <body>
 <div id="app">
-  <div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1 id="ttl">🚴 Rad-Tracker</h1><button class="ibtn" id="fab" aria-label="Fahrt eintragen">＋</button></div>
+  <div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1 id="ttl">🚴 Rad-Tracker</h1><button class="ibtn" id="syncb" aria-label="Sync und Backup">☁️</button><button class="ibtn" id="fab" aria-label="Fahrt eintragen">＋</button></div>
   <div class="scroll" id="sc"></div>
   <div class="nav" id="nav">
     <button data-v="home"><i>🏠</i>Übersicht</button><button data-v="rides"><i>🛣️</i>Fahrten</button><button data-v="bikes"><i>🚲</i>Räder</button><button data-v="more"><i>⚙️</i>Mehr</button>
@@ -93,6 +93,7 @@
 </div>
 <div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
 <div id="toast"></div>
+<script src="sync.js"></script>
 <script>
 (() => {
   'use strict';
@@ -104,7 +105,7 @@
   };
   let D = { v: 1, bikes: [], rides: [], view: 'home', bike: null };
   try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) D = Object.assign(D, s); } catch (e) {}
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} if (window.AppSync && !save.quiet) AppSync.changed(); };
   const uid = () => Math.random().toString(36).slice(2, 9);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const num = v => { const x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? x : 0; };
@@ -305,6 +306,11 @@
   document.addEventListener('gesturestart', e => e.preventDefault());
   if (D.view === 'bike' && !bikeById(D.bike)) D.view = 'home';
   view();
+  $('syncb').onclick = () => AppSync.open();
+  AppSync.init({ name: 'rad-tracker', label: 'Rad-Tracker',
+    getData: () => ({ bikes: D.bikes, rides: D.rides }),
+    setData: d => { D.bikes = d.bikes || []; D.rides = d.rides || []; save.quiet = true; save(); save.quiet = false; if (D.view === 'bike' && !bikeById(D.bike)) D.view = 'home'; view(); },
+    hasData: () => D.bikes.length > 0 || D.rides.length > 0 });
   window.__RT = { get D() { return D; }, templates, status, mkComp };
 })();
 </script>

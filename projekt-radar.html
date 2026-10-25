@@ -86,7 +86,7 @@
 </head>
 <body>
 <div id="app">
-  <div class="top"><a class="ibtn" id="back" href="index.html" aria-label="Zurück">←</a><h1 id="ttl">🛰️ Projekt-Radar</h1><button class="ibtn" id="fab" aria-label="Neu">＋</button></div>
+  <div class="top"><a class="ibtn" id="back" href="index.html" aria-label="Zurück">←</a><h1 id="ttl">🛰️ Projekt-Radar</h1><button class="ibtn" id="syncb" aria-label="Sync und Backup">☁️</button><button class="ibtn" id="fab" aria-label="Neu">＋</button></div>
   <div class="scroll" id="sc"></div>
   <div class="nav" id="nav">
     <button data-v="home"><i>🛰️</i>Portfolio</button><button data-v="focus"><i>🎯</i>Fokus<span class="bd" id="fbd" style="display:none"></span></button><button data-v="ideas"><i>💡</i>Ideen</button><button data-v="more"><i>⚙️</i>Mehr</button>
@@ -94,6 +94,7 @@
 </div>
 <div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
 <div id="toast"></div>
+<script src="sync.js"></script>
 <script>
 (() => {
   'use strict';
@@ -103,7 +104,7 @@
   const PAL = ['#7c8cff', '#ff8ad8', '#4fd1c5', '#ffb86b', '#9be37a', '#69c0ff', '#ff7a7a', '#c39bff'];
   let D = { projects: [], areas: ['Arbeit', 'Selbstständig', 'Privat', 'Lernen'], ideas: [], view: 'home', filter: 'Alle', show: 'active', pid: null, wip: 5, stale: 14, lastReview: '' };
   try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) D = Object.assign(D, s); } catch (e) {}
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} if (window.AppSync && !save.quiet) AppSync.changed(); };
   const uid = () => Math.random().toString(36).slice(2, 9);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const iso = (d = new Date()) => d.toLocaleDateString('sv-SE');
@@ -292,6 +293,11 @@
   document.addEventListener('gesturestart', e => e.preventDefault());
   if (D.view === 'proj' && !byId(D.pid)) D.view = 'home';
   view();
+  $('syncb').onclick = () => AppSync.open();
+  AppSync.init({ name: 'projekt-radar', label: 'Projekt-Radar',
+    getData: () => ({ projects: D.projects, areas: D.areas, ideas: D.ideas, wip: D.wip, stale: D.stale, lastReview: D.lastReview }),
+    setData: d => { ['projects', 'areas', 'ideas', 'wip', 'stale', 'lastReview'].forEach(k => { if (d[k] !== undefined) D[k] = d[k]; }); if (D.pid && !D.projects.some(p => p.id === D.pid)) { D.pid = null; D.view = 'home'; } save.quiet = true; save(); save.quiet = false; view(); },
+    hasData: () => D.projects.length > 0 || D.ideas.length > 0 });
   window.__PR = { get D() { return D; }, focusItems, progress, staleDays };
 })();
 </script>
