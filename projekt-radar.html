@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Projekt-Radar">
+<meta name="theme-color" content="#0e1424">
+<title>Projekt-Radar</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+  :root { --bg: #0d1322; --card: #161f36; --card2: #1e2a47; --line: #2c3a63; --txt: #eef2ff; --mut: #8d9bc6; --acc: #7c8cff; --g: #3fe08f; --y: #ffc247; --r: #ff5d6c; --p: #8d9bc6; }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { position: fixed; inset: 0; height: 100dvh; color: var(--txt); background: radial-gradient(circle at 50% -10%, #1d2a55, var(--bg) 60%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; }
+  button, input, select, textarea { font-family: inherit; color: inherit; border: 0; }
+  button { cursor: pointer; }
+  #app { position: absolute; inset: 0; display: flex; flex-direction: column;
+    padding: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); }
+  .top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .top h1 { font-size: 21px; font-weight: 900; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ibtn { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,.08); display: grid; place-items: center; font-size: 18px; text-decoration: none; color: var(--txt); flex: 0 0 auto; }
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; min-height: 0; padding-bottom: 12px; }
+  .nav { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 4px; margin-top: 6px; }
+  .nav button { flex: 1; padding: 8px 2px; border-radius: 12px; background: none; font-size: 11px; font-weight: 800; color: var(--mut); display: flex; flex-direction: column; align-items: center; gap: 1px; position: relative; }
+  .nav button i { font-style: normal; font-size: 19px; }
+  .nav button.on { background: var(--acc); color: #fff; }
+  .nav .bd { position: absolute; top: 2px; right: 22%; background: var(--r); color: #fff; font-size: 10px; font-weight: 900; border-radius: 9px; padding: 1px 5px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .lbl { font-size: 11px; font-weight: 900; letter-spacing: 1.2px; color: var(--mut); text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .lbl .sp { flex: 1; }
+  .help { font-size: 12px; color: var(--mut); line-height: 1.45; }
+  .btn { width: 100%; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 900; background: linear-gradient(135deg, #5b6cff, #9a6bff); box-shadow: 0 6px 20px rgba(108,123,255,.35); }
+  .btn.sec { background: var(--card2); box-shadow: none; border: 1px solid var(--line); }
+  .btn.red { background: rgba(255,93,108,.14); color: var(--r); box-shadow: none; border: 1px solid var(--r); }
+  .btn:active { transform: scale(.98); }
+  .sm { padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 800; background: var(--card2); border: 1px solid var(--line); white-space: nowrap; }
+  .sm.go { background: var(--acc); border-color: var(--acc); color: #fff; }
+  input, select, textarea { width: 100%; padding: 11px 9px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); font-size: 16px; min-width: 0; }
+  textarea { resize: none; line-height: 1.4; }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--acc); }
+  input[type=range] { padding: 0; accent-color: var(--acc); background: none; border: 0; }
+  .f { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+  .f > span { font-size: 10px; font-weight: 800; letter-spacing: .8px; color: var(--mut); text-transform: uppercase; }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-end; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chips button { padding: 7px 11px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); font-size: 12px; font-weight: 800; color: var(--mut); white-space: nowrap; }
+  .chips button.on { background: var(--acc); border-color: var(--acc); color: #fff; }
+  .chips.hs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -14px 8px; padding: 0 14px; scrollbar-width: none; }
+  .chips.hs::-webkit-scrollbar { display: none; }
+  .sum { display: flex; gap: 8px; margin-bottom: 10px; }
+  .sum div { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 8px 4px; text-align: center; }
+  .sum b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; } .sum span { font-size: 10px; font-weight: 800; color: var(--mut); letter-spacing: .8px; text-transform: uppercase; }
+  .pc { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-left: 5px solid var(--sc, var(--line)); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .pc.g { --sc: var(--g); } .pc.y { --sc: var(--y); } .pc.r { --sc: var(--r); } .pc.p { --sc: var(--p); opacity: .7; } .pc.d { --sc: var(--acc); opacity: .6; }
+  .pc .h { display: flex; align-items: center; gap: 8px; }
+  .pc .nm { flex: 1; min-width: 0; font-size: 16px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag { font-size: 10px; font-weight: 900; padding: 3px 8px; border-radius: 8px; color: #0b1020; white-space: nowrap; }
+  .stars { font-size: 11px; color: var(--y); letter-spacing: 1px; }
+  .pc .nx { font-size: 13px; margin-top: 6px; color: #d4dcff; line-height: 1.35; }
+  .pc .nx.none { color: var(--mut); font-style: italic; }
+  .pc .meta { display: flex; gap: 10px; margin-top: 8px; font-size: 11px; font-weight: 800; color: var(--mut); flex-wrap: wrap; }
+  .pc .meta .bad { color: var(--r); } .pc .meta .warn { color: var(--y); }
+  .bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: 8px; }
+  .bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #5b6cff, #9a6bff); }
+  .tk { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .tk:last-child { border: 0; }
+  .tk .ck { flex: 0 0 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line); background: none; display: grid; place-items: center; font-size: 14px; color: #fff; }
+  .tk .ck.on { background: var(--g); border-color: var(--g); color: #06210f; }
+  .tk b { flex: 1; min-width: 0; font-weight: 700; line-height: 1.3; } .tk.dn b { text-decoration: line-through; color: var(--mut); }
+  .tk small { display: block; font-size: 11px; color: var(--mut); font-weight: 700; margin-top: 1px; }
+  .tk small.bad { color: var(--r); } .tk .x { background: none; color: var(--mut); font-size: 14px; padding: 4px; }
+  .lg { font-size: 13px; padding: 7px 0; border-bottom: 1px solid var(--line); line-height: 1.4; } .lg:last-child { border: 0; } .lg small { color: var(--mut); font-weight: 800; margin-right: 6px; }
+  .ov { position: absolute; inset: 0; z-index: 50; background: rgba(3,6,16,.78); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); display: none; align-items: flex-end; }
+  .ov.on { display: flex; }
+  .sheet { width: 100%; max-height: 92%; overflow-y: auto; background: #111a30; border-top: 1px solid var(--line); border-radius: 22px 22px 0 0; padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); animation: up .25s; }
+  @keyframes up { from { transform: translateY(40px); opacity: 0; } }
+  .sheet h3 { font-size: 18px; font-weight: 900; margin-bottom: 10px; }
+  #toast { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); background: #000e; border: 1px solid var(--acc); border-radius: 12px; padding: 9px 14px; font-size: 13px; font-weight: 800; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 70; max-width: 90%; text-align: center; }
+  #toast.on { opacity: 1; }
+  .empty { text-align: center; padding: 34px 10px; color: var(--mut); font-size: 14px; line-height: 1.5; } .empty .e { font-size: 50px; }
+  .note { font-size: 13px; line-height: 1.45; padding: 10px; border-radius: 12px; background: rgba(255,194,71,.12); border: 1px solid var(--y); margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top"><a class="ibtn" id="back" href="index.html" aria-label="Zurück">←</a><h1 id="ttl">🛰️ Projekt-Radar</h1><button class="ibtn" id="fab" aria-label="Neu">＋</button></div>
+  <div class="scroll" id="sc"></div>
+  <div class="nav" id="nav">
+    <button data-v="home"><i>🛰️</i>Portfolio</button><button data-v="focus"><i>🎯</i>Fokus<span class="bd" id="fbd" style="display:none"></span></button><button data-v="ideas"><i>💡</i>Ideen</button><button data-v="more"><i>⚙️</i>Mehr</button>
+  </div>
+</div>
+<div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const KEY = 'projektRadar.v1';
+  const ST = { g: { n: 'Läuft', ic: '🟢', c: 'var(--g)', ord: 1 }, y: { n: 'Achtung', ic: '🟡', c: 'var(--y)', ord: 1 }, r: { n: 'Blockiert', ic: '🔴', c: 'var(--r)', ord: 0 }, p: { n: 'Pausiert', ic: '⏸', c: 'var(--p)', ord: 3 }, d: { n: 'Fertig', ic: '✅', c: 'var(--acc)', ord: 4 } };
+  const PAL = ['#7c8cff', '#ff8ad8', '#4fd1c5', '#ffb86b', '#9be37a', '#69c0ff', '#ff7a7a', '#c39bff'];
+  let D = { projects: [], areas: ['Arbeit', 'Selbstständig', 'Privat', 'Lernen'], ideas: [], view: 'home', filter: 'Alle', show: 'active', pid: null, wip: 5, stale: 14, lastReview: '' };
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) D = Object.assign(D, s); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} };
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const iso = (d = new Date()) => d.toLocaleDateString('sv-SE');
+  const today = () => iso();
+  const days = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000);
+  const fdate = s => new Date(s + 'T12:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+  const areaColor = a => PAL[Math.max(0, D.areas.indexOf(a)) % PAL.length];
+  const byId = id => D.projects.find(p => p.id === id);
+  let toastT; function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2400); }
+  const touch = p => { p.updated = today(); save(); };
+
+  // ---------- Berechnungen ----------
+  const isActive = p => p.status !== 'p' && p.status !== 'd';
+  const progress = p => p.tasks.length ? Math.round(p.tasks.filter(t => t.done).length / p.tasks.length * 100) : (p.prog || 0);
+  const staleDays = p => days(p.updated, today());
+  const dueClass = due => { if (!due) return ''; const d = days(today(), due); return d < 0 ? 'bad' : d <= 3 ? 'warn' : ''; };
+  const dueTxt = due => { const d = days(today(), due); return d < 0 ? 'überfällig seit ' + (-d) + ' T' : d === 0 ? 'heute' : d === 1 ? 'morgen' : 'in ' + d + ' T (' + fdate(due) + ')'; };
+  function sortP(a, b) { return (ST[a.status].ord - ST[b.status].ord) || (a.prio - b.prio) || ((a.due || '9999').localeCompare(b.due || '9999')) || a.name.localeCompare(b.name); }
+  function focusItems() {
+    const od = [], wk = [], nx = [];
+    D.projects.filter(isActive).forEach(p => {
+      p.tasks.filter(t => !t.done && t.due).forEach(t => { const d = days(today(), t.due); const it = { p, t, d }; if (d < 0) od.push(it); else if (d <= 7) wk.push(it); });
+      if (p.due && days(today(), p.due) < 0) od.push({ p, t: { id: 'proj', t: '🏁 Projekttermin', due: p.due }, d: days(today(), p.due), proj: true });
+      if (p.next) nx.push({ p });
+    });
+    od.sort((a, b) => a.d - b.d); wk.sort((a, b) => a.d - b.d); nx.sort((a, b) => sortP(a.p, b.p));
+    return { od, wk, nx };
+  }
+
+  // ---------- Sheet ----------
+  function sheet(html, wire) { $('sheet').innerHTML = html; $('ov').classList.add('on'); wire && wire(); $('ov').onclick = e => { if (e.target === $('ov')) closeSheet(); }; }
+  const closeSheet = () => $('ov').classList.remove('on');
+  const val = id => $(id).value;
+
+  // ---------- Views ----------
+  function view() {
+    const v = D.view;
+    document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v || (v === 'proj' && b.dataset.v === 'home')));
+    $('ttl').textContent = { home: '🛰️ Projekt-Radar', focus: '🎯 Fokus', ideas: '💡 Ideen-Parkplatz', more: '⚙️ Mehr', proj: '📁 Projekt' }[v];
+    const bk = $('back'); if (v === 'proj') { bk.href = '#'; bk.textContent = '‹'; bk.onclick = e => { e.preventDefault(); D.view = 'home'; save(); view(); }; } else { bk.href = 'index.html'; bk.textContent = '←'; bk.onclick = null; }
+    const f = focusItems(), n = f.od.length; const bd = $('fbd'); bd.style.display = n ? '' : 'none'; bd.textContent = n;
+    $('fab').style.display = v === 'more' ? 'none' : '';
+    $('sc').scrollTop = 0; ({ home, focus, ideas, more, proj })[v]();
+  }
+
+  function home() {
+    const sc = $('sc');
+    if (!D.projects.length) { sc.innerHTML = '<div class="empty"><div class="e">🛰️</div>Noch keine Projekte.<br>Lege dein erstes Projekt oder Thema an und halte fest, was der nächste Schritt ist.<div style="margin-top:14px"><button class="btn" id="n1">Projekt anlegen</button></div></div>'; $('n1').onclick = () => newProject(); return; }
+    const act = D.projects.filter(isActive), cnt = s => D.projects.filter(p => p.status === s).length;
+    const stale = act.filter(p => staleDays(p) >= D.stale).length;
+    let list = D.projects.filter(p => D.show === 'active' ? isActive(p) : D.show === 'paused' ? p.status === 'p' : D.show === 'done' ? p.status === 'd' : true);
+    if (D.filter !== 'Alle') list = list.filter(p => p.area === D.filter);
+    list.sort(sortP);
+    sc.innerHTML = '<div class="sum"><div><b style="color:var(--g)">' + cnt('g') + '</b><span>Läuft</span></div><div><b style="color:var(--y)">' + cnt('y') + '</b><span>Achtung</span></div><div><b style="color:var(--r)">' + cnt('r') + '</b><span>Blockiert</span></div><div><b>' + act.length + '</b><span>Aktiv</span></div></div>' +
+      (act.length > D.wip ? '<div class="note">⚠️ <b>' + act.length + ' aktive Projekte</b> bei einem Limit von ' + D.wip + '. Wer alles gleichzeitig macht, schließt wenig ab. Pausiere oder beende ein Projekt.</div>' : '') +
+      (stale ? '<div class="note" style="border-color:var(--acc);background:rgba(124,140,255,.12)">🕒 ' + stale + ' Projekt' + (stale > 1 ? 'e' : '') + ' ohne Update seit ' + D.stale + '+ Tagen. <button class="sm go" id="rv" style="margin-left:6px">Review starten</button></div>' : '') +
+      '<div class="chips hs">' + ['Alle'].concat(D.areas).map(a => '<button data-a="' + esc(a) + '" class="' + (D.filter === a ? 'on' : '') + '">' + esc(a) + '</button>').join('') + '</div>' +
+      '<div class="chips hs">' + [['active', 'Aktiv'], ['paused', 'Pausiert'], ['done', 'Fertig'], ['all', 'Alle']].map(([k, n]) => '<button data-s="' + k + '" class="' + (D.show === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div>' +
+      (list.length ? list.map(card).join('') : '<div class="empty">Keine Projekte in dieser Ansicht.</div>');
+    sc.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { D.filter = b.dataset.a; save(); home(); });
+    sc.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { D.show = b.dataset.s; save(); home(); });
+    sc.querySelectorAll('.pc').forEach(b => b.onclick = () => { D.pid = b.dataset.id; D.view = 'proj'; save(); view(); });
+    if ($('rv')) $('rv').onclick = review;
+  }
+  function card(p) {
+    const pr = progress(p), sd = staleDays(p), open = p.tasks.filter(t => !t.done).length;
+    return '<button class="pc ' + p.status + '" data-id="' + p.id + '"><div class="h"><span style="font-size:15px">' + ST[p.status].ic + '</span><span class="nm">' + esc(p.name) + '</span><span class="stars">' + '★'.repeat(4 - p.prio) + '</span><span class="tag" style="background:' + areaColor(p.area) + '">' + esc(p.area) + '</span></div>' +
+      (p.next ? '<div class="nx">➜ ' + esc(p.next) + '</div>' : '<div class="nx none">Kein nächster Schritt festgelegt</div>') +
+      (p.tasks.length || p.prog ? '<div class="bar"><i style="width:' + pr + '%"></i></div>' : '') +
+      '<div class="meta">' + (p.tasks.length || p.prog ? '<span>' + pr + ' %</span>' : '') + (open ? '<span>' + open + ' offen</span>' : '') + (p.due ? '<span class="' + dueClass(p.due) + '">🏁 ' + dueTxt(p.due) + '</span>' : '') + (isActive(p) && sd >= D.stale ? '<span class="warn">🕒 ' + sd + ' T ohne Update</span>' : '') + '</div></button>';
+  }
+
+  function focus() {
+    const sc = $('sc'), f = focusItems();
+    const tk = it => '<div class="tk" data-p="' + it.p.id + '" data-t="' + it.t.id + '"><button class="ck" data-a="ck"></button><b>' + esc(it.t.t) + '<small class="' + (it.d < 0 ? 'bad' : '') + '">' + esc(it.p.name) + ' · ' + dueTxt(it.t.due) + '</small></b></div>';
+    let h = '';
+    if (f.od.length) h += '<div class="panel"><div class="lbl" style="color:var(--r)">🔥 Überfällig <span class="sp"></span>' + f.od.length + '</div>' + f.od.map(tk).join('') + '</div>';
+    if (f.wk.length) h += '<div class="panel"><div class="lbl">📅 Diese Woche <span class="sp"></span>' + f.wk.length + '</div>' + f.wk.map(tk).join('') + '</div>';
+    h += '<div class="panel"><div class="lbl">➜ Nächste Schritte <span class="sp"></span>' + f.nx.length + '</div>' + (f.nx.length ? f.nx.map(it => '<div class="tk" data-open="' + it.p.id + '"><span style="font-size:16px">' + ST[it.p.status].ic + '</span><b>' + esc(it.p.next) + '<small>' + esc(it.p.name) + (it.p.due ? ' · 🏁 ' + dueTxt(it.p.due) : '') + '</small></b><button class="sm" data-a="done">✔</button></div>').join('') : '<div class="help">Keine aktiven Projekte mit nächstem Schritt.</div>') + '</div>';
+    sc.innerHTML = h;
+    sc.querySelectorAll('[data-a=ck]').forEach(b => b.onclick = e => { const r = b.closest('.tk'), p = byId(r.dataset.p), t = p.tasks.find(x => x.id === r.dataset.t); if (t) { t.done = true; touch(p); view(); toast('✔ Erledigt'); } else { D.pid = p.id; D.view = 'proj'; view(); } });
+    sc.querySelectorAll('[data-open]').forEach(r => r.onclick = e => { const p = byId(r.dataset.open); if (e.target.closest('[data-a=done]')) { addLog(p, '✔ ' + p.next); p.next = ''; touch(p); view(); sheet('<h3>Nächster Schritt?</h3><div class="help" style="margin-bottom:8px">Was kommt bei „' + esc(p.name) + '“ als Nächstes?</div><input id="nn" placeholder="Nächster Schritt" maxlength="120"><button class="btn" id="ok" style="margin-top:10px">Speichern</button><button class="btn sec" id="cl" style="margin-top:8px">Später</button>', () => { $('cl').onclick = closeSheet; $('ok').onclick = () => { p.next = val('nn').trim(); touch(p); closeSheet(); view(); }; setTimeout(() => $('nn').focus(), 200); }); } else { D.pid = p.id; D.view = 'proj'; view(); } });
+  }
+
+  function ideas() {
+    const sc = $('sc');
+    sc.innerHTML = '<div class="panel"><div class="row" style="margin:0"><input id="ni" placeholder="Idee oder Thema notieren …" maxlength="100"><button class="sm go" id="ai" style="height:44px">＋</button></div></div>' +
+      '<div class="panel"><div class="lbl">Parkplatz (' + D.ideas.length + ')</div>' + (D.ideas.length ? D.ideas.map(i => '<div class="tk"><b>' + esc(i.t) + '</b><button class="sm" data-id="' + i.id + '" data-a="pr">→ Projekt</button><button class="x" data-id="' + i.id + '" data-a="rm">✕</button></div>').join('') : '<div class="help">Noch leer. Hier landet alles, was du <b>nicht jetzt</b> anfangen willst. Das schützt deinen Fokus.</div>') + '</div>';
+    const add = () => { const t = val('ni').trim(); if (t) { D.ideas.unshift({ id: uid(), t }); save(); ideas(); } };
+    $('ai').onclick = add; $('ni').onkeydown = e => { if (e.key === 'Enter') add(); };
+    sc.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { const i = D.ideas.findIndex(x => x.id === b.dataset.id); if (b.dataset.a === 'rm') { D.ideas.splice(i, 1); save(); ideas(); } else { const t = D.ideas[i].t; D.ideas.splice(i, 1); save(); newProject(t); } });
+  }
+
+  function more() {
+    $('sc').innerHTML = '<div class="panel"><div class="lbl">Einstellungen</div><div class="row"><div class="f"><span>Max. aktive Projekte (WIP)</span><input id="wip" inputmode="numeric" value="' + D.wip + '"></div><div class="f"><span>Veraltet nach (Tagen)</span><input id="stl" inputmode="numeric" value="' + D.stale + '"></div></div><div class="help">Das WIP-Limit warnt dich, wenn du zu viele Projekte gleichzeitig laufen lässt. Veraltet heißt: lange kein Update.</div></div>' +
+      '<div class="panel"><div class="lbl">Bereiche</div><div class="chips" id="ar">' + D.areas.map((a, i) => '<button data-i="' + i + '" style="border-color:' + areaColor(a) + '">' + esc(a) + ' ✕</button>').join('') + '</div><div class="row" style="margin:0"><input id="na" placeholder="Neuer Bereich" maxlength="20"><button class="sm go" id="aa" style="height:44px">＋</button></div></div>' +
+      '<div class="panel"><div class="lbl">Backup</div><div class="help" style="margin-bottom:10px">Deine Daten liegen nur in diesem Browser auf diesem Gerät und werden nie hochgeladen. Sichere sie regelmäßig.</div><button class="btn" id="ex" style="margin-bottom:8px">📤 Backup erstellen</button><button class="btn sec" id="im">📥 Backup einspielen</button></div>' +
+      '<div class="panel"><button class="btn red" id="wipe">Alle Daten löschen</button></div>';
+    $('wip').oninput = () => { D.wip = Math.max(1, parseInt(val('wip')) || 5); save(); }; $('stl').oninput = () => { D.stale = Math.max(1, parseInt(val('stl')) || 14); save(); };
+    const addA = () => { const a = val('na').trim(); if (a && !D.areas.includes(a)) { D.areas.push(a); save(); more(); } };
+    $('aa').onclick = addA;
+    document.querySelectorAll('#ar button').forEach(b => b.onclick = () => { const a = D.areas[+b.dataset.i]; if (D.areas.length < 2) { toast('Mindestens ein Bereich'); return; } if (D.projects.some(p => p.area === a) && !confirm('Projekte in „' + a + '“ wandern in den ersten Bereich. Fortfahren?')) return; D.areas.splice(+b.dataset.i, 1); D.projects.forEach(p => { if (!D.areas.includes(p.area)) p.area = D.areas[0]; }); if (!D.areas.includes(D.filter)) D.filter = 'Alle'; save(); more(); });
+    $('ex').onclick = backup; $('im').onclick = restore;
+    $('wipe').onclick = () => { if (confirm('Wirklich ALLE Daten löschen?') && confirm('Nicht rückgängig zu machen. Fortfahren?')) { D = { projects: [], areas: ['Arbeit', 'Selbstständig', 'Privat', 'Lernen'], ideas: [], view: 'home', filter: 'Alle', show: 'active', pid: null, wip: 5, stale: 14, lastReview: '' }; save(); view(); } };
+  }
+  function backup() {
+    const txt = JSON.stringify({ v: 1, projects: D.projects, areas: D.areas, ideas: D.ideas, wip: D.wip, stale: D.stale });
+    sheet('<h3>📤 Backup</h3><textarea id="bt" rows="5" readonly>' + esc(txt) + '</textarea><div class="row" style="margin-top:10px"><button class="btn" id="cp">Kopieren</button><button class="btn sec" id="dl">Als Datei</button></div><button class="btn sec" id="cl">Schließen</button>', () => {
+      $('cp').onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('Kopiert')).catch(() => { $('bt').select(); toast('Bitte manuell kopieren'); });
+      $('dl').onclick = () => { try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' })); a.download = 'projekt-radar-backup-' + today() + '.json'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { toast('Bitte kopieren'); } };
+      $('cl').onclick = closeSheet;
+    });
+  }
+  function restore() {
+    sheet('<h3>📥 Backup einspielen</h3><div class="help" style="margin-bottom:8px">Aktuelle Daten werden ersetzt.</div><textarea id="bt" rows="6" placeholder="Backup-Text einfügen"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="ok">Einspielen</button><button class="btn sec" id="cl">Abbrechen</button></div>', () => {
+      $('cl').onclick = closeSheet;
+      $('ok').onclick = () => { try { const o = JSON.parse(val('bt')); if (!Array.isArray(o.projects)) throw 0; D.projects = o.projects; D.areas = o.areas && o.areas.length ? o.areas : D.areas; D.ideas = o.ideas || []; D.wip = o.wip || 5; D.stale = o.stale || 14; D.view = 'home'; save(); closeSheet(); view(); toast('Backup eingespielt'); } catch (e) { toast('Kein gültiges Backup'); } };
+    });
+  }
+
+  // ---------- Projekt anlegen ----------
+  function newProject(name) {
+    let area = D.filter !== 'Alle' ? D.filter : D.areas[0], prio = 2;
+    sheet('<h3>Neues Projekt</h3><div class="row"><div class="f"><span>Name</span><input id="pn" value="' + esc(name || '') + '" placeholder="z. B. Autodok-Rollout" maxlength="50"></div></div><div class="f" style="margin-bottom:8px"><span>Bereich</span></div><div class="chips" id="pa">' + D.areas.map(a => '<button data-a="' + esc(a) + '" class="' + (a === area ? 'on' : '') + '">' + esc(a) + '</button>').join('') + '</div>' +
+      '<div class="f" style="margin-bottom:8px"><span>Priorität</span></div><div class="chips" id="pp">' + [[1, '★★★ Hoch'], [2, '★★ Mittel'], [3, '★ Niedrig']].map(([k, n]) => '<button data-k="' + k + '" class="' + (k === prio ? 'on' : '') + '">' + n + '</button>').join('') + '</div>' +
+      '<div class="row"><div class="f"><span>Nächster Schritt</span><input id="px" placeholder="Was passiert als Erstes?" maxlength="120"></div></div><div class="row"><div class="f"><span>Termin (optional)</span><input type="date" id="pd"></div></div><button class="btn" id="sv">Anlegen</button><button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+      $('cl').onclick = closeSheet;
+      $('pa').querySelectorAll('button').forEach(b => b.onclick = () => { area = b.dataset.a; $('pa').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+      $('pp').querySelectorAll('button').forEach(b => b.onclick = () => { prio = +b.dataset.k; $('pp').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+      $('sv').onclick = () => { const n = val('pn').trim(); if (!n) { $('pn').focus(); return; } const p = { id: uid(), name: n, area, prio, status: 'g', next: val('px').trim(), due: val('pd'), notes: '', prog: 0, tasks: [], log: [{ d: today(), t: 'Projekt angelegt' }], created: today(), updated: today() }; D.projects.push(p); D.pid = p.id; D.view = 'proj'; save(); closeSheet(); view(); };
+      setTimeout(() => $('pn').focus(), 200);
+    });
+  }
+
+  // ---------- Projekt-Detail ----------
+  function addLog(p, t) { p.log.push({ d: today(), t }); }
+  function proj() {
+    const p = byId(D.pid), sc = $('sc'); if (!p) { D.view = 'home'; return view(); }
+    sc.innerHTML = '<div class="panel"><div class="row"><div class="f"><span>Name</span><input id="pn" value="' + esc(p.name) + '" maxlength="50"></div></div>' +
+      '<div class="f" style="margin-bottom:6px"><span>Status</span></div><div class="chips" id="st">' + Object.entries(ST).map(([k, s]) => '<button data-k="' + k + '" class="' + (p.status === k ? 'on' : '') + '">' + s.ic + ' ' + s.n + '</button>').join('') + '</div>' +
+      '<div class="row"><div class="f"><span>Bereich</span><select id="ar">' + D.areas.map(a => '<option' + (a === p.area ? ' selected' : '') + '>' + esc(a) + '</option>').join('') + '</select></div><div class="f"><span>Priorität</span><select id="pr"><option value="1"' + (p.prio === 1 ? ' selected' : '') + '>★★★ Hoch</option><option value="2"' + (p.prio === 2 ? ' selected' : '') + '>★★ Mittel</option><option value="3"' + (p.prio === 3 ? ' selected' : '') + '>★ Niedrig</option></select></div></div>' +
+      '<div class="row"><div class="f"><span>Termin</span><input type="date" id="dd" value="' + (p.due || '') + '"></div></div></div>' +
+      '<div class="panel" style="border-color:var(--acc)"><div class="lbl">➜ Nächster Schritt</div><input id="nx" value="' + esc(p.next) + '" placeholder="Was ist der nächste konkrete Schritt?" maxlength="120"></div>' +
+      (p.tasks.length ? '' : '<div class="panel"><div class="lbl">Fortschritt (manuell) <span class="sp"></span><b id="pv">' + (p.prog || 0) + ' %</b></div><input type="range" id="pg" min="0" max="100" step="5" value="' + (p.prog || 0) + '"><div class="help" style="margin-top:6px">Sobald du Aufgaben anlegst, berechnet sich der Fortschritt daraus.</div></div>') +
+      '<div class="panel"><div class="lbl">Aufgaben ' + (p.tasks.length ? '(' + p.tasks.filter(t => t.done).length + '/' + p.tasks.length + ')' : '') + '</div>' + p.tasks.slice().sort((a, b) => a.done - b.done).map(t => '<div class="tk ' + (t.done ? 'dn' : '') + '" data-id="' + t.id + '"><button class="ck ' + (t.done ? 'on' : '') + '" data-a="ck">' + (t.done ? '✓' : '') + '</button><b>' + esc(t.t) + (t.due ? '<small class="' + (!t.done && days(today(), t.due) < 0 ? 'bad' : '') + '">🗓 ' + (t.done ? fdate(t.due) : dueTxt(t.due)) + '</small>' : '') + '</b><button class="x" data-a="rm">✕</button></div>').join('') +
+      '<div class="row" style="margin:10px 0 0"><div class="f" style="flex:2"><input id="nt" placeholder="Neue Aufgabe" maxlength="100"></div><div class="f"><input type="date" id="ntd"></div><button class="sm go" id="at" style="height:44px">＋</button></div></div>' +
+      '<div class="panel"><div class="lbl">Notizen</div><textarea id="no" rows="4" placeholder="Kontext, Entscheidungen, Links …">' + esc(p.notes) + '</textarea></div>' +
+      '<div class="panel"><div class="lbl">Verlauf</div><div class="row"><div class="f"><input id="lg" placeholder="Kurzes Update festhalten …" maxlength="140"></div><button class="sm go" id="al" style="height:44px">＋</button></div>' + p.log.slice().reverse().slice(0, 25).map(l => '<div class="lg"><small>' + fdate(l.d) + '</small>' + esc(l.t) + '</div>').join('') + '</div>' +
+      '<button class="btn red" id="del">Projekt löschen</button>';
+    const set = (k, v) => { p[k] = v; touch(p); };
+    $('pn').oninput = () => set('name', val('pn')); $('ar').onchange = () => set('area', val('ar')); $('pr').onchange = () => set('prio', +val('pr')); $('dd').onchange = () => set('due', val('dd'));
+    $('nx').oninput = () => set('next', val('nx')); $('no').oninput = () => set('notes', val('no'));
+    if ($('pg')) $('pg').oninput = () => { $('pv').textContent = val('pg') + ' %'; set('prog', +val('pg')); };
+    $('st').querySelectorAll('button').forEach(b => b.onclick = () => { if (p.status !== b.dataset.k) { p.status = b.dataset.k; addLog(p, 'Status: ' + ST[b.dataset.k].n); touch(p); if (b.dataset.k === 'd') toast('🎉 Projekt abgeschlossen!'); proj(); } });
+    const addT = () => { const t = val('nt').trim(); if (!t) return; p.tasks.push({ id: uid(), t, due: val('ntd'), done: false }); touch(p); proj(); setTimeout(() => $('nt') && $('nt').focus(), 50); };
+    $('at').onclick = addT; $('nt').onkeydown = e => { if (e.key === 'Enter') addT(); };
+    sc.querySelectorAll('.tk').forEach(r => { const t = p.tasks.find(x => x.id === r.dataset.id); r.querySelectorAll('button').forEach(b => b.onclick = () => { if (b.dataset.a === 'ck') { t.done = !t.done; if (t.done) addLog(p, '✔ ' + t.t); touch(p); proj(); } else { p.tasks.splice(p.tasks.indexOf(t), 1); touch(p); proj(); } }); });
+    const addL = () => { const t = val('lg').trim(); if (!t) return; addLog(p, t); touch(p); proj(); };
+    $('al').onclick = addL; $('lg').onkeydown = e => { if (e.key === 'Enter') addL(); };
+    $('del').onclick = () => { if (confirm('Projekt „' + p.name + '“ löschen?')) { D.projects.splice(D.projects.indexOf(p), 1); D.view = 'home'; save(); view(); } };
+  }
+
+  // ---------- Wochenreview ----------
+  function review() {
+    const list = D.projects.filter(isActive).sort((a, b) => staleDays(b) - staleDays(a)); let i = 0;
+    if (!list.length) { toast('Keine aktiven Projekte'); return; }
+    function step() {
+      if (i >= list.length) { D.lastReview = today(); save(); closeSheet(); view(); toast('✅ Review fertig'); return; }
+      const p = list[i];
+      sheet('<div class="help" style="margin-bottom:4px">Review ' + (i + 1) + ' von ' + list.length + '</div><h3>' + esc(p.name) + '</h3><div class="help" style="margin-bottom:10px">Letztes Update vor ' + staleDays(p) + ' Tagen · ' + progress(p) + ' % · ' + p.tasks.filter(t => !t.done).length + ' offene Aufgaben</div>' +
+        '<div class="chips" id="rs">' + ['g', 'y', 'r', 'p', 'd'].map(k => '<button data-k="' + k + '" class="' + (p.status === k ? 'on' : '') + '">' + ST[k].ic + ' ' + ST[k].n + '</button>').join('') + '</div>' +
+        '<div class="row"><div class="f"><span>Nächster Schritt</span><input id="rn" value="' + esc(p.next) + '" placeholder="Was passiert als Nächstes?" maxlength="120"></div></div>' +
+        '<button class="btn" id="ok">Weiter</button><button class="btn sec" id="open" style="margin-top:8px">Projekt öffnen</button><button class="btn sec" id="cl" style="margin-top:8px">Review beenden</button>', () => {
+          let st = p.status;
+          $('rs').querySelectorAll('button').forEach(b => b.onclick = () => { st = b.dataset.k; $('rs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+          $('ok').onclick = () => { if (st !== p.status) { p.status = st; addLog(p, 'Status: ' + ST[st].n + ' (Review)'); } p.next = val('rn').trim(); touch(p); i++; step(); };
+          $('open').onclick = () => { closeSheet(); D.pid = p.id; D.view = 'proj'; view(); };
+          $('cl').onclick = () => { closeSheet(); view(); };
+        });
+    }
+    step();
+  }
+
+  document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { D.view = b.dataset.v; save(); view(); });
+  $('fab').onclick = () => { if (D.view === 'ideas') { $('ni') && $('ni').focus(); } else newProject(); };
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  if (D.view === 'proj' && !byId(D.pid)) D.view = 'home';
+  view();
+  window.__PR = { get D() { return D; }, focusItems, progress, staleDays };
+})();
+</script>
+</body>
+</html>
