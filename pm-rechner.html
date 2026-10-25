@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PM-Rechner">
+<meta name="theme-color" content="#0e1424">
+<title>PM-Rechner</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+  :root { --bg: #0e1424; --card: #172036; --card2: #1f2b48; --line: #2e3d66; --txt: #eef2ff; --mut: #8e9cc7; --acc: #6c7bff; --good: #4cf0a0; --warn: #ffb340; --bad: #ff5d73; }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { position: fixed; inset: 0; height: 100dvh; color: var(--txt); background: radial-gradient(circle at 50% 0, #1b2749, var(--bg) 60%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; }
+  button, input, select { font-family: inherit; color: inherit; border: 0; }
+  button { cursor: pointer; }
+  #app { position: absolute; inset: 0; display: flex; flex-direction: column;
+    padding: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); }
+  .top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .top h1 { font-size: 20px; font-weight: 900; flex: 1; }
+  .ibtn { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,.08); display: grid; place-items: center; font-size: 18px; text-decoration: none; color: var(--txt); }
+  .tabs { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 3px; margin-bottom: 10px; }
+  .tabs button { flex: 1; padding: 9px 2px; border-radius: 11px; background: none; font-size: 12px; font-weight: 800; color: var(--mut); }
+  .tabs button.on { background: var(--acc); color: #fff; }
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; min-height: 0; padding-bottom: 12px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .lbl { font-size: 11px; font-weight: 900; letter-spacing: 1.2px; color: var(--mut); text-transform: uppercase; margin-bottom: 8px; }
+  .help { font-size: 12px; color: var(--mut); line-height: 1.45; margin-bottom: 8px; }
+  input, select { width: 100%; padding: 11px 8px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); font-size: 16px; min-width: 0; }
+  input:focus, select:focus { outline: 1px solid var(--acc); }
+  .f { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+  .f span { font-size: 10px; font-weight: 800; letter-spacing: .8px; color: var(--mut); text-transform: uppercase; }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-end; }
+  .x { flex: 0 0 34px; height: 42px; border-radius: 10px; background: rgba(255,255,255,.08); color: var(--mut); font-size: 14px; }
+  .add { width: 100%; padding: 11px; border-radius: 12px; background: var(--card2); border: 1px dashed var(--line); font-size: 14px; font-weight: 800; color: var(--acc); }
+  .res { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .res .r { background: var(--card2); border-radius: 12px; padding: 10px; text-align: center; }
+  .res .r b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; } .res .r span { font-size: 10px; letter-spacing: 1px; font-weight: 800; color: var(--mut); text-transform: uppercase; }
+  .res .r.hl { background: linear-gradient(135deg, #3a4bd6, #7b56e0); } .res .r.hl span { color: #dfe3ff; }
+  .res .r.w { grid-column: span 2; }
+  .note { font-size: 13px; line-height: 1.5; margin-top: 8px; padding: 10px; border-radius: 12px; background: rgba(108,123,255,.12); border: 1px solid rgba(108,123,255,.4); }
+  .note.warn { background: rgba(255,179,64,.12); border-color: var(--warn); } .note.bad { background: rgba(255,93,115,.12); border-color: var(--bad); } .note.good { background: rgba(76,240,160,.1); border-color: var(--good); }
+  svg { width: 100%; height: auto; display: block; }
+  /* Risiko */
+  .heat { display: grid; grid-template-columns: 22px repeat(5, 1fr); gap: 3px; }
+  .heat .c { aspect-ratio: 1; border-radius: 6px; display: grid; place-items: center; font-size: 13px; font-weight: 900; }
+  .heat .ax { font-size: 10px; color: var(--mut); display: grid; place-items: center; font-weight: 800; }
+  .rk { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 700; }
+  .rk .sc { min-width: 34px; text-align: center; border-radius: 9px; padding: 4px 0; font-weight: 900; color: #101424; }
+  .rk b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rk small { color: var(--mut); font-size: 11px; }
+  #vl { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .seg { display: flex; gap: 4px; } .seg button { flex: 1; padding: 9px 0; border-radius: 9px; background: var(--card2); font-size: 13px; font-weight: 800; color: var(--mut); }
+  .seg button.on { background: var(--acc); color: #fff; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1>🧮 PM-Rechner</h1><button class="ibtn" id="reset" aria-label="Zurücksetzen">↺</button></div>
+  <div class="tabs" id="tabs">
+    <button data-t="pert">PERT</button><button data-t="cap">Kapazität</button><button data-t="fc">Prognose</button><button data-t="risk">Risiken</button>
+  </div>
+  <div class="scroll" id="sc"></div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const KEY = 'pmRechner.v1';
+  const DEF = () => ({
+    tab: 'pert',
+    pert: { unit: 'Tage', tasks: [{ n: 'Aufgabe A', o: 3, m: 5, p: 10 }, { n: 'Aufgabe B', o: 2, m: 4, p: 8 }] },
+    cap: { days: 10, focus: 70, members: [{ n: 'Anna', av: 100, off: 0 }, { n: 'Ben', av: 100, off: 2 }, { n: 'Cem', av: 80, off: 0 }, { n: 'Dana', av: 100, off: 0 }], refVel: '', refPt: '' },
+    fc: { backlog: 120, velos: [22, 25, 19, 27], weeks: 2, start: new Date().toISOString().slice(0, 10), growth: 0 },
+    risk: { list: [{ n: 'Schlüsselperson fällt aus', w: 2, a: 5 }, { n: 'Schnittstelle verspätet sich', w: 4, a: 3 }] }
+  });
+  let st = DEF();
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) st = Object.assign(DEF(), s); } catch (e) {}
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const n = v => { const x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? x : 0; };
+  const f1 = x => (Math.round(x * 10) / 10).toLocaleString('de-DE');
+  const f0 = x => Math.round(x).toLocaleString('de-DE');
+  const fd = d => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const sc = $('sc');
+
+  function tabs() { document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.t === st.tab); b.onclick = () => { st.tab = b.dataset.t; persist(); tabs(); view(); }; }); }
+  function view() { sc.scrollTop = 0; ({ pert: pertView, cap: capView, fc: fcView, risk: riskView })[st.tab](); }
+
+  // ================= PERT =================
+  function pertView() {
+    const P = st.pert;
+    sc.innerHTML = '<div class="panel"><div class="lbl">Dreipunkt-Schätzung (PERT)</div><div class="help">Pro Aufgabe: <b>optimistisch</b> (alles läuft), <b>wahrscheinlich</b> (normal), <b>pessimistisch</b> (vieles geht schief). Erwartungswert = (O + 4·M + P) ÷ 6.</div>' +
+      '<div class="row"><div class="f"><span>Einheit</span><select id="un">' + ['Tage', 'Stunden', 'Story Points', 'Wochen'].map(u => '<option' + (u === P.unit ? ' selected' : '') + '>' + u + '</option>').join('') + '</select></div></div><div id="rows"></div>' +
+      '<button class="add" id="addT">+ Aufgabe</button></div><div class="panel"><div class="lbl">Ergebnis</div><div class="res" id="out"></div><div id="nt"></div></div>';
+    $('un').onchange = e => { P.unit = e.target.value; persist(); pertCalc(); };
+    $('addT').onclick = () => { P.tasks.push({ n: 'Aufgabe ' + String.fromCharCode(65 + P.tasks.length % 26), o: 1, m: 2, p: 4 }); persist(); pertRows(); pertCalc(); };
+    pertRows(); pertCalc();
+  }
+  function pertRows() {
+    const P = st.pert, rows = $('rows'); rows.innerHTML = '';
+    P.tasks.forEach((t, i) => {
+      const d = document.createElement('div'); d.innerHTML = '<div class="row"><div class="f" style="flex:2"><span>Name</span><input value="' + esc(t.n) + '" data-k="n"></div><button class="x" aria-label="Löschen">✕</button></div>' +
+        '<div class="row"><div class="f"><span>Optimistisch</span><input inputmode="decimal" value="' + t.o + '" data-k="o"></div><div class="f"><span>Wahrsch.</span><input inputmode="decimal" value="' + t.m + '" data-k="m"></div><div class="f"><span>Pessimistisch</span><input inputmode="decimal" value="' + t.p + '" data-k="p"></div></div>';
+      d.querySelectorAll('input').forEach(inp => inp.oninput = () => { t[inp.dataset.k] = inp.dataset.k === 'n' ? inp.value : inp.value; persist(); pertCalc(); });
+      d.querySelector('.x').onclick = () => { P.tasks.splice(i, 1); persist(); pertRows(); pertCalc(); };
+      rows.appendChild(d); if (i < P.tasks.length - 1) rows.appendChild(Object.assign(document.createElement('div'), { style: 'height:1px;background:var(--line);margin:6px 0 10px' }));
+    });
+  }
+  function pertCalc() {
+    const P = st.pert; let E = 0, V = 0, warn = false;
+    P.tasks.forEach(t => { const o = n(t.o), m = n(t.m), p = n(t.p); if (!(o <= m && m <= p)) warn = true; E += (o + 4 * m + p) / 6; V += Math.pow((p - o) / 6, 2); });
+    const sd = Math.sqrt(V), u = P.unit;
+    $('out').innerHTML = '<div class="r hl w"><b>' + f1(E) + ' ' + u + '</b><span>Erwartungswert</span></div>' +
+      '<div class="r"><b>± ' + f1(sd) + '</b><span>Standardabweichung</span></div><div class="r"><b>' + f1(E + 1.04 * sd) + '</b><span>mit 85 % Sicherheit</span></div>' +
+      '<div class="r"><b>' + f1(Math.max(0, E - sd)) + ' – ' + f1(E + sd) + '</b><span>Bereich 68 %</span></div><div class="r"><b>' + f1(Math.max(0, E - 2 * sd)) + ' – ' + f1(E + 2 * sd) + '</b><span>Bereich 95 %</span></div>';
+    $('nt').innerHTML = warn ? '<div class="note warn">⚠️ Bei mindestens einer Aufgabe gilt nicht O ≤ M ≤ P. Prüfe die Werte.</div>' :
+      '<div class="note">💡 Gegenüber „nur wahrscheinlich“ (' + f1(P.tasks.reduce((a, t) => a + n(t.m), 0)) + ' ' + u + ') zeigt PERT das typische Risiko nach oben. Für Zusagen an Kunden nimm den 85-%-Wert.</div>';
+  }
+
+  // ================= Kapazität =================
+  function capView() {
+    const C = st.cap;
+    sc.innerHTML = '<div class="panel"><div class="lbl">Sprint</div><div class="row"><div class="f"><span>Arbeitstage</span><input inputmode="decimal" id="cd" value="' + C.days + '"></div><div class="f"><span>Fokusfaktor %</span><input inputmode="decimal" id="cf" value="' + C.focus + '"></div></div>' +
+      '<div class="help">Der Fokusfaktor sagt, welcher Anteil der Zeit in echte Arbeit am Backlog fließt. Der Rest geht für Meetings, Support und Abstimmungen drauf. Üblich sind 60 bis 80 %.</div></div>' +
+      '<div class="panel"><div class="lbl">Team</div><div id="mem"></div><button class="add" id="addM">+ Person</button></div>' +
+      '<div class="panel"><div class="lbl">Kalibrierung (optional)</div><div class="help">Wie viele Story Points hat das Team beim letzten Sprint geschafft und mit wie vielen Personentagen? Daraus entsteht eine Prognose in Story Points.</div><div class="row"><div class="f"><span>Velocity letzter Sprint</span><input inputmode="decimal" id="rv" value="' + C.refVel + '" placeholder="z. B. 24"></div><div class="f"><span>Personentage (netto)</span><input inputmode="decimal" id="rp" value="' + C.refPt + '" placeholder="z. B. 32"></div></div></div>' +
+      '<div class="panel"><div class="lbl">Ergebnis</div><div class="res" id="out"></div><div id="nt"></div></div>';
+    ['cd', 'cf', 'rv', 'rp'].forEach(id => $(id).oninput = () => { C.days = $('cd').value; C.focus = $('cf').value; C.refVel = $('rv').value; C.refPt = $('rp').value; persist(); capCalc(); });
+    $('addM').onclick = () => { C.members.push({ n: 'Person ' + (C.members.length + 1), av: 100, off: 0 }); persist(); capMem(); capCalc(); };
+    capMem(); capCalc();
+  }
+  function capMem() {
+    const C = st.cap, host = $('mem'); host.innerHTML = '';
+    C.members.forEach((m, i) => {
+      const d = document.createElement('div'); d.className = 'row';
+      d.innerHTML = '<div class="f" style="flex:1.6"><span>Name</span><input value="' + esc(m.n) + '" data-k="n"></div><div class="f"><span>Verfügb. %</span><input inputmode="decimal" value="' + m.av + '" data-k="av"></div><div class="f"><span>Abwesend (T)</span><input inputmode="decimal" value="' + m.off + '" data-k="off"></div><button class="x">✕</button>';
+      d.querySelectorAll('input').forEach(inp => inp.oninput = () => { m[inp.dataset.k] = inp.value; persist(); capCalc(); });
+      d.querySelector('.x').onclick = () => { C.members.splice(i, 1); persist(); capMem(); capCalc(); };
+      host.appendChild(d);
+    });
+  }
+  function capCalc() {
+    const C = st.cap, days = n(C.days), focus = n(C.focus) / 100;
+    const gross = C.members.length * days;
+    const net = C.members.reduce((a, m) => a + Math.max(0, days * n(m.av) / 100 - n(m.off)), 0);
+    const eff = net * focus, rv = n(C.refVel), rp = n(C.refPt);
+    let html = '<div class="r"><b>' + f1(gross) + '</b><span>Personentage brutto</span></div><div class="r"><b>' + f1(net) + '</b><span>netto (Urlaub, Teilzeit)</span></div><div class="r hl w"><b>' + f1(eff) + ' PT</b><span>Fokus-Kapazität</span></div>';
+    let note = '<div class="note">Wenn alle Abwesenheiten eingerechnet sind, stehen dem Team ca. <b>' + f1(eff) + ' Personentage</b> für das Backlog zur Verfügung (' + f0(net ? eff / net * 100 : 0) + ' % der Nettozeit).</div>';
+    if (rv > 0 && rp > 0) {
+      const sp = eff * rv / rp;
+      html += '<div class="r hl w"><b>' + f0(sp) + ' Story Points</b><span>Prognose für den Sprint</span></div><div class="r"><b>' + f1(rv / rp) + '</b><span>SP je Personentag</span></div><div class="r"><b>' + f0(sp * 0.85) + ' – ' + f0(sp * 1.1) + '</b><span>realistische Spanne</span></div>';
+      note = '<div class="note good">✅ Bei gleichem Tempo wie zuletzt: Plane etwa <b>' + f0(sp * 0.9) + '</b> Story Points fest ein. Alles darüber ist Wunschdenken.</div>';
+    }
+    $('out').innerHTML = html; $('nt').innerHTML = note;
+  }
+
+  // ================= Prognose =================
+  function fcView() {
+    const F = st.fc;
+    sc.innerHTML = '<div class="panel"><div class="lbl">Backlog &amp; Takt</div><div class="row"><div class="f"><span>Offene Story Points</span><input inputmode="decimal" id="fb" value="' + F.backlog + '"></div><div class="f"><span>Sprintlänge (Wochen)</span><input inputmode="decimal" id="fw" value="' + F.weeks + '"></div></div>' +
+      '<div class="row"><div class="f"><span>Start</span><input type="date" id="fs" value="' + F.start + '"></div><div class="f"><span>Scope-Wachstum % / Sprint</span><input inputmode="decimal" id="fg" value="' + F.growth + '"></div></div></div>' +
+      '<div class="panel"><div class="lbl">Velocity der letzten Sprints</div><div class="help">Trage die geschafften Story Points pro Sprint ein. Mehr Sprints bedeuten eine belastbarere Prognose.</div><div id="vl"></div><button class="add" id="addV">+ Sprint</button></div>' +
+      '<div class="panel"><div class="lbl">Prognose</div><div class="res" id="out"></div><div id="ch" style="margin-top:10px"></div><div id="nt"></div></div>';
+    ['fb', 'fw', 'fs', 'fg'].forEach(id => $(id).oninput = () => { F.backlog = $('fb').value; F.weeks = $('fw').value; F.start = $('fs').value; F.growth = $('fg').value; persist(); fcCalc(); });
+    $('addV').onclick = () => { F.velos.push(F.velos.length ? F.velos[F.velos.length - 1] : 20); persist(); fcVel(); fcCalc(); };
+    fcVel(); fcCalc();
+  }
+  function fcVel() {
+    const F = st.fc, host = $('vl'); host.innerHTML = '';
+    F.velos.forEach((v, i) => {
+      const d = document.createElement('div'); d.className = 'row'; d.innerHTML = '<div class="f"><span>Sprint ' + (i + 1) + '</span><input inputmode="decimal" value="' + v + '"></div><button class="x">✕</button>';
+      d.querySelector('input').oninput = e => { F.velos[i] = e.target.value; persist(); fcCalc(); };
+      d.querySelector('.x').onclick = () => { F.velos.splice(i, 1); persist(); fcVel(); fcCalc(); };
+      host.appendChild(d);
+    });
+  }
+  function sprintsNeeded(backlog, vel, growth) {
+    if (vel <= 0) return Infinity;
+    const add = backlog * growth / 100;
+    if (add >= vel) return Infinity;
+    let rest = backlog, k = 0;
+    while (rest > 0 && k < 200) { rest = rest - vel + add; k++; }
+    return k >= 200 ? Infinity : k;
+  }
+  function fcCalc() {
+    const F = st.fc, vs = F.velos.map(n).filter(x => x > 0), back = n(F.backlog), weeks = Math.max(0.5, n(F.weeks)), g = n(F.growth);
+    if (!vs.length || back <= 0) { $('out').innerHTML = ''; $('ch').innerHTML = ''; $('nt').innerHTML = '<div class="note warn">Trage Backlog und mindestens eine Velocity ein.</div>'; return; }
+    const avg = vs.reduce((a, b) => a + b, 0) / vs.length, mn = Math.min(...vs), mx = Math.max(...vs);
+    const start = F.start ? new Date(F.start + 'T12:00:00') : new Date();
+    const sc = { w: sprintsNeeded(back, mn, g), a: sprintsNeeded(back, avg, g), b: sprintsNeeded(back, mx, g) };
+    const date = k => isFinite(k) ? fd(new Date(start.getTime() + k * weeks * 7 * 86400000)) : 'nie';
+    const lbl = k => isFinite(k) ? k + ' Sprints' : '∞';
+    $('out').innerHTML = '<div class="r hl w"><b>' + date(sc.a) + '</b><span>Wahrscheinlich (Ø ' + f1(avg) + ' SP): ' + lbl(sc.a) + '</span></div>' +
+      '<div class="r"><b>' + date(sc.b) + '</b><span>Optimistisch (' + f0(mx) + ' SP)</span></div><div class="r"><b>' + date(sc.w) + '</b><span>Pessimistisch (' + f0(mn) + ' SP)</span></div>';
+    // Burndown-Diagramm
+    const maxK = Math.min(60, Math.max(isFinite(sc.w) ? sc.w : 0, isFinite(sc.a) ? sc.a : 0, 4) + 1);
+    const W = 340, H = 170, pl = 34, pb = 22, pt = 10, pr = 8, iw = W - pl - pr, ih = H - pt - pb;
+    const line = (vel, col, dash) => { let rest = back, pts = [[0, back]]; const add = back * g / 100; for (let k = 1; k <= maxK; k++) { rest = Math.max(0, rest - vel + add); pts.push([k, rest]); if (rest <= 0) break; } return '<polyline fill="none" stroke="' + col + '" stroke-width="2.5" ' + (dash ? 'stroke-dasharray="6 4"' : '') + ' points="' + pts.map(p => (pl + p[0] / maxK * iw).toFixed(1) + ',' + (pt + ih - p[1] / back * ih).toFixed(1)).join(' ') + '"/>'; };
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '"><rect x="' + pl + '" y="' + pt + '" width="' + iw + '" height="' + ih + '" fill="none" stroke="#2e3d66"/>';
+    for (let i = 0; i <= 4; i++) { const y = pt + ih - i / 4 * ih; svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y + '" y2="' + y + '" stroke="#2e3d66" stroke-dasharray="3 4"/><text x="' + (pl - 4) + '" y="' + (y + 3) + '" text-anchor="end" fill="#8e9cc7" font-size="9">' + f0(back * i / 4) + '</text>'; }
+    const step = Math.max(1, Math.ceil(maxK / 8));
+    for (let k = 0; k <= maxK; k += step) svg += '<text x="' + (pl + k / maxK * iw) + '" y="' + (H - 6) + '" text-anchor="middle" fill="#8e9cc7" font-size="9">S' + k + '</text>';
+    svg += line(mx, '#4cf0a0', true) + line(avg, '#7b8cff', false) + line(mn, '#ff5d73', true) + '</svg><div style="display:flex;gap:12px;justify-content:center;font-size:11px;font-weight:800;color:var(--mut);margin-top:4px"><span style="color:#4cf0a0">● optimistisch</span><span style="color:#7b8cff">● wahrscheinlich</span><span style="color:#ff5d73">● pessimistisch</span></div>';
+    $('ch').innerHTML = svg;
+    const spread = (mx - mn) / avg;
+    $('nt').innerHTML = '<div class="note ' + (spread > 0.5 ? 'warn' : '') + '">' + (g > 0 && !isFinite(sc.w) ? '⚠️ Mit diesem Scope-Wachstum holt ihr das Backlog im pessimistischen Fall nie ein. ' : '') +
+      (spread > 0.5 ? '📉 Die Velocity schwankt stark (' + f0(mn) + ' bis ' + f0(mx) + '). Kommuniziere lieber die Spanne ' + date(sc.b) + ' bis ' + date(sc.w) + ' statt eines einzelnen Termins.' : '📈 Die Velocity ist stabil. Der Termin ' + date(sc.a) + ' ist ein solides Planziel, die Spanne reicht von ' + date(sc.b) + ' bis ' + date(sc.w) + '.') + '</div>';
+  }
+
+  // ================= Risiken =================
+  const rcol = s => s >= 15 ? '#ff5d73' : s >= 8 ? '#ffb340' : s >= 4 ? '#ffe066' : '#4cf0a0';
+  function riskView() {
+    sc.innerHTML = '<div class="panel"><div class="lbl">Risiko-Matrix</div><div id="hm"></div></div><div class="panel"><div class="lbl">Neues Risiko</div><div class="row"><div class="f"><span>Beschreibung</span><input id="rn" placeholder="Was kann schiefgehen?" maxlength="60"></div></div>' +
+      '<div class="row"><div class="f"><span>Wahrscheinlichkeit (1–5)</span><div class="seg" id="sw"></div></div></div><div class="row"><div class="f"><span>Auswirkung (1–5)</span><div class="seg" id="sa"></div></div></div><button class="add" id="ar" style="margin-top:4px">+ Risiko hinzufügen</button></div>' +
+      '<div class="panel"><div class="lbl">Rangliste (Score = W × A)</div><div id="rl"></div></div>';
+    let w = 3, a = 3;
+    const seg = (host, get, set) => { const el = $(host); el.innerHTML = [1, 2, 3, 4, 5].map(i => '<button data-i="' + i + '" class="' + (get() === i ? 'on' : '') + '">' + i + '</button>').join(''); el.querySelectorAll('button').forEach(b => b.onclick = () => { set(+b.dataset.i); seg(host, get, set); }); };
+    seg('sw', () => w, v => w = v); seg('sa', () => a, v => a = v);
+    $('ar').onclick = () => { const t = $('rn').value.trim(); if (!t) { $('rn').focus(); return; } st.risk.list.push({ n: t, w, a }); persist(); riskView(); };
+    riskDraw();
+  }
+  function riskDraw() {
+    const L = st.risk.list;
+    let h = '<div class="heat">';
+    for (let w = 5; w >= 1; w--) { h += '<div class="ax">' + w + '</div>'; for (let a = 1; a <= 5; a++) { const cnt = L.filter(r => r.w === w && r.a === a).length, s = w * a; h += '<div class="c" style="background:' + rcol(s) + (cnt ? '' : '55') + ';color:#101424">' + (cnt || '') + '</div>'; } }
+    h += '<div></div>' + [1, 2, 3, 4, 5].map(a => '<div class="ax">' + a + '</div>').join('') + '</div><div style="text-align:center;font-size:10px;font-weight:800;color:var(--mut);margin-top:4px">AUSWIRKUNG →  (links: Wahrscheinlichkeit ↑)</div>';
+    $('hm').innerHTML = h;
+    const rl = $('rl');
+    if (!L.length) { rl.innerHTML = '<div class="help">Noch keine Risiken erfasst.</div>'; return; }
+    rl.innerHTML = '';
+    L.map((r, i) => ({ r, i, s: r.w * r.a })).sort((x, y) => y.s - x.s).forEach(({ r, i, s }) => {
+      const d = document.createElement('div'); d.className = 'rk';
+      d.innerHTML = '<span class="sc" style="background:' + rcol(s) + '">' + s + '</span><b>' + esc(r.n) + '</b><small>W' + r.w + ' · A' + r.a + '</small><button class="x" style="flex-basis:30px;height:30px">✕</button>';
+      d.querySelector('.x').onclick = () => { L.splice(i, 1); persist(); riskDraw(); };
+      rl.appendChild(d);
+    });
+    const crit = L.filter(r => r.w * r.a >= 15).length;
+    rl.insertAdjacentHTML('beforeend', '<div class="note ' + (crit ? 'bad' : 'good') + '">' + (crit ? '🚨 ' + crit + ' kritische(s) Risiko (Score ≥ 15). Plane Gegenmaßnahmen, Verantwortliche und einen Notfallplan.' : '✅ Keine kritischen Risiken. Beobachte trotzdem die Einträge über 8.') + '</div>');
+  }
+
+  $('reset').onclick = () => { if (confirm('Alle Eingaben dieses Tabs zurücksetzen?')) { const d = DEF(); st[st.tab] = d[st.tab]; persist(); view(); } };
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  tabs(); view();
+  window.__PM = { get st() { return st; }, pertCalc, sprintsNeeded };
+})();
+</script>
+</body>
+</html>
