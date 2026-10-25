@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Aether Deck">
+<meta name="theme-color" content="#070a1a">
+<title>Aether Deck</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+  :root { --bg: #070a1a; --pan: rgba(18,24,52,.86); --line: #2b3770; --txt: #eef2ff; --mut: #8f9bc9; --atk: #ff6a4d; --skl: #4da6ff; --pow: #c47cff;
+    --gold: #ffd25a; --hp: #ff4d6d; --good: #4cf0a0; --acc: #8f7bff; --z1: #3ee0d0; --z2: #7dff8a; --z3: #ff5d7a; }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { position: fixed; inset: 0; height: 100dvh; color: var(--txt); background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  button { font-family: inherit; color: inherit; border: 0; cursor: pointer; }
+  #stars { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bg { position: absolute; inset: 0; transition: background 1s; }
+  #app { position: absolute; inset: 0; display: flex; flex-direction: column;
+    padding: calc(8px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left)); }
+  .scr { flex: 1; display: flex; flex-direction: column; min-height: 0; animation: fi .25s; }
+  @keyframes fi { from { opacity: 0; transform: translateY(8px); } }
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; min-height: 0; }
+  h1 { font-size: 34px; font-weight: 900; letter-spacing: 1px; background: linear-gradient(90deg, #7ef0ff, #b48cff, #ff8ad8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  h2 { font-size: 20px; font-weight: 900; }
+  .mut { color: var(--mut); }
+  .btn { padding: 13px 18px; border-radius: 14px; font-size: 16px; font-weight: 900; background: linear-gradient(135deg, #5b6cff, #9a6bff); box-shadow: 0 6px 22px rgba(124,110,255,.4); }
+  .btn.sec { background: rgba(255,255,255,.08); box-shadow: none; border: 1px solid var(--line); }
+  .btn[disabled] { opacity: .4; }
+  .btn:active { transform: scale(.97); }
+  .back { position: absolute; top: calc(8px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); width: 40px; height: 40px; border-radius: 12px;
+    background: rgba(255,255,255,.08); display: grid; place-items: center; text-decoration: none; color: var(--txt); font-size: 20px; z-index: 3; }
+
+  /* Menü */
+  .menu { align-items: center; justify-content: center; text-align: center; gap: 12px; }
+  .heroes { display: flex; gap: 10px; width: 100%; max-width: 380px; }
+  .hero { flex: 1; background: var(--pan); border: 1px solid var(--line); border-radius: 18px; padding: 14px 8px; text-align: center; }
+  .hero .av { font-size: 54px; filter: drop-shadow(0 0 14px var(--c)); }
+  .hero b { display: block; font-size: 16px; margin-top: 4px; }
+  .hero span { display: block; font-size: 11px; color: var(--mut); margin-top: 4px; line-height: 1.35; }
+  .hero:active { transform: scale(.97); border-color: var(--c); }
+
+  /* Top-Bar */
+  .top { display: flex; align-items: center; gap: 6px; padding: 2px 0 6px; font-size: 13px; font-weight: 800; flex-wrap: nowrap; }
+  .top .pill { background: var(--pan); border: 1px solid var(--line); border-radius: 10px; padding: 4px 8px; white-space: nowrap; }
+  .top .sp { flex: 1; }
+  .top button.pill { font-size: 13px; }
+  .relics { display: flex; gap: 2px; font-size: 16px; flex-wrap: wrap; }
+
+  /* Karte */
+  .card { position: relative; flex: 0 0 auto; width: var(--cw, 76px); height: calc(var(--cw, 76px) * 1.42); border-radius: 10px; padding: 4px 4px 3px;
+    background: linear-gradient(180deg, #1c2550, #121838); border: 2px solid var(--rc, #6b76a8); text-align: center; display: flex; flex-direction: column;
+    box-shadow: 0 4px 14px rgba(0,0,0,.5); transition: transform .15s, box-shadow .15s; overflow: hidden; }
+  .card.atk { background: linear-gradient(180deg, #4a2230, #2a1220); } .card.skl { background: linear-gradient(180deg, #1b3558, #10203a); } .card.pow { background: linear-gradient(180deg, #3d2358, #22123a); }
+  .card.curse { background: linear-gradient(180deg, #2a2a2a, #111); }
+  .card.r-c { --rc: #8b94bd; } .card.r-u { --rc: #4de0c8; } .card.r-r { --rc: #ffd25a; box-shadow: 0 0 12px rgba(255,210,90,.35), 0 4px 14px rgba(0,0,0,.5); }
+  .card .cost { position: absolute; left: -2px; top: -2px; width: calc(var(--cw, 76px) * .28); height: calc(var(--cw, 76px) * .28); border-radius: 50%; background: radial-gradient(circle at 35% 30%, #7ef0ff, #2a74ff);
+    border: 2px solid #fff; font-weight: 900; font-size: calc(var(--cw, 76px) * .17); display: grid; place-items: center; z-index: 2; }
+  .card .cn { font-size: calc(var(--cw, 76px) * .125); font-weight: 900; line-height: 1.1; margin: 1px 0 0 calc(var(--cw, 76px) * .22); min-height: calc(var(--cw, 76px) * .28); display: flex; align-items: center; justify-content: center; }
+  .card .art { font-size: calc(var(--cw, 76px) * .36); line-height: 1.1; margin: 1px 0; }
+  .card .ct { font-size: calc(var(--cw, 76px) * .105); line-height: 1.18; color: #dbe3ff; flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 1px; }
+  .card.up .cn { color: #7dff9a; }
+  .card.no { filter: grayscale(.85) brightness(.6); }
+  .card.big { --cw: 104px; }
+  .card.sel { transform: translateY(-26px) scale(1.12); z-index: 20 !important; box-shadow: 0 0 22px rgba(160,200,255,.9); }
+  .tagrow { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+  /* Karte-Ansicht */
+  .grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 6px 0; }
+  .grid .card { --cw: 82px; }
+  .grid .card:active { transform: scale(.96); }
+
+  /* Karte/Map */
+  #map { position: relative; margin: 0 auto; width: 100%; max-width: 380px; }
+  #map svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .nd { position: absolute; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: var(--pan); border: 2px solid var(--line); font-size: 25px;
+    display: grid; place-items: center; opacity: .5; }
+  .nd.reach { opacity: 1; border-color: #fff; box-shadow: 0 0 18px rgba(255,255,255,.7); animation: pl 1.2s infinite; }
+  .nd.done { opacity: .35; border-color: var(--good); }
+  .nd.cur { opacity: 1; border-color: var(--gold); box-shadow: 0 0 14px var(--gold); }
+  @keyframes pl { 50% { transform: scale(1.1); } }
+
+  /* Kampf */
+  .arena { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+  .foes { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 4px 0 6px; min-height: 0; }
+  .foe { flex: 1; max-width: 140px; text-align: center; position: relative; transition: transform .2s; }
+  .foe .intent { font-size: 13px; font-weight: 900; min-height: 20px; display: flex; gap: 3px; justify-content: center; align-items: center; white-space: nowrap; }
+  .foe .spr { font-size: 78px; line-height: 1.1; filter: drop-shadow(0 6px 10px rgba(0,0,0,.6)); animation: bob 3s ease-in-out infinite; }
+  .foe.boss .spr { font-size: 118px; }
+  .foe .nm { font-size: 11px; font-weight: 800; color: var(--mut); }
+  .hpbar { height: 9px; border-radius: 5px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.2); position: relative; overflow: hidden; margin: 3px 4px 0; }
+  .hpbar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ff4d6d, #ff8a5c); transition: width .3s; }
+  .hpbar b { position: absolute; inset: 0; font-size: 8px; line-height: 7px; text-align: center; font-weight: 900; text-shadow: 0 0 3px #000; }
+  .blk { color: #7ec8ff; font-weight: 900; }
+  .sts { display: flex; gap: 4px; justify-content: center; font-size: 10px; font-weight: 900; min-height: 14px; margin-top: 2px; flex-wrap: wrap; }
+  .foe.tgt .spr { filter: drop-shadow(0 0 14px #ff5d5d); }
+  .foe.tgt::after { content: '🎯'; position: absolute; top: 0; right: 4px; font-size: 20px; animation: pl .6s infinite; }
+  .foe.hit { animation: hit .3s; } @keyframes hit { 30% { transform: translateX(8px) scale(.94); } 60% { transform: translateX(-6px); } }
+  .foe.act { transform: translateY(14px) scale(1.12); }
+  .foe.dead { opacity: 0; transform: scale(.5) rotate(20deg); transition: all .4s; }
+  @keyframes bob { 50% { transform: translateY(-5px); } }
+  .me { display: flex; align-items: center; gap: 10px; padding: 4px 6px; }
+  .me .av { font-size: 46px; filter: drop-shadow(0 0 10px var(--c)); }
+  .me .bars { flex: 1; }
+  .me .hpbar { height: 14px; margin: 0; } .me .hpbar b { font-size: 10px; line-height: 12px; }
+  .me .sts { justify-content: flex-start; }
+  .me.hit { animation: hit .3s; }
+  .orb { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 22px; font-weight: 900; background: radial-gradient(circle at 35% 30%, #9ff3ff, #2a74ff 70%); border: 3px solid #fff; box-shadow: 0 0 16px #4da6ff; flex: 0 0 auto; }
+  .orb small { font-size: 10px; display: block; }
+  .shield { font-size: 13px; font-weight: 900; color: #7ec8ff; }
+  #hand { position: relative; height: calc(var(--cw, 76px) * 1.42 + 34px); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; }
+  #hand .card { transition: transform .15s; }
+  #hand .card .cn { font-size: calc(var(--cw) * .12); }
+  .ctl { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+  .pile { flex: 0 0 52px; height: 40px; border-radius: 10px; background: var(--pan); border: 1px solid var(--line); font-size: 12px; font-weight: 800; text-align: center; line-height: 1.15; padding-top: 3px; }
+  .pile span { display: block; font-size: 15px; }
+  .endb { flex: 1; padding: 12px; border-radius: 14px; font-size: 16px; font-weight: 900; background: linear-gradient(135deg, #ff7a4d, #ff4d8a); box-shadow: 0 4px 16px rgba(255,90,100,.4); }
+  .endb[disabled] { opacity: .4; }
+  #prev { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--cw, 76px) * 1.42 + 78px); background: rgba(10,14,34,.96); border: 1px solid var(--line); border-radius: 12px;
+    padding: 6px 12px; font-size: 14px; font-weight: 800; text-align: center; max-width: 92%; z-index: 30; pointer-events: none; display: none; }
+  #prev.on { display: block; }
+  #fxl { position: absolute; inset: 0; pointer-events: none; z-index: 40; overflow: hidden; }
+  .flt { position: absolute; font-size: 26px; font-weight: 900; text-shadow: 0 2px 6px #000, 0 0 12px currentColor; animation: fl 1s forwards; transform: translateX(-50%); }
+  @keyframes fl { from { transform: translate(-50%, 0) scale(.6); opacity: 1; } 20% { transform: translate(-50%, -10px) scale(1.3); } to { transform: translate(-50%, -70px) scale(1); opacity: 0; } }
+  .banner { position: absolute; left: 0; right: 0; top: 36%; text-align: center; font-size: 30px; font-weight: 900; z-index: 35; pointer-events: none; text-shadow: 0 0 20px #000; animation: fl2 1.4s forwards; }
+  @keyframes fl2 { 0% { opacity: 0; transform: scale(.7); } 20%, 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+  .flash { position: absolute; inset: 0; background: #ff2d4d; opacity: 0; pointer-events: none; z-index: 38; }
+  .flash.on { animation: fh .35s; } @keyframes fh { 30% { opacity: .35; } }
+
+  /* Listen / Panels */
+  .panel { background: var(--pan); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .opt { width: 100%; text-align: left; background: var(--pan); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 8px; display: flex; gap: 10px; align-items: center; }
+  .opt .ico { font-size: 28px; } .opt b { display: block; font-size: 15px; } .opt span { font-size: 12px; color: var(--mut); display: block; line-height: 1.35; margin-top: 2px; }
+  .opt:active { border-color: var(--acc); transform: scale(.98); }
+  .opt[disabled] { opacity: .45; }
+  .shopc { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .price { font-size: 13px; font-weight: 900; color: var(--gold); }
+  .price.no { color: #ff6a6a; }
+  .ov { position: absolute; inset: 0; z-index: 60; background: rgba(4,6,16,.88); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); display: none; flex-direction: column;
+    padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)); }
+  .ov.on { display: flex; }
+  .stat { display: inline-block; background: var(--pan); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; margin: 3px; font-size: 13px; font-weight: 800; }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div id="bg"></div>
+<div id="app"></div>
+<div class="ov" id="ov"></div>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const ri = (a, b) => Math.floor(rnd(a, b + 1));
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  let FAST = false;
+  const wait = ms => FAST ? Promise.resolve() : new Promise(r => setTimeout(r, ms));
+
+  // ---------- Speicher ----------
+  const KEY = 'aetherDeck.v1', RUNKEY = 'aetherDeck.run';
+  const meta = { wins: 0, bestZone: 0, runs: 0, muted: false };
+  try { Object.assign(meta, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+  const saveMeta = () => { try { localStorage.setItem(KEY, JSON.stringify(meta)); } catch (e) {} };
+
+  // ---------- Audio ----------
+  let AC = null;
+  function tone(f1, f2, dur, type = 'sine', vol = 0.1, delay = 0) {
+    if (meta.muted) return;
+    try {
+      if (!AC) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; AC = new A(); }
+      if (AC.state === 'suspended') AC.resume();
+      const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+      o.type = type; o.frequency.setValueAtTime(f1, t);
+      if (f2 !== f1) o.frequency.exponentialRampToValueAtTime(Math.max(1, f2), t + dur);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) {}
+  }
+  const sfx = {
+    tap() { tone(600, 760, .05, 'triangle', .06); },
+    atk() { tone(300, 80, .15, 'sawtooth', .1); },
+    blk() { tone(500, 700, .12, 'square', .06); },
+    hurt() { tone(160, 50, .3, 'sawtooth', .16); },
+    buff() { [500, 700, 900].forEach((f, i) => tone(f, f, .1, 'triangle', .08, i * .06)); },
+    gold() { tone(900, 1300, .08, 'square', .06); tone(1300, 1700, .1, 'square', .06, .07); },
+    win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, f, .16, 'triangle', .12, i * .09)); },
+    lose() { tone(300, 40, 1.2, 'sawtooth', .15); },
+    kill() { tone(200, 60, .25, 'square', .1); }
+  };
+
+  // ---------- Sternenhimmel ----------
+  const sc = $('stars'), sx = sc.getContext('2d'); let stars = [], SW = 0, SH = 0, zoneTheme = 0;
+  function sResize() { const d = Math.min(devicePixelRatio || 1, 2); SW = innerWidth; SH = innerHeight; sc.width = SW * d; sc.height = SH * d; sx.setTransform(d, 0, 0, d, 0, 0);
+    stars = Array.from({ length: 90 }, () => ({ x: Math.random() * SW, y: Math.random() * SH, z: Math.random() * 0.9 + 0.1, p: Math.random() * 6 })); }
+  addEventListener('resize', sResize); sResize();
+  const THEMES = [
+    ['radial-gradient(ellipse at 50% 15%, #1d3a5e 0%, #0a1230 55%, #04060f 100%)', '#7ef0ff'],
+    ['radial-gradient(ellipse at 50% 15%, #1c4a3a 0%, #0a2322 55%, #040b0b 100%)', '#9dffb0'],
+    ['radial-gradient(ellipse at 50% 15%, #55203f 0%, #1c0c26 55%, #08040c 100%)', '#ff9ac0']
+  ];
+  function theme(z) { zoneTheme = z; $('bg').style.background = THEMES[z][0]; }
+  theme(0);
+  (function loop(t) {
+    sx.clearRect(0, 0, SW, SH);
+    for (const s of stars) {
+      s.y += s.z * 0.18; if (s.y > SH) { s.y = 0; s.x = Math.random() * SW; }
+      sx.globalAlpha = (0.35 + 0.5 * Math.sin(t / 700 + s.p) ** 2) * s.z; sx.fillStyle = THEMES[zoneTheme][1];
+      sx.fillRect(s.x, s.y, s.z * 2, s.z * 2);
+    }
+    requestAnimationFrame(loop);
+  })(0);
+
+  // ---------- Karten ----------
+  // c = Kosten, t = Typ (atk/skl/pow), tg = one|all|self, r = Seltenheit (s Start, c, u, r), u = Überschreibungen für die verbesserte Version
+  const CARDS = {
+    strike: { n: 'Schlag', c: 1, t: 'atk', ico: '⚔️', dmg: 6, u: { dmg: 9 }, r: 's' },
+    defend: { n: 'Schild', c: 1, t: 'skl', ico: '🛡️', block: 5, u: { block: 8 }, r: 's' },
+    plasma: { n: 'Plasmaschlag', c: 1, t: 'atk', ico: '🔥', dmg: 8, vuln: 1, u: { dmg: 11, vuln: 2 }, r: 's' },
+    funke: { n: 'Äther-Funke', c: 1, t: 'atk', ico: '✨', dmg: 5, poison: 3, u: { dmg: 7, poison: 5 }, r: 's' },
+    blick: { n: 'Sternenblick', c: 0, t: 'skl', ico: '👁️', draw: 1, block: 2, u: { draw: 2 }, r: 's' },
+    // Nova-Ritter
+    doppel: { n: 'Doppelhieb', c: 1, t: 'atk', ico: '⚔️', dmg: 4, hits: 2, u: { dmg: 6 }, r: 'c', h: 'A' },
+    stoss: { n: 'Schildstoß', c: 1, t: 'atk', ico: '🛡️', dmgBlock: true, u: { block: 4 }, r: 'c', h: 'A' },
+    hammer: { n: 'Vorschlaghammer', c: 2, t: 'atk', ico: '🔨', dmg: 14, vuln: 2, u: { dmg: 18, vuln: 3 }, r: 'c', h: 'A' },
+    haut: { n: 'Eiserne Haut', c: 1, t: 'skl', ico: '🦾', block: 9, u: { block: 12 }, r: 'c', h: 'A' },
+    kreis: { n: 'Kreisschnitt', c: 1, t: 'atk', ico: '🌀', dmg: 5, tg: 'all', u: { dmg: 8 }, r: 'c', h: 'A' },
+    rausch: { n: 'Kampfrausch', c: 1, t: 'pow', ico: '💪', pw: { str: 2 }, u: { c: 0 }, r: 'u', h: 'A' },
+    berserk: { n: 'Berserker', c: 0, t: 'skl', ico: '😤', draw: 2, lose: 2, u: { draw: 3 }, r: 'u', h: 'A' },
+    bollwerk: { n: 'Bollwerk', c: 2, t: 'skl', ico: '🏰', block: 16, u: { block: 22 }, r: 'u', h: 'A' },
+    novab: { n: 'Nova-Explosion', c: 2, t: 'atk', ico: '💥', dmg: 12, tg: 'all', u: { dmg: 16 }, r: 'u', h: 'A' },
+    dornen: { n: 'Dornenpanzer', c: 1, t: 'pow', ico: '🌵', pw: { thorns: 3 }, u: { pw: { thorns: 5 } }, r: 'u', h: 'A' },
+    plating: { n: 'Plasma-Rüstung', c: 1, t: 'pow', ico: '⚙️', pw: { plating: 3 }, u: { pw: { plating: 5 } }, r: 'r', h: 'A' },
+    richt: { n: 'Hinrichtung', c: 3, t: 'atk', ico: '🗡️', dmg: 28, exhaust: true, u: { dmg: 38 }, r: 'r', h: 'A' },
+    titan: { n: 'Titanform', c: 3, t: 'pow', ico: '🗿', pw: { str: 5 }, u: { c: 2 }, r: 'r', h: 'A' },
+    // Äther-Magierin
+    gift: { n: 'Giftpfeil', c: 1, t: 'atk', ico: '🏹', dmg: 4, poison: 5, u: { dmg: 5, poison: 7 }, r: 'c', h: 'B' },
+    seuche: { n: 'Seuchenwolke', c: 2, t: 'skl', ico: '☁️', poison: 7, tg: 'all', u: { poison: 10 }, r: 'u', h: 'B' },
+    surge: { n: 'Mana-Schub', c: 0, t: 'skl', ico: '🔋', energy: 2, exhaust: true, u: { draw: 1 }, r: 'u', h: 'B' },
+    komet: { n: 'Kometenfall', c: 2, t: 'atk', ico: '☄️', dmg: 15, u: { dmg: 20 }, r: 'c', h: 'B' },
+    sturm: { n: 'Sternensturm', c: 2, t: 'atk', ico: '🌠', dmg: 8, vuln: 1, tg: 'all', u: { dmg: 11, vuln: 2 }, r: 'u', h: 'B' },
+    denk: { n: 'Gedankenblitz', c: 0, t: 'skl', ico: '🧠', draw: 2, u: { draw: 3 }, r: 'c', h: 'B' },
+    barriere: { n: 'Barriere', c: 1, t: 'skl', ico: '🔮', block: 7, draw: 1, u: { block: 10 }, r: 'c', h: 'B' },
+    zeitv: { n: 'Zeitverzerrung', c: 1, t: 'skl', ico: '⏳', weak: 2, block: 6, tg: 'all', u: { block: 9, weak: 3 }, r: 'u', h: 'B' },
+    fluch: { n: 'Leerenfluch', c: 1, t: 'skl', ico: '🌑', vuln: 3, weak: 2, u: { vuln: 4, weak: 3 }, r: 'c', h: 'B' },
+    heil: { n: 'Äther-Heilung', c: 1, t: 'skl', ico: '💚', heal: 6, exhaust: true, u: { heal: 10 }, r: 'c', h: 'B' },
+    orakel: { n: 'Orakelblick', c: 1, t: 'pow', ico: '🔭', pw: { draw: 1 }, u: { c: 0 }, r: 'r', h: 'B' },
+    quell: { n: 'Quellkern', c: 3, t: 'pow', ico: '🌟', pw: { nrg: 1 }, u: { c: 2 }, r: 'r', h: 'B' },
+    supernova: { n: 'Supernova', c: 3, t: 'atk', ico: '🌞', dmg: 30, exhaust: true, u: { dmg: 40 }, r: 'r', h: 'B' },
+    // neutral
+    laser: { n: 'Laserlanze', c: 1, t: 'atk', ico: '🔦', dmg: 9, u: { dmg: 12 }, r: 'c' },
+    adren: { n: 'Adrenalin', c: 0, t: 'skl', ico: '💉', energy: 1, draw: 2, exhaust: true, u: { draw: 3 }, r: 'u' },
+    riss: { n: 'Leerenriss', c: 0, t: 'skl', ico: '🕳️', unplayable: true, curse: true, r: 'c' }
+  };
+  const HEROES = {
+    A: { id: 'A', n: 'Nova-Ritter', av: '🦾', hp: 74, c: '#4da6ff', d: 'Panzerung, Kraft und schwere Schläge.', deck: ['strike', 'strike', 'strike', 'strike', 'strike', 'defend', 'defend', 'defend', 'defend', 'plasma'] },
+    B: { id: 'B', n: 'Äther-Magierin', av: '🧙‍♀️', hp: 62, c: '#b46bff', d: 'Gift, Flächenzauber und Energie-Tricks.', deck: ['strike', 'strike', 'strike', 'strike', 'defend', 'defend', 'defend', 'defend', 'funke', 'blick'] }
+  };
+  const cardEff = (c) => { const d = CARDS[c.id]; return c.up && d.u ? Object.assign({}, d, d.u) : d; };
+  function cardText(e) {
+    if (e.unplayable) return 'Unspielbar. Verstopft dein Deck.';
+    const p = [];
+    if (e.dmg) p.push((e.hits > 1 ? e.dmg + '×' + e.hits : e.dmg) + ' Schaden' + (e.tg === 'all' ? ' (alle)' : ''));
+    if (e.dmgBlock) p.push('Schaden = Block');
+    if (e.block) p.push(e.block + ' Block');
+    if (e.poison) p.push(e.poison + ' Gift' + (e.tg === 'all' ? ' (alle)' : ''));
+    if (e.vuln) p.push(e.vuln + ' Verwundbar' + (e.tg === 'all' ? ' (alle)' : ''));
+    if (e.weak) p.push(e.weak + ' Schwäche' + (e.tg === 'all' ? ' (alle)' : ''));
+    if (e.draw) p.push('Ziehe ' + e.draw);
+    if (e.energy) p.push('+' + e.energy + ' Energie');
+    if (e.heal) p.push('Heile ' + e.heal);
+    if (e.lose) p.push('Verliere ' + e.lose + ' LP');
+    if (e.pw) {
+      const k = Object.keys(e.pw)[0], v = e.pw[k];
+      p.push({ str: 'Kraft +' + v, thorns: 'Dornen ' + v, plating: '+' + v + ' Block je Runde', draw: 'Ziehe jede Runde +' + v, nrg: '+' + v + ' Energie je Runde' }[k]);
+    }
+    if (e.exhaust) p.push('Verbannen');
+    return p.join('. ') + '.';
+  }
+  const TYPEN = { atk: 'Angriff', skl: 'Fähigkeit', pow: 'Kraft' };
+  function cardHTML(c, extra = '') {
+    const e = cardEff(c), d = CARDS[c.id];
+    return '<div class="card ' + (d.curse ? 'curse' : e.t) + ' r-' + (d.r === 's' ? 'c' : d.r) + (c.up ? ' up' : '') + ' ' + extra + '">' +
+      (d.unplayable ? '' : '<div class="cost">' + e.c + '</div>') + '<div class="cn">' + d.n + (c.up ? '+' : '') + '</div><div class="art">' + d.ico + '</div><div class="ct">' + cardText(e) + '</div></div>';
+  }
+  const mk = (id, up) => ({ id, up: !!up });
+
+  // ---------- Relikte ----------
+  const RELICS = {
+    pflaster: { n: 'Nano-Pflaster', ico: '🩹', d: 'Heile nach jedem Kampf 6 LP.' },
+    runen: { n: 'Runenstein', ico: '🪨', d: 'Starte jeden Kampf mit +1 Kraft.' },
+    schild: { n: 'Schildgenerator', ico: '🔰', d: 'Starte jeden Kampf mit 7 Block.' },
+    muenze: { n: 'Glücksmünze', ico: '🪙', d: '+40 Gold sofort, Kämpfe bringen 25 % mehr Gold.' },
+    karte: { n: 'Sternkarte', ico: '🗺️', d: 'Ziehe in Runde 1 zwei Karten mehr.' },
+    dorn: { n: 'Giftdorn', ico: '🧪', d: 'Starte jeden Kampf mit 3 Gift auf allen Gegnern.' },
+    tank: { n: 'Reservetank', ico: '⛽', d: '+1 Energie in der ersten Runde.' },
+    titan: { n: 'Herz des Titanen', ico: '🫀', d: '+12 maximale LP.' },
+    zahn: { n: 'Vampirzahn', ico: '🦷', d: 'Heile 3 LP, wenn du einen Gegner besiegst.' }
+  };
+
+  // ---------- Gegner ----------
+  const FOES = {
+    drone: { n: 'Schrott-Drohne', ico: '🤖', hp: 26, seq: [{ a: 6 }, { a: 6 }, { b: 8 }] },
+    slime: { n: 'Rune-Schleim', ico: '🟣', hp: 32, seq: [{ a: 7 }, { a: 4, weak: 1 }, { a: 9 }] },
+    pilz: { n: 'Dornenpilz', ico: '🍄', hp: 22, seq: [{ a: 3, poison: 3 }, { a: 7 }, { poison: 4 }] },
+    geist: { n: 'Funkengeist', ico: '👻', hp: 20, seq: [{ a: 3, h: 3 }, { b: 6, str: 1 }, { a: 3, h: 3 }] },
+    golem: { n: 'Kristallgolem', ico: '🗿', hp: 40, seq: [{ b: 10 }, { a: 11 }, { a: 7, vuln: 1 }] },
+    waechter: { n: 'Obsidian-Wächter', ico: '🛡️', hp: 70, elite: true, seq: [{ str: 2, b: 8 }, { a: 10 }, { a: 7, h: 2 }, { a: 5, vuln: 2 }] },
+    koenig: { n: 'Schrottkönig', ico: '👑', hp: 105, boss: true, seq: [{ a: 9 }, { str: 3, b: 10 }, { a: 5, h: 3 }, { weak: 2, vuln: 2 }, { a: 16 }] },
+    wolf: { n: 'Nebelwolf', ico: '🐺', hp: 32, seq: [{ a: 5, h: 2 }, { a: 9 }, { str: 2 }] },
+    bluete: { n: 'Sporenblüte', ico: '🌺', hp: 36, seq: [{ poison: 5 }, { b: 10, a: 4 }, { a: 9 }] },
+    ranke: { n: 'Mech-Ranke', ico: '🌿', hp: 30, seq: [{ a: 5, h: 2 }, { vuln: 2 }, { a: 12 }] },
+    falter: { n: 'Sternenfalter', ico: '🦋', hp: 26, seq: [{ a: 5, weak: 2 }, { a: 4, h: 3 }, { b: 8 }] },
+    koloss: { n: 'Waldkoloss', ico: '🌳', hp: 96, elite: true, seq: [{ b: 14 }, { a: 14 }, { str: 3 }, { a: 9, h: 2 }] },
+    wyrm: { n: 'Mondwyrm', ico: '🐉', hp: 145, boss: true, seq: [{ a: 12 }, { poison: 6, vuln: 2 }, { a: 7, h: 3 }, { b: 18, str: 2 }, { a: 21 }] },
+    spaeher: { n: 'Void-Späher', ico: '👁️', hp: 36, seq: [{ weak: 2, vuln: 1 }, { a: 10 }, { a: 5, h: 3 }] },
+    ritter: { n: 'Schattenritter', ico: '🥷', hp: 46, seq: [{ b: 12, a: 6 }, { a: 14 }, { str: 3 }] },
+    schwarm: { n: 'Nanoschwarm', ico: '🪲', hp: 32, seq: [{ a: 4, h: 4 }, { poison: 4 }, { a: 4, h: 4 }] },
+    ghul: { n: 'Chrono-Ghul', ico: '⏳', hp: 42, seq: [{ a: 9 }, { a: 9, weak: 2 }, { a: 14 }] },
+    hydra: { n: 'Leere-Hydra', ico: '🦑', hp: 118, elite: true, seq: [{ a: 8, h: 2 }, { b: 12, str: 2 }, { a: 6, poison: 6 }, { a: 20 }] },
+    nullk: { n: 'Der Nullkönig', ico: '🌑', hp: 210, boss: true, seq: [{ a: 14 }, { weak: 2, vuln: 2, poison: 4 }, { a: 8, h: 3 }, { b: 20, str: 3 }, { a: 27 }] }
+  };
+  const ZONES = [
+    { n: 'Kristall-Ödland', normal: ['drone', 'slime', 'pilz', 'geist', 'golem'], elite: 'waechter', boss: 'koenig' },
+    { n: 'Nebelwald der Sterne', normal: ['wolf', 'bluete', 'ranke', 'falter'], elite: 'koloss', boss: 'wyrm' },
+    { n: 'Void-Zitadelle', normal: ['spaeher', 'ritter', 'schwarm', 'ghul'], elite: 'hydra', boss: 'nullk' }
+  ];
+
+  // ---------- Run-Zustand ----------
+  let R = null, C = null, busy = false;
+  const has = id => R.relics.includes(id);
+  function newRun(h) {
+    const H = HEROES[h];
+    R = { hero: h, hp: H.hp, maxhp: H.hp, gold: 60, deck: H.deck.map(id => mk(id)), relics: [], zone: 0, map: null, cur: null, removeCost: 75, stats: { fights: 0, elites: 0, kills: 0 }, over: false };
+    meta.runs++; saveMeta();
+    genMap(); theme(0); saveRun(); showMap();
+  }
+  function saveRun() { try { if (R && !R.over) localStorage.setItem(RUNKEY, JSON.stringify(R)); else localStorage.removeItem(RUNKEY); } catch (e) {} }
+  function loadRun() { try { const s = localStorage.getItem(RUNKEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+
+  // ---------- Karte ----------
+  const NT = { fight: '⚔️', elite: '💀', rest: '🏕️', shop: '🛒', event: '❓', treasure: '🎁', boss: '👑' };
+  function genMap() {
+    const F = 6, floors = [];
+    for (let f = 0; f < F; f++) {
+      let cols;
+      if (f === F - 1) cols = [1]; else cols = shuffle([0, 1, 2]).slice(0, f === 0 ? 3 : ri(2, 3)).sort();
+      floors.push(cols.map((c, i) => ({ id: f + '_' + i, f, col: c, type: 'fight', next: [], done: false })));
+    }
+    floors.forEach((fl, f) => {
+      if (f === F - 1) { fl[0].type = 'boss'; return; }
+      fl.forEach(n => {
+        if (f === 0) { n.type = 'fight'; return; }
+        if (f === F - 2) { n.type = pick(['rest', 'rest', 'shop']); return; }
+        const w = [['fight', 44], ['event', 22], ['elite', f >= 1 ? 12 : 0], ['rest', 10], ['shop', 8], ['treasure', f === 2 ? 8 : 3]];
+        let r = Math.random() * w.reduce((a, x) => a + x[1], 0);
+        for (const x of w) { r -= x[1]; if (r <= 0) { n.type = x[0]; break; } }
+      });
+      if (f === F - 2 && !fl.some(n => n.type === 'rest')) fl[0].type = 'rest';
+    });
+    for (let f = 0; f < F - 1; f++) {
+      const A = floors[f], B = floors[f + 1];
+      A.forEach(a => { B.forEach(b => { if (Math.abs(a.col - b.col) <= 1) a.next.push(b.id); }); if (!a.next.length) a.next.push(B.slice().sort((x, y) => Math.abs(x.col - a.col) - Math.abs(y.col - a.col))[0].id); });
+      B.forEach(b => { if (!A.some(a => a.next.includes(b.id))) A.slice().sort((x, y) => Math.abs(x.col - b.col) - Math.abs(y.col - b.col))[0].next.push(b.id); });
+    }
+    R.map = floors; R.cur = null;
+  }
+  const nodeById = id => R.map.flat().find(n => n.id === id);
+  function reachable() {
+    if (!R.cur) return R.map[0].map(n => n.id);
+    return nodeById(R.cur).next;
+  }
+
+  function topBar(extra = '') {
+    return '<div class="top"><span class="pill">❤️ ' + R.hp + '/' + R.maxhp + '</span><span class="pill">🪙 ' + R.gold + '</span><span class="pill">' + HEROES[R.hero].av + '</span>' +
+      '<span class="relics" id="rl">' + R.relics.map(r => '<span data-r="' + r + '">' + RELICS[r].ico + '</span>').join('') + '</span><span class="sp"></span>' + extra +
+      '<button class="pill" id="deckBtn">🃏 ' + R.deck.length + '</button></div>';
+  }
+  function wireTop() {
+    const d = $('deckBtn'); if (d) d.onclick = () => showCards('Dein Deck', R.deck);
+    document.querySelectorAll('#rl span').forEach(s => s.onclick = () => { const r = RELICS[s.dataset.r]; toastMsg(r.ico + ' ' + r.n + ': ' + r.d); });
+  }
+  let toastT = 0;
+  function toastMsg(t) {
+    let el = $('toastm'); if (!el) { el = document.createElement('div'); el.id = 'toastm'; el.style.cssText = 'position:absolute;left:50%;top:70px;transform:translateX(-50%);background:rgba(10,14,34,.97);border:1px solid #8f7bff;border-radius:12px;padding:8px 14px;font-size:13px;font-weight:800;z-index:80;max-width:90%;text-align:center;pointer-events:none'; document.body.appendChild(el); }
+    el.textContent = t; el.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => el.style.display = 'none', 2600);
+  }
+  function showCards(title, list, onPick, canClose = true) {
+    const ov = $('ov'); ov.classList.add('on');
+    ov.innerHTML = '<div class="top"><b style="font-size:17px">' + title + '</b><span class="sp"></span>' + (canClose ? '<button class="pill" id="ovx">✕ Schließen</button>' : '') + '</div><div class="scroll"><div class="grid" id="gr"></div></div>';
+    const g = ov.querySelector('#gr');
+    list.forEach((c, i) => { const w = document.createElement('div'); w.innerHTML = cardHTML(c); const el = w.firstChild; el.onclick = () => { if (onPick) { sfx.tap(); ov.classList.remove('on'); onPick(c, i); } else toastMsg(CARDS[c.id].n + ': ' + cardText(cardEff(c))); }; g.appendChild(el); });
+    if (canClose) $('ovx').onclick = () => ov.classList.remove('on');
+  }
+
+  function showMap() {
+    busy = false; theme(R.zone);
+    const Z = ZONES[R.zone], F = R.map.length, H = F * 92 + 20;
+    const app = $('app');
+    app.innerHTML = '<div class="scr">' + topBar() + '<div style="text-align:center;margin:2px 0 6px"><b style="font-size:16px">Zone ' + (R.zone + 1) + ' · ' + Z.n + '</b></div><div class="scroll" id="msc"><div id="map" style="height:' + H + 'px"></div></div></div>';
+    const map = $('map'), W = Math.min(380, innerWidth - 20);
+    const pos = n => ({ x: 40 + n.col * ((W - 80) / 2) + (n.f === F - 1 ? 0 : 0), y: H - 46 - n.f * 92 });
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '">';
+    R.map.flat().forEach(n => n.next.forEach(id => { const m = nodeById(id), a = pos(n), b = pos(m); svg += '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="rgba(160,180,255,.35)" stroke-width="2" stroke-dasharray="5 5"/>'; }));
+    map.innerHTML = svg + '</svg>';
+    const reach = reachable();
+    R.map.flat().forEach(n => {
+      const p = pos(n), b = document.createElement('button');
+      b.className = 'nd' + (reach.includes(n.id) ? ' reach' : '') + (n.done ? ' done' : '') + (R.cur === n.id ? ' cur' : '');
+      b.style.left = p.x + 'px'; b.style.top = p.y + 'px'; b.textContent = n.done ? '✔️' : NT[n.type];
+      if (n.type === 'boss') { b.style.width = b.style.height = '64px'; b.style.margin = '-32px 0 0 -32px'; b.style.fontSize = '32px'; }
+      b.onclick = () => { if (!reach.includes(n.id) || busy) return; sfx.tap(); enterNode(n); };
+      map.appendChild(b);
+    });
+    wireTop(); const sc2 = $('msc'); sc2.scrollTop = sc2.scrollHeight;
+    saveRun();
+  }
+
+  function enterNode(n) {
+    R.cur = n.id;
+    if (n.type === 'fight' || n.type === 'elite' || n.type === 'boss') startCombat(n);
+    else if (n.type === 'rest') showRest(n);
+    else if (n.type === 'shop') showShop(n);
+    else if (n.type === 'treasure') showTreasure(n);
+    else showEvent(n);
+  }
+  function finishNode(n) { n.done = true; saveRun(); showMap(); }
+
+  // ---------- Kampf ----------
+  function encounter(n) {
+    const Z = ZONES[R.zone];
+    if (n.type === 'boss') return [Z.boss];
+    if (n.type === 'elite') return [Z.elite];
+    const f = n.f, cnt = f === 0 ? 1 : f === 1 ? ri(1, 2) : f === 2 ? 2 : ri(2, 3);
+    const out = []; let pool = Z.normal.slice();
+    for (let i = 0; i < cnt; i++) out.push(pick(pool));
+    return out;
+  }
+  function mkFoe(id) {
+    const d = FOES[id], hp = Math.round(d.hp * rnd(0.95, 1.08));
+    return { id, d, hp, maxhp: hp, block: 0, str: 0, vuln: 0, weak: 0, poison: 0, mi: 0, move: null, dead: false };
+  }
+  function nextMove(f) { f.move = f.d.seq[f.mi % f.d.seq.length]; f.mi++; }
+
+  function startCombat(n) {
+    const foes = encounter(n).map(mkFoe);
+    foes.forEach(nextMove);
+    C = { n, foes, draw: shuffle(R.deck.map((c, i) => ({ ...c, uid: i }))), hand: [], disc: [], exh: [], energy: 3, block: 0, str: 0, vuln: 0, weak: 0, thorns: 0, plating: 0, xdraw: 0, xnrg: 0, turn: 0, sel: -1, over: false, boss: n.type === 'boss' };
+    if (has('runen')) C.str += 1;
+    if (has('schild')) C.block += 7;
+    if (has('dorn')) foes.forEach(f => f.poison += 3);
+    busy = true;
+    renderCombat();
+    banner(n.type === 'boss' ? '👑 BOSS' : n.type === 'elite' ? '💀 ELITE' : '⚔️ KAMPF', n.type === 'boss' ? '#ff6a6a' : '#fff');
+    wait(700).then(() => startTurn(true));
+  }
+  function drawCards(k) {
+    for (let i = 0; i < k; i++) {
+      if (!C.draw.length) { if (!C.disc.length) break; C.draw = shuffle(C.disc); C.disc = []; }
+      if (C.hand.length >= 10) { C.disc.push(C.draw.pop()); continue; }
+      C.hand.push(C.draw.pop());
+    }
+  }
+  function startTurn(first) {
+    C.turn++; C.energy = 3 + C.xnrg + (first && has('tank') ? 1 : 0);
+    if (!first || true) C.block = first ? C.block : 0;
+    if (C.plating) C.block += C.plating;
+    drawCards(5 + C.xdraw + (first && has('karte') ? 2 : 0));
+    C.sel = -1; busy = false; renderCombat();
+  }
+  const dmgCalc = (base, str, weak, vuln) => Math.max(0, Math.floor((base + str) * (weak > 0 ? 0.75 : 1) * (vuln > 0 ? 1.5 : 1)));
+  const FOEMUL = [0.8, 0.92, 1];
+  const foeDmg = (base, str, weak, vuln) => Math.max(0, Math.floor((base + str) * FOEMUL[R.zone] * (weak > 0 ? 0.75 : 1) * (vuln > 0 ? 1.5 : 1)));
+
+  function renderCombat() {
+    const app = $('app'), H = HEROES[R.hero];
+    const cw = Math.min(82, Math.floor((innerWidth - 20) / 4.4));
+    app.style.setProperty('--cw', cw + 'px');
+    const alive = C.foes.filter(f => !f.dead);
+    let h = '<div class="scr arena" style="--cw:' + cw + 'px">' + topBar('<button class="pill" id="musBtn">' + (meta.muted ? '🔇' : '🔊') + '</button>') + '<div class="flash" id="flash"></div><div id="fxl"></div><div class="foes" id="foes">';
+    C.foes.forEach((f, i) => {
+      const mv = f.move; let it = '';
+      if (!f.dead && mv) {
+        if (mv.a) { const d = foeDmg(mv.a, f.str, f.weak, C.vuln); it += '<span style="color:#ff7a6a">⚔️' + d + (mv.h > 1 ? '×' + mv.h : '') + '</span>'; }
+        if (mv.b) it += '<span class="blk">🛡️' + mv.b + '</span>';
+        if (mv.str) it += '<span style="color:#ffb15c">💪</span>';
+        if (mv.weak || mv.vuln || mv.poison) it += '<span style="color:#c58cff">☠️</span>';
+      }
+      h += '<div class="foe' + (f.d.boss ? ' boss' : '') + (f.dead ? ' dead' : '') + (C.sel >= 0 && needsTarget() && !f.dead ? ' tgt' : '') + '" data-i="' + i + '"><div class="intent">' + it + '</div><div class="spr">' + f.d.ico + '</div>' +
+        '<div class="hpbar"><i style="width:' + clamp(f.hp / f.maxhp * 100, 0, 100) + '%"></i><b>' + Math.max(0, f.hp) + (f.block ? ' 🛡️' + f.block : '') + '</b></div>' +
+        '<div class="sts">' + (f.str ? '<span>💪' + f.str + '</span>' : '') + (f.vuln ? '<span style="color:#ff9a5c">🎯' + f.vuln + '</span>' : '') + (f.weak ? '<span style="color:#9ad">😵' + f.weak + '</span>' : '') + (f.poison ? '<span style="color:#8fff6a">☠️' + f.poison + '</span>' : '') + '</div>' +
+        '<div class="nm">' + f.d.n + '</div></div>';
+    });
+    h += '</div><div class="me" id="me"><div class="av" style="--c:' + H.c + '">' + H.av + '</div><div class="bars"><div class="hpbar"><i style="width:' + clamp(R.hp / R.maxhp * 100, 0, 100) + '%"></i><b>' + R.hp + ' / ' + R.maxhp + '</b></div>' +
+      '<div class="sts"><span class="shield">' + (C.block ? '🛡️ ' + C.block : '') + '</span>' + (C.str ? '<span>💪' + C.str + '</span>' : '') + (C.vuln ? '<span style="color:#ff9a5c">🎯' + C.vuln + '</span>' : '') + (C.weak ? '<span style="color:#9ad">😵' + C.weak + '</span>' : '') + (C.thorns ? '<span>🌵' + C.thorns + '</span>' : '') + (C.plating ? '<span>⚙️' + C.plating + '</span>' : '') + '</div></div><div class="orb">' + C.energy + '<small>/' + (3 + C.xnrg) + '</small></div></div>';
+    h += '<div id="prev"></div><div id="hand">';
+    const n = C.hand.length, avail = innerWidth - 20, ov = n > 1 ? Math.max(0, (n * cw - avail) / (n - 1)) : 0;
+    C.hand.forEach((c, i) => {
+      const e = cardEff(c), can = !CARDS[c.id].unplayable && e.c <= C.energy;
+      const d = document.createElement('div'); d.innerHTML = cardHTML(c, (can ? '' : 'no ') + (C.sel === i ? 'sel' : ''));
+      const el = d.firstChild; el.dataset.i = i; el.style.marginLeft = i ? (-ov + 3) + 'px' : '0'; el.style.zIndex = i;
+      h += el.outerHTML;
+    });
+    h += '</div><div class="ctl"><button class="pile" id="pDraw">Stapel<span>' + C.draw.length + '</span></button><button class="endb" id="endB"' + (busy ? ' disabled' : '') + '>Zug beenden</button><button class="pile" id="pDisc">Ablage<span>' + C.disc.length + '</span></button></div></div>';
+    app.innerHTML = h; wireTop();
+    const mb = $('musBtn'); if (mb) mb.onclick = () => { meta.muted = !meta.muted; saveMeta(); mb.textContent = meta.muted ? '🔇' : '🔊'; };
+    document.querySelectorAll('#hand .card').forEach(el => el.onclick = () => onCard(+el.dataset.i));
+    document.querySelectorAll('.foe').forEach(el => el.onclick = () => onFoe(+el.dataset.i));
+    $('endB').onclick = () => { if (!busy && !C.over) endTurn(); };
+    $('pDraw').onclick = () => showCards('Nachziehstapel (zufällige Reihenfolge)', C.draw.slice().sort((a, b) => a.uid - b.uid));
+    $('pDisc').onclick = () => showCards('Ablagestapel', C.disc);
+    const pv = $('prev');
+    if (C.sel >= 0 && C.hand[C.sel]) { const c = C.hand[C.sel], e = cardEff(c); pv.textContent = CARDS[c.id].n + ' · ' + cardText(e) + (needsTarget() && alive.length > 1 ? '  → Ziel antippen' : '  → nochmal antippen'); pv.classList.add('on'); }
+  }
+  function needsTarget() {
+    const c = C.hand[C.sel]; if (!c) return false; const e = cardEff(c);
+    return !!(e.dmg || e.poison || e.vuln || e.weak || e.dmgBlock) && e.tg !== 'all';
+  }
+  function onCard(i) {
+    if (busy || C.over) return; sfx.tap();
+    const c = C.hand[i], e = cardEff(c);
+    if (CARDS[c.id].unplayable) { toastMsg('🕳️ Diese Karte ist unspielbar.'); return; }
+    if (e.c > C.energy) { toastMsg('Zu wenig Energie'); return; }
+    if (C.sel === i) {
+      const alive = C.foes.filter(f => !f.dead);
+      if (needsTarget() && alive.length > 1) { C.sel = -1; renderCombat(); return; }
+      playCard(i, C.foes.indexOf(alive[0]));
+    } else { C.sel = i; renderCombat(); }
+  }
+  function onFoe(i) {
+    if (busy || C.over || C.sel < 0) return;
+    if (C.foes[i].dead) return;
+    if (needsTarget()) playCard(C.sel, i); else playCard(C.sel, C.foes.findIndex(f => !f.dead));
+  }
+
+  function floatAt(sel, txt, col) {
+    const host = $('fxl'), el = document.querySelector(sel); if (!host || !el) return;
+    const r = el.getBoundingClientRect(), hr = host.getBoundingClientRect();
+    const d = document.createElement('div'); d.className = 'flt'; d.textContent = txt; d.style.color = col;
+    d.style.left = (r.left + r.width / 2 - hr.left) + 'px'; d.style.top = (r.top + r.height * 0.25 - hr.top) + 'px'; host.appendChild(d); setTimeout(() => d.remove(), 1000);
+  }
+  function banner(t, col) { const b = document.createElement('div'); b.className = 'banner'; b.style.color = col || '#fff'; b.textContent = t; document.body.appendChild(b); setTimeout(() => b.remove(), 1400); }
+  function hitFx(sel) { const el = document.querySelector(sel); if (el) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); } }
+
+  function hurtFoe(f, amt) {
+    if (f.dead) return 0;
+    let d = amt; const ab = Math.min(f.block, d); f.block -= ab; d -= ab;
+    f.hp -= d;
+    if (amt > 0) { floatAt('.foe[data-i="' + C.foes.indexOf(f) + '"]', d > 0 ? '-' + d : '🛡️', d > 0 ? '#ff7a6a' : '#7ec8ff'); }
+    if (f.hp <= 0 && !f.dead) {
+      f.dead = true; R.stats.kills++; sfx.kill();
+      if (has('zahn')) R.hp = Math.min(R.maxhp, R.hp + 3);
+    }
+    return d;
+  }
+  function hurtMe(amt) {
+    let d = amt; const ab = Math.min(C.block, d); C.block -= ab; d -= ab; R.hp -= d;
+    if (amt > 0) { floatAt('#me', d > 0 ? '-' + d : '🛡️', d > 0 ? '#ff4d6d' : '#7ec8ff'); if (d > 0) { sfx.hurt(); const fl = $('flash'); if (fl) { fl.classList.remove('on'); void fl.offsetWidth; fl.classList.add('on'); } hitFx('#me'); } else sfx.blk(); }
+    return d;
+  }
+
+  function playCard(i, ti) {
+    const c = C.hand[i], e = cardEff(c), d = CARDS[c.id];
+    if (e.c > C.energy) return;
+    C.energy -= e.c; C.sel = -1;
+    const tgt = C.foes[ti] && !C.foes[ti].dead ? C.foes[ti] : C.foes.find(f => !f.dead);
+    const all = C.foes.filter(f => !f.dead);
+    const targets = e.tg === 'all' ? all : (tgt ? [tgt] : []);
+    if (e.dmg || e.dmgBlock) {
+      sfx.atk();
+      targets.forEach(f => {
+        const hits = e.hits || 1;
+        for (let k = 0; k < hits; k++) {
+          const base = e.dmgBlock ? C.block : e.dmg;
+          hurtFoe(f, dmgCalc(base, e.dmgBlock ? 0 : C.str, C.weak, f.vuln));
+        }
+        hitFx('.foe[data-i="' + C.foes.indexOf(f) + '"]');
+      });
+    }
+    if (e.block) { C.block += e.block; sfx.blk(); floatAt('#me', '+' + e.block + ' 🛡️', '#7ec8ff'); }
+    targets.forEach(f => {
+      if (f.dead) return;
+      if (e.poison) f.poison += e.poison;
+      if (e.vuln) f.vuln += e.vuln;
+      if (e.weak) f.weak += e.weak;
+    });
+    if ((e.poison || e.vuln || e.weak) && !(e.dmg || e.dmgBlock)) sfx.buff();
+    if (e.heal) { R.hp = Math.min(R.maxhp, R.hp + e.heal); floatAt('#me', '+' + e.heal + ' ❤️', '#4cf0a0'); sfx.buff(); }
+    if (e.lose) { R.hp -= e.lose; floatAt('#me', '-' + e.lose, '#ff4d6d'); }
+    if (e.energy) C.energy += e.energy;
+    C.hand.splice(i, 1);
+    if (e.pw) {
+      const k = Object.keys(e.pw)[0], v = e.pw[k]; sfx.buff();
+      if (k === 'str') C.str += v; else if (k === 'thorns') C.thorns += v; else if (k === 'plating') C.plating += v; else if (k === 'draw') C.xdraw += v; else if (k === 'nrg') C.xnrg += v;
+      floatAt('#me', CARDS[c.id].n, '#c47cff');
+    } else if (e.exhaust) C.exh.push(c); else C.disc.push(c);
+    if (e.draw) drawCards(e.draw);
+    afterAction();
+  }
+  function afterAction() {
+    if (R.hp <= 0) { renderCombat(); return defeat(); }
+    if (C.foes.every(f => f.dead)) { C.over = true; renderCombat(); return wait(600).then(victory); }
+    renderCombat();
+  }
+
+  async function endTurn() {
+    busy = true; C.sel = -1;
+    C.disc.push(...C.hand); C.hand = []; renderCombat();
+    // Gift tickt zu Beginn des Gegnerzugs
+    for (const f of C.foes) {
+      if (f.dead) continue;
+      f.block = 0;
+      if (f.poison > 0) { hurtFoe(f, f.poison); f.poison--; }
+    }
+    renderCombat();
+    if (C.foes.every(f => f.dead)) { C.over = true; await wait(500); return victory(); }
+    await wait(450);
+    for (let i = 0; i < C.foes.length; i++) {
+      const f = C.foes[i]; if (f.dead) continue; const m = f.move;
+      const el = () => document.querySelector('.foe[data-i="' + i + '"]');
+      if (el()) el().classList.add('act'); await wait(320);
+      if (m.b) { f.block += m.b; }
+      if (m.str) f.str += m.str;
+      if (m.a) {
+        for (let k = 0; k < (m.h || 1); k++) {
+          const d = foeDmg(m.a, f.str, f.weak, C.vuln); hurtMe(d);
+          if (C.thorns) { hurtFoe(f, C.thorns); }
+          await wait(160);
+        }
+      }
+      if (m.weak) C.weak += m.weak;
+      if (m.vuln) C.vuln += m.vuln;
+      if (m.poison) { R.hp -= m.poison; floatAt('#me', '-' + m.poison + ' ☠️', '#8fff6a'); }
+      if (f.weak > 0) f.weak--; if (f.vuln > 0) f.vuln--;
+      renderCombat();
+      if (R.hp <= 0) return defeat();
+      if (C.foes.every(x => x.dead)) { C.over = true; await wait(500); return victory(); }
+      await wait(260);
+    }
+    C.foes.forEach(f => { if (!f.dead) nextMove(f); });
+    if (C.weak > 0) C.weak--; if (C.vuln > 0) C.vuln--;
+    C.block = 0;
+    startTurn(false);
+  }
+
+  // ---------- Sieg / Niederlage ----------
+  function victory() {
+    sfx.win(); R.stats.fights++;
+    const n = C.n, boss = n.type === 'boss', elite = n.type === 'elite';
+    if (elite) R.stats.elites++;
+    let gold = boss ? ri(70, 90) : elite ? ri(30, 45) : ri(14, 24);
+    if (has('muenze')) gold = Math.round(gold * 1.25);
+    R.gold += gold;
+    if (has('pflaster')) R.hp = Math.min(R.maxhp, R.hp + 6);
+    C = null;
+    showReward(n, gold);
+  }
+  function rewardCards(n) {
+    const H = R.hero, pool = Object.keys(CARDS).filter(id => { const d = CARDS[id]; return !d.curse && d.r !== 's' && (!d.h || d.h === H); });
+    const out = []; const elite = n.type === 'elite' || n.type === 'boss';
+    while (out.length < 3) {
+      const r = Math.random(); const rar = r < (elite ? 0.3 : 0.1) ? 'r' : r < (elite ? 0.75 : 0.5) ? 'u' : 'c';
+      const cand = pool.filter(id => CARDS[id].r === rar && !out.includes(id));
+      if (cand.length) out.push(pick(cand));
+    }
+    return out.map(id => mk(id));
+  }
+  function randomRelic() { const pool = Object.keys(RELICS).filter(r => !has(r)); return pool.length ? pick(pool) : null; }
+  function gainRelic(id) {
+    R.relics.push(id);
+    if (id === 'titan') { R.maxhp += 12; R.hp += 12; }
+    if (id === 'muenze') R.gold += 40;
+  }
+  function showReward(n, gold) {
+    const boss = n.type === 'boss';
+    let relic = (n.type === 'elite' || boss) ? randomRelic() : null;
+    const cards = rewardCards(n);
+    const app = $('app');
+    app.style.removeProperty('--cw');
+    app.innerHTML = '<div class="scr">' + topBar() + '<div class="scroll"><div style="text-align:center;margin:8px 0"><h2>' + (boss ? '👑 Boss besiegt!' : 'Sieg!') + '</h2><div class="stat">🪙 +' + gold + '</div></div>' +
+      (relic ? '<button class="opt" id="rel"><span class="ico">' + RELICS[relic].ico + '</span><div><b>Relikt: ' + RELICS[relic].n + '</b><span>' + RELICS[relic].d + '</span></div></button>' : '') +
+      '<div style="text-align:center;margin:6px 0;font-weight:800">Wähle eine Karte</div><div class="grid" id="rc" style="--cw:104px"></div></div><button class="btn sec" id="skip" style="margin-top:6px">Überspringen</button></div>';
+    wireTop();
+    const rc = $('rc'); cards.forEach(c => { const w = document.createElement('div'); w.innerHTML = cardHTML(c, 'big'); const el = w.firstChild; el.onclick = () => { sfx.gold(); R.deck.push(c); rewardDone(n); }; rc.appendChild(el); });
+    const rl = $('rel'); if (rl) rl.onclick = () => { gainRelic(relic); sfx.buff(); rl.remove(); topRefresh(); };
+    $('skip').onclick = () => rewardDone(n);
+  }
+  function topRefresh() { const t = document.querySelector('.top'); if (t) { const tmp = document.createElement('div'); tmp.innerHTML = topBar(); t.replaceWith(tmp.firstChild); wireTop(); } }
+  function rewardDone(n) {
+    const node = nodeById(n.id);
+    if (n.type === 'boss') { zoneDone(); return; }
+    finishNode(node);
+  }
+  function zoneDone() {
+    if (R.zone >= ZONES.length - 1) { R.over = true; meta.wins++; meta.bestZone = 3; saveMeta(); saveRun(); return endScreen(true); }
+    R.zone++; meta.bestZone = Math.max(meta.bestZone, R.zone); saveMeta();
+    const heal = Math.round(R.maxhp * 0.4); R.hp = Math.min(R.maxhp, R.hp + heal);
+    genMap(); theme(R.zone); saveRun();
+    banner('Zone ' + (R.zone + 1) + ': ' + ZONES[R.zone].n, '#fff'); showMap();
+  }
+  function defeat() {
+    C.over = true; sfx.lose(); R.over = true; saveRun();
+    meta.bestZone = Math.max(meta.bestZone, R.zone); saveMeta();
+    wait(900).then(() => endScreen(false));
+  }
+  function endScreen(win) {
+    const H = HEROES[R.hero], app = $('app'); app.style.removeProperty('--cw');
+    app.innerHTML = '<div class="scr" style="align-items:center;justify-content:center;text-align:center;gap:10px"><div style="font-size:70px">' + (win ? '🏆' : '💀') + '</div><h1>' + (win ? 'SIEG!' : 'Gefallen') + '</h1>' +
+      '<div class="mut">' + (win ? 'Der Nullkönig ist gestürzt. Das Aether ist wieder im Gleichgewicht.' : 'In Zone ' + (R.zone + 1) + ' (' + ZONES[R.zone].n + ') ist deine Reise zu Ende.') + '</div>' +
+      '<div><span class="stat">' + H.av + ' ' + H.n + '</span><span class="stat">⚔️ ' + R.stats.fights + ' Kämpfe</span><span class="stat">💀 ' + R.stats.elites + ' Elite</span><span class="stat">🃏 ' + R.deck.length + ' Karten</span><span class="stat">🏺 ' + R.relics.length + ' Relikte</span><span class="stat">🏆 ' + meta.wins + ' Siege</span></div>' +
+      '<button class="btn" id="again" style="min-width:220px">Neuer Run</button><a class="btn sec" href="index.html" style="min-width:220px;text-decoration:none;color:#fff">← Spielemenü</a></div>';
+    $('again').onclick = () => { R = null; saveRun(); showMenu(); };
+    if (win) sfx.win();
+  }
+
+  // ---------- Rast / Shop / Event / Schatz ----------
+  function showRest(n) {
+    const app = $('app'); app.style.removeProperty('--cw');
+    const heal = Math.round(R.maxhp * 0.3);
+    app.innerHTML = '<div class="scr">' + topBar() + '<div style="text-align:center;font-size:56px;margin-top:10px">🏕️</div><h2 style="text-align:center;margin-bottom:12px">Lagerfeuer</h2>' +
+      '<button class="opt" id="rh"><span class="ico">💤</span><div><b>Rasten</b><span>Heile ' + heal + ' LP.</span></div></button>' +
+      '<button class="opt" id="rs"><span class="ico">🔨</span><div><b>Schmieden</b><span>Verbessere eine Karte dauerhaft.</span></div></button></div>';
+    wireTop();
+    $('rh').onclick = () => { sfx.buff(); R.hp = Math.min(R.maxhp, R.hp + heal); finishNode(n); };
+    $('rs').onclick = () => {
+      const list = R.deck.filter(c => !c.up && CARDS[c.id].u);
+      if (!list.length) { toastMsg('Alle Karten sind schon verbessert.'); return; }
+      showCards('Welche Karte verbessern?', list, c => { c.up = true; sfx.win(); finishNode(n); });
+    };
+  }
+  function showTreasure(n) {
+    const id = randomRelic(), app = $('app'); app.style.removeProperty('--cw');
+    const gold = ri(40, 80);
+    app.innerHTML = '<div class="scr">' + topBar() + '<div style="text-align:center;font-size:56px;margin-top:10px">🎁</div><h2 style="text-align:center;margin-bottom:12px">Schatzkammer</h2>' +
+      (id ? '<button class="opt" id="tr"><span class="ico">' + RELICS[id].ico + '</span><div><b>' + RELICS[id].n + '</b><span>' + RELICS[id].d + '</span></div></button>' : '') +
+      '<button class="opt" id="tg"><span class="ico">🪙</span><div><b>' + gold + ' Gold</b><span>Nimm lieber das Gold.</span></div></button></div>';
+    wireTop();
+    const t = $('tr'); if (t) t.onclick = () => { gainRelic(id); sfx.win(); finishNode(n); };
+    $('tg').onclick = () => { R.gold += gold; sfx.gold(); finishNode(n); };
+  }
+  function showShop(n) {
+    const app = $('app'); app.style.removeProperty('--cw');
+    const stock = { cards: rewardCards({ type: 'elite' }).concat(rewardCards({ type: 'fight' }).slice(0, 2)).slice(0, 5), relic: randomRelic() };
+    stock.cards.forEach(c => { c.price = { c: 50, u: 80, r: 130 }[CARDS[c.id].r] + ri(-5, 8); });
+    const relicPrice = 150; let sold = {}, relicSold = false;
+    function draw() {
+      app.innerHTML = '<div class="scr">' + topBar() + '<div style="text-align:center;margin:2px 0 6px"><h2>🛒 Händler</h2></div><div class="scroll"><div class="grid" id="sg" style="--cw:90px"></div>' +
+        (stock.relic && !relicSold ? '<button class="opt" id="sr"><span class="ico">' + RELICS[stock.relic].ico + '</span><div><b>' + RELICS[stock.relic].n + ' · <span style="color:var(--gold)">' + relicPrice + ' 🪙</span></b><span>' + RELICS[stock.relic].d + '</span></div></button>' : '') +
+        '<button class="opt" id="sx"><span class="ico">🗑️</span><div><b>Karte entfernen · <span style="color:var(--gold)">' + R.removeCost + ' 🪙</span></b><span>Entferne eine Karte aus deinem Deck.</span></div></button></div><button class="btn" id="leave" style="margin-top:6px">Weiter</button></div>';
+      wireTop();
+      const g = $('sg');
+      stock.cards.forEach((c, i) => {
+        if (sold[i]) return; const w = document.createElement('div'); w.className = 'shopc';
+        w.innerHTML = cardHTML(c) + '<div class="price' + (R.gold < c.price ? ' no' : '') + '">' + c.price + ' 🪙</div>';
+        w.firstChild.onclick = () => { if (R.gold < c.price) { toastMsg('Zu wenig Gold'); sfx.hurt(); return; } R.gold -= c.price; R.deck.push(mk(c.id)); sold[i] = true; sfx.gold(); draw(); };
+        g.appendChild(w);
+      });
+      const sr = $('sr'); if (sr) sr.onclick = () => { if (R.gold < relicPrice) { toastMsg('Zu wenig Gold'); return; } R.gold -= relicPrice; gainRelic(stock.relic); relicSold = true; sfx.gold(); draw(); };
+      $('sx').onclick = () => { if (R.gold < R.removeCost) { toastMsg('Zu wenig Gold'); return; }
+        showCards('Welche Karte entfernen?', R.deck, (c, i) => { R.gold -= R.removeCost; R.removeCost += 25; R.deck.splice(i, 1); sfx.gold(); draw(); }); };
+      $('leave').onclick = () => finishNode(n);
+    }
+    draw();
+  }
+  const EVENTS = [
+    { t: '🚀 Gestrandetes Schiff', d: 'Ein altes Forschungsschiff treibt im Staub. Die Lichter blinken noch.', o: [
+      { l: 'Plündern', s: 'Verliere 8 LP, finde ein Relikt.', fn: () => { R.hp = Math.max(1, R.hp - 8); const r = randomRelic(); if (r) gainRelic(r); return r ? RELICS[r].ico + ' ' + RELICS[r].n + ' gefunden!' : 'Nichts mehr zu finden.'; } },
+      { l: 'Reparieren', s: 'Heile 14 LP.', fn: () => { R.hp = Math.min(R.maxhp, R.hp + 14); return 'Das Bordsystem versorgt dich.'; } },
+      { l: 'Weitergehen', s: 'Nichts passiert.', fn: () => 'Du ziehst weiter.' } ] },
+    { t: '🔮 Orakel der Sterne', d: 'Eine schwebende Gestalt bietet dir Wissen gegen Gold an.', o: [
+      { l: 'Opfern: 40 Gold', s: 'Eine zufällige Karte wird verbessert.', fn: () => { if (R.gold < 40) return 'Du hast zu wenig Gold.'; const l = R.deck.filter(c => !c.up && CARDS[c.id].u); if (!l.length) return 'Alles schon verbessert.'; R.gold -= 40; const c = pick(l); c.up = true; return CARDS[c.id].n + ' wurde verbessert!'; } },
+      { l: 'Hören', s: '+5 maximale LP.', fn: () => { R.maxhp += 5; R.hp += 5; return 'Die Sterne flüstern. Du fühlst dich robuster.'; } },
+      { l: 'Ablehnen', s: 'Nichts passiert.', fn: () => 'Das Orakel verblasst.' } ] },
+    { t: '⛩️ Schrein des Vergessens', d: 'Ein stiller Schrein kann Lasten von dir nehmen, aber es hat seinen Preis.', o: [
+      { l: 'Karte entfernen', s: 'Verliere 10 LP, entferne eine Karte.', fn: null, act: true },
+      { l: 'Beten', s: 'Heile 8 LP.', fn: () => { R.hp = Math.min(R.maxhp, R.hp + 8); return 'Ruhe kehrt ein.'; } },
+      { l: 'Gehen', s: 'Nichts passiert.', fn: () => 'Du gehst weiter.' } ] },
+    { t: '🕳️ Dunkler Handel', d: 'Ein Schatten bietet dir Gold. Der Haken ist ein Riss im Deck.', o: [
+      { l: 'Annehmen', s: '+100 Gold, bekomme „Leerenriss“.', fn: () => { R.gold += 100; R.deck.push(mk('riss')); return '+100 Gold, aber das Deck wurde verdorben.'; } },
+      { l: 'Ablehnen', s: 'Nichts passiert.', fn: () => 'Der Schatten zerfließt.' } ] }
+  ];
+  function showEvent(n) {
+    const ev = pick(EVENTS), app = $('app'); app.style.removeProperty('--cw');
+    app.innerHTML = '<div class="scr">' + topBar() + '<div class="panel" style="margin-top:8px"><h2>' + ev.t + '</h2><p class="mut" style="margin-top:6px;font-size:14px;line-height:1.45">' + ev.d + '</p></div><div id="eo"></div></div>';
+    wireTop();
+    const eo = $('eo');
+    ev.o.forEach(o => {
+      const b = document.createElement('button'); b.className = 'opt'; b.innerHTML = '<div><b>' + o.l + '</b><span>' + o.s + '</span></div>';
+      b.onclick = () => {
+        sfx.tap();
+        if (o.act) { showCards('Welche Karte entfernen?', R.deck, (c, i) => { R.hp = Math.max(1, R.hp - 10); R.deck.splice(i, 1); finishNode(n); }); return; }
+        const msg = o.fn();
+        app.innerHTML = '<div class="scr">' + topBar() + '<div class="panel" style="margin-top:8px"><h2>' + ev.t + '</h2><p style="margin-top:8px;font-size:15px;line-height:1.45">' + msg + '</p></div><button class="btn" id="cont">Weiter</button></div>';
+        wireTop(); $('cont').onclick = () => finishNode(n);
+      };
+      eo.appendChild(b);
+    });
+  }
+
+  // ---------- Menü ----------
+  function showMenu() {
+    theme(0); const app = $('app'); app.style.removeProperty('--cw');
+    const saved = loadRun();
+    app.innerHTML = '<a class="back" href="index.html" aria-label="Zurück">←</a><div class="scr menu"><div style="font-size:60px;filter:drop-shadow(0 0 20px #8f7bff)">🌌</div><h1>Aether Deck</h1>' +
+      '<div class="mut" style="font-size:13px;max-width:320px;line-height:1.45">Baue dein Deck, durchquere drei zerbrochene Welten und stürze den Nullkönig.</div>' +
+      (saved ? '<button class="btn" id="resume" style="min-width:240px">▶ Run fortsetzen (Zone ' + (saved.zone + 1) + ' · ' + HEROES[saved.hero].av + ')</button>' : '') +
+      '<div style="font-weight:800;margin-top:4px">' + (saved ? 'Oder neuer Run mit:' : 'Wähle deine Heldin / deinen Helden') + '</div>' +
+      '<div class="heroes">' + Object.values(HEROES).map(H => '<button class="hero" data-h="' + H.id + '" style="--c:' + H.c + '"><div class="av">' + H.av + '</div><b>' + H.n + '</b><span>' + H.d + '</span><span>❤️ ' + H.hp + '</span></button>').join('') + '</div>' +
+      '<div class="mut" style="font-size:12px;line-height:1.5">Tippe eine Karte an, dann einen Gegner (oder nochmal die Karte).<br>🏆 ' + meta.wins + ' Siege · ' + meta.runs + ' Runs</div></div>';
+    document.querySelectorAll('.hero').forEach(b => b.onclick = () => { sfx.tap(); newRun(b.dataset.h); });
+    const r = $('resume'); if (r) r.onclick = () => { R = saved; sfx.tap(); showMap(); };
+  }
+
+  addEventListener('resize', () => { if (C && !C.over) renderCombat(); });
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  showMenu();
+
+  window.__DK = { get R() { return R; }, get C() { return C; }, newRun, setFast: v => { FAST = v; }, playCard, endTurn, cardEff, enterNode, nodeById, reachable, reward: n => n, get busy() { return busy; }, showMap, mk, CARDS };
+})();
+</script>
+</body>
+</html>

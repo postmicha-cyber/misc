@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sprint Panic">
+<meta name="theme-color" content="#0b1220">
+<title>Sprint Panic</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+  :root {
+    --bg: #0b1220; --card: #151f36; --card2: #1b2847; --line: #2a3a63; --txt: #eaf1ff; --mut: #8da2c8;
+    --fe: #ff6bb5; --be: #4da6ff; --qa: #5cff9d; --warn: #ffb340; --bad: #ff5468; --good: #4cf0a0; --acc: #7c8cff;
+  }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body {
+    position: fixed; inset: 0; height: 100dvh; color: var(--txt);
+    background: radial-gradient(circle at 50% 0%, #1a2748 0%, var(--bg) 60%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  button { font-family: inherit; color: inherit; cursor: pointer; border: 0; }
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column;
+    padding: calc(10px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
+  .screen.on { display: flex; }
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding: 2px 0 8px; }
+  h1 { font-size: 30px; font-weight: 900; letter-spacing: .5px; }
+  h2 { font-size: 20px; font-weight: 900; }
+  .mut { color: var(--mut); }
+  .big { padding: 15px 22px; border-radius: 16px; font-size: 17px; font-weight: 900;
+    background: linear-gradient(135deg, #6c7bff, #9a6bff); box-shadow: 0 6px 24px rgba(124,140,255,.45); }
+  .big:active { transform: scale(.97); }
+  .big.sec { background: var(--card2); box-shadow: none; border: 1px solid var(--line); }
+  .big[disabled] { opacity: .45; }
+  .back { position: absolute; top: calc(8px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left));
+    width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,.08); font-size: 20px;
+    display: grid; place-items: center; text-decoration: none; color: var(--txt); z-index: 5; }
+
+  /* Chips */
+  .chip { font-size: 10px; font-weight: 900; padding: 2px 6px; border-radius: 6px; letter-spacing: .4px; color: #0b1220; }
+  .chip.FE { background: var(--fe); } .chip.BE { background: var(--be); } .chip.QA { background: var(--qa); }
+  .chip.BUG { background: var(--bad); color: #fff; }
+
+  /* Menü */
+  #menu { align-items: center; justify-content: center; text-align: center; gap: 14px; }
+  #menu .logo { font-size: 64px; filter: drop-shadow(0 0 18px rgba(255,120,80,.6)); }
+  #menu .how { text-align: left; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 16px;
+    padding: 12px 14px; font-size: 13px; line-height: 1.5; max-width: 360px; }
+  #menu .how b { color: #fff; }
+
+  /* HUD */
+  .hud { display: flex; gap: 6px; align-items: stretch; padding-left: 0; }
+  .hud .box { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 5px 8px; min-width: 0; }
+  .hud .lbl { font-size: 9px; font-weight: 800; letter-spacing: 1px; color: var(--mut); text-transform: uppercase; }
+  .hud .val { font-size: 15px; font-weight: 900; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .meter { height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; margin-top: 3px; }
+  .meter i { display: block; height: 100%; width: 50%; border-radius: 3px; transition: width .25s, background .3s; }
+  .hud .menu-btn { flex: 0 0 38px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); font-size: 16px; }
+  .hud.top { margin-left: 0; }
+  #sprint .hud:first-child { margin-left: 0; }
+
+  /* Planung */
+  .plan-info { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin: 8px 0; }
+  .plan-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: 800; }
+  .cap { height: 10px; border-radius: 5px; background: rgba(255,255,255,.1); margin-top: 6px; position: relative; overflow: hidden; }
+  .cap i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; transition: width .2s, background .2s; }
+  .cap em { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #fff; opacity: .8; }
+  .hint { font-size: 12px; color: var(--mut); margin-top: 6px; line-height: 1.4; }
+  .tk { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--c, var(--line)); border-radius: 12px;
+    padding: 8px 10px; margin-bottom: 7px; position: relative; transition: transform .12s, background .2s, opacity .3s; }
+  .tk.FE { --c: var(--fe); } .tk.BE { --c: var(--be); } .tk.QA { --c: var(--qa); }
+  .tk .t1 { display: flex; gap: 7px; align-items: center; }
+  .tk .ttl { flex: 1; font-size: 14px; font-weight: 800; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tk .val { font-size: 12px; font-weight: 900; color: #b9c8ff; white-space: nowrap; }
+  .tk .t2 { display: flex; gap: 8px; align-items: center; margin-top: 5px; font-size: 11px; font-weight: 800; color: var(--mut); }
+  .tk .t2 .sp { flex: 1; }
+  .plan .tk { cursor: pointer; }
+  .plan .tk.in { background: #1e2e57; border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc) inset; }
+  .plan .tk .goal { font-size: 18px; opacity: .35; padding: 0 2px; background: none; }
+  .plan .tk.in .goal { opacity: .7; }
+  .plan .tk.in .goal.on { opacity: 1; filter: drop-shadow(0 0 6px #ffcf4d); }
+  .tk.carry::after { content: 'übrig'; position: absolute; right: 8px; top: -7px; font-size: 9px; font-weight: 900; background: var(--warn); color: #000; padding: 1px 6px; border-radius: 6px; }
+
+  /* Sprint-Board */
+  .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: 6px; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4da6ff, #7c8cff); border-radius: 4px; }
+  #board .tk.sel-ok { box-shadow: 0 0 0 2px var(--good); }
+  #board .tk.sel-bad { opacity: .78; }
+  #board .tk.cardsel { box-shadow: 0 0 0 2px #fff; }
+  #board .tk.done { opacity: .45; border-left-color: var(--good); }
+  #board .tk.done .bar i { background: var(--good); }
+  #board .tk.urgent { border-color: var(--bad); animation: urg 1s infinite; }
+  @keyframes urg { 50% { box-shadow: 0 0 14px rgba(255,84,104,.7); } }
+  #board .tk .devs { font-size: 15px; letter-spacing: 1px; }
+  #board .tk .flag { font-size: 14px; }
+  #board .tk .dl { color: var(--bad); }
+  .tk.pop { animation: pop .5s; }
+  @keyframes pop { 30% { transform: scale(1.04); background: #1d4a3a; } }
+  .sec-h { font-size: 10px; font-weight: 900; letter-spacing: 1.4px; color: var(--mut); text-transform: uppercase; margin: 8px 2px 5px; }
+
+  .dock { display: flex; gap: 6px; margin: 6px 0 4px; }
+  .dev { flex: 1; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px 4px; text-align: center; position: relative; transition: transform .12s; }
+  .dev .av { font-size: 26px; line-height: 30px; }
+  .dev .nm { font-size: 11px; font-weight: 900; }
+  .dev .sk { display: flex; justify-content: center; gap: 2px; margin: 2px 0; min-height: 15px; }
+  .dev .st { font-size: 10px; color: var(--mut); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
+  .dev.sel { border-color: #fff; box-shadow: 0 0 14px rgba(255,255,255,.5); transform: translateY(-4px); }
+  .dev.idle { border-color: var(--warn); animation: idle 1s infinite; }
+  .dev.idle .st { color: var(--warn); }
+  .dev.out { opacity: .5; filter: grayscale(1); }
+  @keyframes idle { 50% { box-shadow: 0 0 12px rgba(255,179,64,.65); } }
+  .ctrl { display: flex; gap: 8px; }
+  .ctrl button { flex: 1; padding: 11px 8px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); font-size: 13px; font-weight: 900; }
+  .ctrl button.hot { border-color: #ff8a3d; color: #ffb27a; }
+  .ctrl button.on { background: #5a2a14; }
+  .ctrl button[disabled] { opacity: .4; }
+  .ctrl button:active { transform: scale(.96); }
+
+  /* Overlays */
+  .ov { position: absolute; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; padding: 20px;
+    background: rgba(5,9,18,.78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .ov.on { display: flex; }
+  .modal { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 18px 16px;
+    box-shadow: 0 10px 50px rgba(0,0,0,.6); animation: mp .25s; }
+  @keyframes mp { from { transform: scale(.9); opacity: 0; } }
+  .modal h3 { font-size: 19px; font-weight: 900; margin-bottom: 6px; }
+  .modal p { font-size: 14px; line-height: 1.45; color: #cdd8f5; margin-bottom: 12px; }
+  .modal .btns { display: flex; flex-direction: column; gap: 8px; }
+  .modal .btns button { padding: 13px 12px; border-radius: 13px; font-size: 15px; font-weight: 800; background: var(--card2); border: 1px solid var(--line); text-align: left; }
+  .modal .btns button small { display: block; font-size: 11px; font-weight: 600; color: var(--mut); margin-top: 2px; }
+  .modal .btns button.pri { background: linear-gradient(135deg, #3a56c9, #6b4fd8); border: 0; }
+  .modal .btns button:active { transform: scale(.98); }
+  #toast { position: absolute; left: 50%; top: calc(112px + env(safe-area-inset-top)); transform: translate(-50%, -20px); opacity: 0; z-index: 25;
+    background: rgba(20,30,58,.96); border: 1px solid var(--acc); border-radius: 14px; padding: 9px 14px; font-size: 13px; font-weight: 800;
+    max-width: 92%; text-align: center; pointer-events: none; transition: opacity .25s, transform .25s; }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); }
+  #toast.bad { border-color: var(--bad); } #toast.good { border-color: var(--good); }
+  #fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
+
+  /* Retro / Ende */
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 20px; font-weight: 900; }
+  .stat span { font-size: 10px; letter-spacing: 1px; font-weight: 800; color: var(--mut); text-transform: uppercase; }
+  .up { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 11px 12px; margin-bottom: 8px; }
+  .up .ico { font-size: 28px; }
+  .up b { font-size: 15px; display: block; }
+  .up span { font-size: 12px; color: var(--mut); line-height: 1.35; display: block; margin-top: 1px; }
+  .up:active { transform: scale(.98); border-color: var(--acc); }
+  .stars { font-size: 38px; letter-spacing: 6px; text-align: center; margin: 8px 0; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+  .tag { font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 9px; background: var(--card2); border: 1px solid var(--line); }
+</style>
+</head>
+<body>
+
+<!-- MENÜ -->
+<section class="screen on" id="menu">
+  <a class="back" href="index.html" aria-label="Zurück zum Spielemenü">←</a>
+  <div class="logo">🔥</div>
+  <h1>Sprint Panic</h1>
+  <div class="mut" style="font-size:14px;max-width:320px">Sechs Sprints bis zum Release. Du bist Scrum Master und Product Owner in einem.</div>
+  <div class="how">
+    <b>1 · Planning:</b> Wähle Tickets, ohne dich zu übernehmen. Setze 🎯 das Sprintziel.<br>
+    <b>2 · Sprint:</b> Tippe ein Teammitglied, dann ein Ticket. Passende Skills arbeiten schneller. Freie Leute sind verschenkte Zeit!<br>
+    <b>3 · Störungen:</b> Bugs, Wunsch-Tickets, Krankheit, Meetings. Entscheide schnell.<br>
+    <b>4 · Retro:</b> Wähle nach jedem Sprint eine Verbesserung fürs Team.
+  </div>
+  <button class="big" id="startBtn">Release-Zug starten</button>
+  <div class="mut" id="bestLine" style="font-size:13px"></div>
+</section>
+
+<!-- PLANNING -->
+<section class="screen plan" id="plan">
+  <div class="hud">
+    <div class="box"><div class="lbl">Sprint Planning</div><div class="val" id="pSprint">Sprint 1/6</div></div>
+    <div class="box"><div class="lbl">Vertrauen</div><div class="meter"><i id="pTrust"></i></div></div>
+    <div class="box"><div class="lbl">Teamstimmung</div><div class="meter"><i id="pMorale"></i></div></div>
+  </div>
+  <div class="plan-info">
+    <div class="plan-row"><span id="pCommit">Zusage 0 Pkt</span><span id="pCap" class="mut">Kapazität ~25 Pkt</span></div>
+    <div class="cap"><i id="pBar"></i><em id="pMark"></em></div>
+    <div class="hint" id="pHint">Tippe Tickets an, um sie in den Sprint zu nehmen. Tippe dann auf 🎯, um dein Sprintziel zu setzen. Lass Platz für Störungen!</div>
+  </div>
+  <div class="scroll" id="pList"></div>
+  <button class="big" id="goBtn" style="margin-top:8px">Sprint starten</button>
+</section>
+
+<!-- SPRINT -->
+<section class="screen" id="sprint">
+  <div class="hud">
+    <div class="box"><div class="lbl" id="sTitle">Sprint 1/6 · Tag 1</div><div class="meter"><i id="sDay" style="background:#7c8cff"></i></div></div>
+    <div class="box"><div class="lbl">Vertrauen</div><div class="meter"><i id="sTrust"></i></div></div>
+    <div class="box"><div class="lbl">Stimmung</div><div class="meter"><i id="sMorale"></i></div></div>
+    <div class="box" style="flex:0 0 58px"><div class="lbl">Wert</div><div class="val" id="sVal">💎0</div></div>
+    <button class="menu-btn" id="pauseBtn" aria-label="Pause">⏸</button>
+  </div>
+  <div class="scroll" id="board"></div>
+  <div class="dock" id="dock"></div>
+  <div class="ctrl">
+    <button id="otBtn" class="hot">🔥 Überstunden</button>
+    <button id="spdBtn">⏩ 1×</button>
+  </div>
+</section>
+
+<!-- RETRO -->
+<section class="screen" id="retro">
+  <div class="scroll" id="retroBody"></div>
+</section>
+
+<!-- ENDE -->
+<section class="screen" id="end">
+  <div class="scroll" id="endBody"></div>
+</section>
+
+<div class="ov" id="modalOv"><div class="modal" id="modal"></div></div>
+<div class="ov" id="pauseOv"><div class="modal">
+  <h3>⏸ Pause</h3><p>Das Team wartet geduldig. Wie jeden Montag.</p>
+  <div class="btns">
+    <button class="pri" id="resumeBtn">Weiter</button>
+    <button id="restartBtn">Neu anfangen</button>
+    <button id="leaveBtn">← Zum Spielemenü</button>
+  </div>
+</div></div>
+<div id="toast"></div>
+<canvas id="fx"></canvas>
+
+<script>
+(() => {
+  'use strict';
+  const CFG = { sprints: 6, days: 10, dayLen: 4, baseRate: 0.7, mismatch: 0.4, swarm: 0.7, startTrust: 60, startMorale: 80 };
+  const $ = id => document.getElementById(id);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const ri = (a, b) => Math.floor(rnd(a, b + 1));
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const SK = { FE: 'Frontend', BE: 'Backend', QA: 'QA' };
+
+  // ---------- Speicher ----------
+  const KEY = 'sprintPanic.v1';
+  const save = { best: 0, bestStars: 0, muted: false };
+  try { Object.assign(save, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} };
+
+  // ---------- Audio ----------
+  let AC = null;
+  function tone(f1, f2, dur, type = 'sine', vol = 0.1, delay = 0) {
+    if (save.muted) return;
+    try {
+      if (!AC) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; AC = new A(); }
+      if (AC.state === 'suspended') AC.resume();
+      const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+      o.type = type; o.frequency.setValueAtTime(f1, t);
+      if (f2 !== f1) o.frequency.exponentialRampToValueAtTime(Math.max(1, f2), t + dur);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) {}
+  }
+  const sfx = {
+    tap() { tone(600, 700, 0.05, 'triangle', 0.07); },
+    assign() { tone(520, 780, 0.09, 'triangle', 0.1); },
+    done() { [523, 659, 784].forEach((f, i) => tone(f, f, 0.12, 'triangle', 0.11, i * 0.07)); },
+    alarm() { tone(300, 200, 0.2, 'square', 0.08); tone(300, 200, 0.2, 'square', 0.08, 0.25); },
+    bad() { tone(200, 90, 0.3, 'sawtooth', 0.12); },
+    good() { [660, 880].forEach((f, i) => tone(f, f, 0.12, 'triangle', 0.1, i * 0.08)); },
+    win() { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, f, 0.18, 'triangle', 0.12, i * 0.1)); },
+    lose() { tone(400, 60, 1.0, 'sawtooth', 0.15); }
+  };
+
+  // ---------- Inhalte ----------
+  const TITLES = {
+    FE: ['Dark Mode', 'Dashboard-Widgets', 'Mobile Navigation', 'Formular-Validierung', 'Onboarding-Screens', 'Barrierefreiheit', 'Filter-Leiste', 'Tabellen-Sortierung', 'Willkommensseite', 'Benutzerprofil'],
+    BE: ['Login mit SSO', 'PDF-Export', 'Suche beschleunigen', 'API-Rate-Limit', 'Datenbank-Migration', 'Benachrichtigungen', 'Rechtekonzept', 'Import-Schnittstelle', 'Audit-Log', 'Caching-Schicht'],
+    QA: ['Regressionstests', 'Lasttest', 'Testautomatisierung', 'Security-Check', 'Abnahmetest', 'Testdaten aufbauen']
+  };
+  const BUGS = ['PROD: Login hängt', 'PROD: Export leer', 'PROD: Zahlung doppelt', 'PROD: Seite lädt nicht', 'PROD: Daten fehlen'];
+  const WISHES = ['CEO-Wunsch: Logo größer', 'Kunde: Report-Export', 'Vertrieb: Demo-Feature', 'Neue Regulatorik: Audit-Trail', 'Marketing: Landingpage', 'Support: Admin-Tool'];
+
+  const DEVS0 = [
+    { id: 'anna', name: 'Anna', emo: '👩‍🎨', skills: ['FE'], rate: 1 },
+    { id: 'ben', name: 'Ben', emo: '👨‍💻', skills: ['BE'], rate: 1 },
+    { id: 'cem', name: 'Cem', emo: '🕵️', skills: ['QA'], rate: 1 },
+    { id: 'dana', name: 'Dana', emo: '🧑‍🔧', skills: ['FE', 'BE'], rate: 0.85 }
+  ];
+  const ELI = { id: 'eli', name: 'Eli', emo: '🧑‍🚀', skills: ['FE', 'BE', 'QA'], rate: 0.75 };
+
+  const UPS = [
+    { id: 'pair', ico: '🤝', name: 'Pair Programming', desc: 'Zwei Leute am selben Ticket arbeiten ohne Abzug zusammen.' },
+    { id: 'self', ico: '🤖', name: 'Selbstorganisation', desc: 'Freie Teammitglieder greifen sich selbst ein passendes Ticket. Ein selbstorganisiertes Team eben!' },
+    { id: 'tests', ico: '🧪', name: 'Testautomatisierung', desc: 'Produktions-Bugs treten nur halb so oft auf.' },
+    { id: 'train', ico: '📚', name: 'Cross-Training', desc: 'Fachfremde Arbeit läuft mit 60 % statt 40 % Tempo.' },
+    { id: 'po', ico: '🧑‍💼', name: 'Starker Product Owner', desc: 'Ablehnen kostet halb so viel Vertrauen, gelieferter Wert bringt mehr Vertrauen.' },
+    { id: 'buffer', ico: '🛋️', name: 'Puffer & Fokuszeit', desc: 'Meetings und Ausfälle wirken nur halb so stark.' },
+    { id: 'dod', ico: '📋', name: 'Definition of Done', desc: 'Keine Aufwands-Explosionen mehr mitten im Sprint.' },
+    { id: 'pace', ico: '🌿', name: 'Nachhaltiges Tempo', desc: 'Überstunden kosten nur halb so viel Stimmung.' },
+    { id: 'hire', ico: '🧑‍🚀', name: 'Neue Kollegin: Eli', desc: 'Eli (Full-Stack, etwas langsamer) verstärkt das Team.' }
+  ];
+
+  // ---------- Zustand ----------
+  let S = null, tid = 0;
+  const has = id => S.up.has(id);
+
+  function newRun() {
+    S = {
+      phase: 'plan', sprint: 1, day: 0, devs: DEVS0.map(d => ({ ...d, task: null, out: 0 })),
+      backlog: [], sprintT: [], commit: new Set(), goalId: null, up: new Set(), trust: CFG.startTrust, morale: CFG.startMorale,
+      totalVal: 0, speed: 1, paused: false, modal: false, evq: [], meetUntil: 0, otUntil: 0, otUsed: false,
+      sel: null, selCard: null, carry: [], pinned: [], log: { bugsFixed: 0, bugsFailed: 0, accepted: 0, rejected: 0 }, history: []
+    };
+    genBacklog();
+  }
+
+  function mkTicket(skill, pts) {
+    const base = { 1: 1, 2: 2, 3: 3, 5: 4, 8: 5 }[pts];
+    const t = { id: ++tid, title: pick(TITLES[skill]), skill, pts, left: pts, val: clamp(base + ri(-1, 1), 1, 5), done: false, goal: false, bug: false, urgent: false, dl: 0, carry: false };
+    return t;
+  }
+  function genBacklog() {
+    const list = [];
+    S.carry.forEach(t => list.push(t));
+    S.pinned.forEach(t => list.push(t));
+    const target = 10 + Math.min(3, S.sprint);
+    const used = new Set(list.map(t => t.title));
+    while (list.length < target) {
+      const skill = pick(['FE', 'FE', 'BE', 'BE', 'BE', 'QA']);
+      const pts = pick([1, 1, 2, 2, 2, 3, 3, 3, 5, 5, 8]);
+      const t = mkTicket(skill, pts);
+      if (used.has(t.title)) continue;
+      used.add(t.title); list.push(t);
+    }
+    S.backlog = list; S.carry = []; S.pinned = []; S.commit = new Set(); S.goalId = null;
+  }
+
+  // ---------- Hilfsfunktionen ----------
+  const moraleMul = () => 0.75 + 0.35 * (S.morale / 100);
+  const forecast = () => Math.round(S.devs.reduce((a, d) => a + d.rate, 0) * CFG.days * CFG.baseRate * moraleMul() * 0.9);
+  const tById = id => S.sprintT.find(t => t.id === id);
+  const skillMul = (d, t) => d.skills.includes(t.skill) ? 1 : (has('train') ? 0.6 : CFG.mismatch);
+  function globalMul() {
+    let m = moraleMul();
+    if (S.day < S.meetUntil) m *= has('buffer') ? 0.8 : 0.6;
+    if (S.day < S.otUntil) m *= 1.3;
+    return m;
+  }
+
+  // ---------- Screens ----------
+  const screens = ['menu', 'plan', 'sprint', 'retro', 'end'];
+  function show(name) { S && (S.phase = name); screens.forEach(s => $(s).classList.toggle('on', s === name)); }
+
+  function meterCol(v) { return v > 55 ? 'var(--good)' : v > 28 ? 'var(--warn)' : 'var(--bad)'; }
+  function setMeter(el, v) { el.style.width = clamp(v, 0, 100) + '%'; el.style.background = meterCol(v); }
+
+  // ---------- Planning ----------
+  function renderPlan() {
+    $('pSprint').textContent = 'Sprint ' + S.sprint + '/' + CFG.sprints;
+    setMeter($('pTrust'), S.trust); setMeter($('pMorale'), S.morale);
+    const list = $('pList'); list.innerHTML = '';
+    S.backlog.forEach(t => {
+      const d = document.createElement('div');
+      d.className = 'tk ' + t.skill + (S.commit.has(t.id) ? ' in' : '') + (t.carry ? ' carry' : '');
+      d.innerHTML = '<div class="t1"><span class="chip ' + t.skill + '">' + t.skill + '</span><span class="ttl"></span><span class="val">💎' + t.val + '</span></div>' +
+        '<div class="t2"><span>' + t.left + ' Pkt</span><span class="sp"></span><button class="goal' + (S.goalId === t.id ? ' on' : '') + '" aria-label="Sprintziel">🎯</button></div>';
+      d.querySelector('.ttl').textContent = t.title;
+      d.addEventListener('click', e => {
+        sfx.tap();
+        if (e.target.closest('.goal')) {
+          if (!S.commit.has(t.id)) S.commit.add(t.id);
+          S.goalId = S.goalId === t.id ? null : t.id;
+        } else {
+          if (S.commit.has(t.id)) { S.commit.delete(t.id); if (S.goalId === t.id) S.goalId = null; } else S.commit.add(t.id);
+        }
+        renderPlan();
+      });
+      list.appendChild(d);
+    });
+    const pts = S.backlog.filter(t => S.commit.has(t.id)).reduce((a, t) => a + t.left, 0);
+    const cap = forecast();
+    const ratio = pts / cap;
+    $('pCommit').textContent = 'Zusage ' + pts + ' Pkt';
+    $('pCap').textContent = 'Kapazität ~' + cap + ' Pkt';
+    const bar = $('pBar'), max = cap * 1.5;
+    bar.style.width = clamp(pts / max * 100, 0, 100) + '%';
+    bar.style.background = ratio <= 0.85 ? 'var(--good)' : ratio <= 1.05 ? 'var(--warn)' : 'var(--bad)';
+    $('pMark').style.left = (cap / max * 100) + '%';
+    $('pHint').textContent = ratio === 0 ? 'Tippe Tickets an, um sie in den Sprint zu nehmen. Danach setzt du mit 🎯 das Sprintziel. Lass Platz für Störungen!'
+      : ratio <= 0.85 ? 'Gut: Es bleibt Puffer für Bugs und Überraschungen.'
+      : ratio <= 1.05 ? 'Knapp. Wenn etwas dazwischenkommt, wird es eng.'
+      : 'Übernommen! Das gibt Stress, Überstunden und verpasste Ziele.';
+    $('goBtn').disabled = S.commit.size === 0;
+  }
+
+  // ---------- Sprint starten ----------
+  function startSprint() {
+    if (S.commit.size === 0) return;
+    S.sprintT = S.backlog.filter(t => S.commit.has(t.id)).map(t => ({ ...t, left: t.left, done: false }));
+    if (!S.goalId || !S.sprintT.some(t => t.id === S.goalId)) {
+      const best = S.sprintT.slice().sort((a, b) => b.val - a.val)[0];
+      S.goalId = best.id;
+    }
+    S.sprintT.forEach(t => { t.goal = t.id === S.goalId; });
+    S.uncommitted = S.backlog.filter(t => !S.commit.has(t.id));
+    S.day = 0; S.meetUntil = 0; S.otUntil = 0; S.otUsed = false; S.sel = null; S.selCard = null;
+    S.devs.forEach(d => { d.task = null; d.out = 0; });
+    S.sprintCommitVal = S.sprintT.reduce((a, t) => a + t.val, 0);
+    S.sprintDelivered = 0; S.sprintPts = S.sprintT.reduce((a, t) => a + t.pts, 0);
+    S.log = { bugsFixed: 0, bugsFailed: 0, accepted: 0, rejected: 0 };
+    // Ereignisse planen
+    const n = 4 + Math.floor(S.sprint * 0.7) + (Math.random() < 0.4 ? 1 : 0);
+    const types = [['bug', 3], ['wish', 2.2], ['sick', 1.6], ['meet', 1.6], ['scope', 1.5], ['good', 1.1]];
+    S.evq = [];
+    for (let i = 0; i < n; i++) {
+      let r = Math.random() * types.reduce((a, t) => a + t[1], 0), ty = 'bug';
+      for (const t of types) { r -= t[1]; if (r <= 0) { ty = t[0]; break; } }
+      if (ty === 'bug' && has('tests') && Math.random() < 0.5) ty = 'good';
+      if (ty === 'scope' && has('dod')) ty = 'good';
+      S.evq.push({ day: rnd(1, 8.6) + i * 0.05, type: ty });
+    }
+    S.evq.sort((a, b) => a.day - b.day);
+    for (let i = 1; i < S.evq.length; i++) if (S.evq[i].day - S.evq[i - 1].day < 0.9) S.evq[i].day = S.evq[i - 1].day + 0.9;
+    S.evq = S.evq.filter(e => e.day < 9.3);
+    boardEls.clear(); $('board').innerHTML = ''; dockEls.clear(); $('dock').innerHTML = '';
+    show('sprint');
+    toast('Sprint ' + S.sprint + ' läuft. Tippe ein Teammitglied, dann ein Ticket.', '');
+    updateSprintUI(true);
+  }
+
+  // ---------- Ticket/Dev-Interaktion ----------
+  function assign(dev, t) {
+    if (dev.out > 0 || t.done) return;
+    dev.task = t.id; sfx.assign();
+  }
+  function onDevTap(d) {
+    if (S.phase !== 'sprint' || S.modal || S.paused) return;
+    sfx.tap();
+    if (S.selCard) { const t = tById(S.selCard); S.selCard = null; if (t) { assign(d, t); S.sel = null; updateSprintUI(); return; } }
+    if (S.sel === d.id) { d.task = null; S.sel = null; }   // zweites Antippen: Aufgabe weglegen
+    else S.sel = d.id;
+    updateSprintUI();
+  }
+  function onCardTap(t) {
+    if (S.phase !== 'sprint' || S.modal || S.paused || t.done) return;
+    if (S.sel) {
+      const d = S.devs.find(x => x.id === S.sel);
+      S.sel = null; if (d) assign(d, t); updateSprintUI(); return;
+    }
+    sfx.tap();
+    S.selCard = S.selCard === t.id ? null : t.id; updateSprintUI();
+  }
+
+  // ---------- Simulation ----------
+  function autoPickFor(d) {
+    const open = S.sprintT.filter(t => !t.done);
+    if (!open.length) return null;
+    const loadOf = t => S.devs.filter(x => x.task === t.id && x.out <= 0).length;
+    const score = t => (t.urgent ? 100 : 0) + (d.skills.includes(t.skill) ? 20 : 0) - loadOf(t) * 14 + (t.goal ? 6 : 0) + t.val * 0.5;
+    return open.slice().sort((a, b) => score(b) - score(a))[0];
+  }
+  function tick(dtReal) {
+    if (!S || S.phase !== 'sprint' || S.paused || S.modal) return;
+    const dt = dtReal * S.speed, dd = dt / CFG.dayLen;
+    S.day += dd;
+    const gm = globalMul();
+    S.devs.forEach(d => {
+      if (d.out > 0) { d.out -= dd; d.task = null; if (d.out <= 0) { d.out = 0; toast(d.emo + ' ' + d.name + ' ist wieder da!', 'good'); } }
+    });
+    if (has('self')) S.devs.forEach(d => {
+      if (d.out > 0) return;
+      const cur = d.task && tById(d.task);
+      if (!cur || cur.done) { const p = autoPickFor(d); if (p) d.task = p.id; }
+    });
+    // Arbeit
+    for (const t of S.sprintT) {
+      if (t.done) continue;
+      const w = S.devs.filter(d => d.task === t.id && d.out <= 0).map(d => d.rate * skillMul(d, t) * CFG.baseRate * gm).sort((a, b) => b - a);
+      if (!w.length) continue;
+      const sw = has('pair') ? 1 : CFG.swarm;
+      const ppd = w.reduce((a, v, i) => a + v * (i === 0 ? 1 : sw), 0);
+      t.left -= ppd * dd;
+      if (t.left <= 0) finishTicket(t);
+    }
+    // Deadlines
+    for (const t of S.sprintT) {
+      if (t.done || !t.urgent) continue;
+      if (S.day >= t.dl) {
+        t.done = true; t.failed = true; S.devs.forEach(d => { if (d.task === t.id) d.task = null; });
+        S.trust = clamp(S.trust - 12, 0, 100); S.log.bugsFailed++;
+        sfx.bad(); toast('💥 ' + t.title + ' nicht rechtzeitig behoben: Vertrauen −12', 'bad');
+      }
+    }
+    // Ereignisse
+    while (S.evq.length && S.day >= S.evq[0].day && !S.modal) runEvent(S.evq.shift());
+    if (S.trust <= 0 || S.morale <= 0) { finishSprint(true); return; }
+    if (S.day >= CFG.days) { finishSprint(false); return; }
+  }
+
+  function finishTicket(t) {
+    t.done = true; t.left = 0; t.popAt = performance.now();
+    S.devs.forEach(d => { if (d.task === t.id) d.task = null; });
+    if (t.bug) { S.log.bugsFixed++; S.trust = clamp(S.trust + 3, 0, 100); toast('✅ ' + t.title + ' behoben: Vertrauen +3', 'good'); }
+    else {
+      S.sprintDelivered += t.val; S.totalVal += t.val;
+      if (t.goal) toast('🎯 Sprintziel erreicht!', 'good');
+    }
+    sfx.done();
+    burstAtCard(t.id);
+  }
+
+  // ---------- Ereignisse ----------
+  function toast(msg, cls) {
+    const el = $('toast'); el.textContent = msg; el.className = cls || ''; void el.offsetWidth; el.classList.add('on');
+    clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2600);
+  }
+  function modal(title, body, buttons) {
+    S.modal = true; sfx.alarm();
+    const m = $('modal'); m.innerHTML = '<h3></h3><p></p><div class="btns"></div>';
+    m.querySelector('h3').textContent = title; m.querySelector('p').textContent = body;
+    const bx = m.querySelector('.btns');
+    buttons.forEach(b => {
+      const el = document.createElement('button'); if (b.pri) el.className = 'pri';
+      el.innerHTML = b.label + (b.sub ? '<small>' + b.sub + '</small>' : '');
+      el.addEventListener('click', () => { $('modalOv').classList.remove('on'); S.modal = false; b.fn(); updateSprintUI(); });
+      bx.appendChild(el);
+    });
+    $('modalOv').classList.add('on');
+  }
+  function addSprintTicket(t) { S.sprintT.push(t); }
+
+  function runEvent(ev) {
+    const buf = has('buffer') ? 0.5 : 1;
+    if (ev.type === 'bug') {
+      const skill = pick(['FE', 'BE', 'BE', 'QA']);
+      const t = { id: ++tid, title: pick(BUGS.filter(b => !S.sprintT.some(x => x.title === b)).concat(['PROD: Absturz beim Speichern'])), skill, pts: ri(2, 3), left: 0, val: 0, done: false, goal: false, bug: true, urgent: true, dl: S.day + 3 + Math.min(1, S.sprint * 0.1), carry: false };
+      t.left = t.pts; addSprintTicket(t);
+      sfx.alarm(); toast('🐞 ' + t.title + '! Behebe es in 3 Tagen.', 'bad');
+    } else if (ev.type === 'wish') {
+      const skill = pick(['FE', 'BE', 'QA']), pts = pick([2, 3, 3, 5]);
+      const w = mkTicket(skill, pts); w.title = pick(WISHES); w.val = clamp(w.val + 1, 1, 5);
+      const penalty = has('po') ? 4 : 8;
+      modal('📣 Neuer Wunsch mitten im Sprint', w.title + ' (' + pts + ' Pkt, Wert 💎' + w.val + ', ' + skill + '). Der Stakeholder fragt: „Kann das noch rein?“ Der Product Owner verhandelt.', [
+        { label: '✅ Annehmen', sub: 'Mehr Wert, aber das Team hat nicht mehr Zeit.', pri: true, fn: () => { w.goal = false; addSprintTicket(w); S.sprintCommitVal += w.val; S.sprintPts += w.pts; S.log.accepted++; toast('Ticket aufgenommen', ''); } },
+        { label: '🗓 Fürs nächste Planning vormerken', sub: 'Vertrauen −2, Ticket kommt als Erstes ins Backlog.', fn: () => { w.val = clamp(w.val + 1, 1, 5); S.pinned.push(w); S.trust = clamp(S.trust - 2, 0, 100); } },
+        { label: '✋ Ablehnen', sub: 'Sprintziel schützen, Vertrauen −' + penalty + '.', fn: () => { S.trust = clamp(S.trust - penalty, 0, 100); S.log.rejected++; } }
+      ]);
+    } else if (ev.type === 'sick') {
+      const cand = S.devs.filter(d => d.out <= 0);
+      if (!cand.length) return;
+      const d = pick(cand); d.out = ri(2, 3) * buf + 0.5; d.task = null;
+      if (S.sel === d.id) S.sel = null;
+      sfx.bad(); toast('🤒 ' + d.name + ' fällt ' + Math.ceil(d.out) + ' Tage aus.', 'bad');
+    } else if (ev.type === 'meet') {
+      S.meetUntil = S.day + 1.6;
+      sfx.bad(); toast('📅 Überraschungs-Meeting: Tempo ' + (has('buffer') ? '−20' : '−40') + ' % für 1–2 Tage.', 'bad');
+    } else if (ev.type === 'scope') {
+      const open = S.sprintT.filter(t => !t.done && t.left > 0 && !t.bug);
+      if (!open.length) return;
+      const t = pick(open); t.left += 2; t.pts += 2;
+      S.sprintPts += 2;
+      sfx.bad(); toast('🧩 „' + t.title + '“ war komplizierter: +2 Pkt Aufwand.', 'bad');
+    } else {
+      const k = pick(['trust', 'mood', 'idea']);
+      if (k === 'trust') { S.trust = clamp(S.trust + 6, 0, 100); toast('👏 Kunde lobt das Team: Vertrauen +6', 'good'); }
+      else if (k === 'mood') { S.morale = clamp(S.morale + 6, 0, 100); toast('🍕 Spontane Pizza: Stimmung +6', 'good'); }
+      else {
+        const open = S.sprintT.filter(t => !t.done && t.left > 2 && !t.bug);
+        if (open.length) { const t = pick(open); t.left -= 2; toast('💡 Geistesblitz bei „' + t.title + '“: −2 Pkt Aufwand!', 'good'); } else toast('💡 Gute Idee, leider zu spät.', 'good');
+      }
+      sfx.good();
+    }
+  }
+
+  // ---------- Überstunden ----------
+  function overtime() {
+    if (S.phase !== 'sprint' || S.otUsed || S.modal || S.paused) return;
+    S.otUsed = true; S.otUntil = S.day + 2;
+    S.morale = clamp(S.morale - (has('pace') ? 8 : 16), 0, 100);
+    sfx.bad(); toast('🔥 Überstunden: +30 % Tempo für 2 Tage, Stimmung sinkt.', '');
+    updateSprintUI();
+  }
+
+  // ---------- Sprint-UI ----------
+  const boardEls = new Map(), dockEls = new Map();
+  function updateSprintUI(force) {
+    $('sTitle').textContent = 'S' + S.sprint + '/' + CFG.sprints + ' · Tag ' + Math.min(CFG.days, Math.floor(S.day) + 1);
+    $('sDay').style.width = clamp(S.day / CFG.days * 100, 0, 100) + '%';
+    setMeter($('sTrust'), S.trust); setMeter($('sMorale'), S.morale);
+    $('sVal').textContent = '💎' + S.sprintDelivered;
+    const ot = $('otBtn'); ot.disabled = S.otUsed; ot.classList.toggle('on', S.day < S.otUntil);
+    ot.textContent = S.day < S.otUntil ? '🔥 Läuft …' : '🔥 Überstunden';
+    $('spdBtn').textContent = '⏩ ' + S.speed + '×';
+
+    // Dock
+    const selDev = S.sel && S.devs.find(d => d.id === S.sel);
+    S.devs.forEach(d => {
+      let el = dockEls.get(d.id);
+      if (!el) {
+        el = document.createElement('div'); el.className = 'dev';
+        el.innerHTML = '<div class="av">' + d.emo + '</div><div class="nm">' + d.name + '</div><div class="sk">' + d.skills.map(s => '<span class="chip ' + s + '">' + s + '</span>').join('') + '</div><div class="st"></div>';
+        el.addEventListener('click', () => onDevTap(d));
+        $('dock').appendChild(el); dockEls.set(d.id, el);
+      }
+      const t = d.task && tById(d.task);
+      const idle = d.out <= 0 && (!t || t.done);
+      el.classList.toggle('sel', S.sel === d.id);
+      el.classList.toggle('idle', idle);
+      el.classList.toggle('out', d.out > 0);
+      el.querySelector('.st').textContent = d.out > 0 ? '🤒 ' + Math.ceil(d.out) + ' T' : idle ? '💤 frei!' : '→ ' + t.title;
+    });
+
+    // Board
+    const order = S.sprintT.slice().sort((a, b) => (a.done - b.done) || ((b.urgent ? 1 : 0) - (a.urgent ? 1 : 0)) || a.id - b.id);
+    order.forEach((t, i) => {
+      let el = boardEls.get(t.id);
+      if (!el) {
+        el = document.createElement('div'); el.className = 'tk ' + t.skill;
+        el.innerHTML = '<div class="t1"><span class="chip ' + (t.bug ? 'BUG' : t.skill) + '">' + (t.bug ? 'BUG' : t.skill) + '</span><span class="ttl"></span><span class="val"></span></div><div class="bar"><i></i></div>' +
+          '<div class="t2"><span class="pts"></span><span class="devs"></span><span class="sp"></span><span class="dl"></span><span class="flag"></span></div>';
+        el.querySelector('.ttl').textContent = t.title;
+        el.addEventListener('click', () => onCardTap(t));
+        boardEls.set(t.id, el);
+      }
+      if (el !== $('board').children[i]) $('board').insertBefore(el, $('board').children[i] || null);
+      el.querySelector('.val').textContent = t.bug ? '🔧' : '💎' + t.val;
+      el.querySelector('.bar i').style.width = (t.failed ? 100 : (1 - Math.max(0, t.left) / t.pts) * 100) + '%';
+      el.querySelector('.pts').textContent = t.failed ? 'verpasst' : t.done ? 'fertig ✓' : (Math.ceil(Math.max(0, t.left) * 10) / 10).toFixed(1).replace('.0', '') + ' / ' + t.pts + ' Pkt';
+      const devs = S.devs.filter(d => d.task === t.id && d.out <= 0 && !t.done);
+      el.querySelector('.devs').textContent = devs.map(d => d.emo).join('');
+      el.querySelector('.flag').textContent = t.goal ? '🎯' : '';
+      el.querySelector('.dl').textContent = t.urgent && !t.done ? '⏰ ' + Math.max(0, Math.ceil(t.dl - S.day)) + ' T' : '';
+      el.classList.toggle('done', t.done);
+      el.classList.toggle('urgent', !!t.urgent && !t.done);
+      el.classList.toggle('cardsel', S.selCard === t.id);
+      el.classList.toggle('sel-ok', !!selDev && !t.done && selDev.skills.includes(t.skill));
+      el.classList.toggle('sel-bad', !!selDev && !t.done && !selDev.skills.includes(t.skill));
+    });
+  }
+
+  // ---------- Sprint-Ende ----------
+  function finishSprint(failed) {
+    const pts = S.sprintT.filter(t => !t.bug);
+    const doneAll = pts.every(t => t.done);
+    const undonePts = pts.filter(t => !t.done).reduce((a, t) => a + t.left, 0);
+    const goalT = S.sprintT.find(t => t.goal);
+    const goalHit = goalT && goalT.done;
+    const ratio = S.sprintCommitVal ? S.sprintDelivered / S.sprintCommitVal : 1;
+    const poB = has('po') ? 1.35 : 1;
+    let dTrust = Math.round((ratio - 0.6) * 30 * (ratio > 0.6 ? poB : 1));
+    dTrust += goalHit ? 8 : -(has('po') ? 10 : 15);
+    let dMorale = 0;
+    if (doneAll) dMorale += 8; else if (undonePts > S.sprintPts * 0.3) dMorale -= 8;
+    S.trust = clamp(S.trust + dTrust, 0, 100); S.morale = clamp(S.morale + dMorale, 0, 100);
+    if (goalHit) S.totalVal += 3;
+    const sum = { sprint: S.sprint, delivered: S.sprintDelivered, commit: S.sprintCommitVal, goalHit, dTrust, dMorale, doneAll, bugsFixed: S.log.bugsFixed, bugsFailed: S.log.bugsFailed, accepted: S.log.accepted, rejected: S.log.rejected };
+    S.history.push(sum);
+    // Übrige Tickets zurück ins Backlog
+    S.carry = pts.filter(t => !t.done).map(t => ({ ...t, carry: true, goal: false }));
+    const rest = (S.uncommitted || []).filter(t => !t.carry).sort(() => Math.random() - 0.5).slice(0, 3);
+    S.carry = S.carry.concat(rest);
+    if (failed || S.trust <= 0 || S.morale <= 0) { showEnd(S.trust <= 0 ? 'trust' : 'morale'); return; }
+    if (S.sprint >= CFG.sprints) { showEnd('release'); return; }
+    sfx[goalHit ? 'win' : 'good']();
+    if (goalHit) confetti(60);
+    showRetro(sum);
+  }
+
+  function showRetro(sum) {
+    const pool = UPS.filter(u => !has(u.id) && (u.id !== 'hire' || S.sprint >= 2));
+    const opts = pool.sort(() => Math.random() - 0.5).slice(0, 3);
+    const b = $('retroBody');
+    b.innerHTML = '<h2>Sprint ' + sum.sprint + ' · Review & Retro</h2>' +
+      '<div class="mut" style="font-size:13px;margin-top:2px">' + (sum.goalHit ? '🎯 Sprintziel erreicht!' : '🎯 Sprintziel verfehlt') + (sum.doneAll ? ' · alles fertig' : '') + '</div>' +
+      '<div class="stats">' +
+      '<div class="stat"><b>💎 ' + sum.delivered + ' / ' + sum.commit + '</b><span>Wert geliefert</span></div>' +
+      '<div class="stat"><b>' + (sum.dTrust >= 0 ? '+' : '') + sum.dTrust + '</b><span>Vertrauen (jetzt ' + Math.round(S.trust) + ')</span></div>' +
+      '<div class="stat"><b>' + sum.bugsFixed + ' / ' + (sum.bugsFixed + sum.bugsFailed) + '</b><span>Bugs behoben</span></div>' +
+      '<div class="stat"><b>' + (sum.dMorale >= 0 ? '+' : '') + sum.dMorale + '</b><span>Stimmung (jetzt ' + Math.round(S.morale) + ')</span></div></div>' +
+      '<h2 style="font-size:16px;margin:6px 0 8px">Was verbessern wir?</h2><div id="upList"></div>';
+    const ul = b.querySelector('#upList');
+    opts.forEach(u => addUp(ul, u.ico, u.name, u.desc, () => { S.up.add(u.id); if (u.id === 'hire') S.devs.push({ ...ELI, task: null, out: 0 }); }));
+    addUp(ul, '🍕', 'Teamevent', 'Stimmung +25. Manchmal ist Pizza die beste Retro-Maßnahme.', () => { S.morale = clamp(S.morale + 25, 0, 100); });
+    show('retro');
+  }
+  function addUp(list, ico, name, desc, fn) {
+    const bt = document.createElement('button'); bt.className = 'up';
+    bt.innerHTML = '<span class="ico">' + ico + '</span><div><b>' + name + '</b><span>' + desc + '</span></div>';
+    bt.addEventListener('click', () => { sfx.good(); fn(); S.sprint++; genBacklog(); renderPlan(); show('plan'); });
+    list.appendChild(bt);
+  }
+
+  function rating() {
+    const v = S.totalVal;
+    return v >= 140 ? 3 : v >= 105 ? 2 : v >= 70 ? 1 : 0;
+  }
+  function showEnd(kind) {
+    const b = $('endBody');
+    const st = kind === 'release' ? rating() : 0;
+    const newBest = S.totalVal > save.best;
+    if (kind === 'release') { if (newBest) save.best = S.totalVal; save.bestStars = Math.max(save.bestStars, st); persist(); }
+    const head = kind === 'release' ? '🚀 Release geschafft!' : kind === 'trust' ? '📉 Budget gestrichen' : '🫠 Das Team hat gekündigt';
+    const sub = kind === 'release' ? 'Nach ' + CFG.sprints + ' Sprints ist das Produkt live.' :
+      kind === 'trust' ? 'Die Stakeholder haben das Vertrauen verloren und das Projekt eingestellt. Lieferst du zu wenig oder sagst du zu oft zu?' :
+      'Dauerstress, Überstunden und zu viele Zusagen. Nachhaltiges Tempo ist keine Schwäche.';
+    b.innerHTML = '<div style="text-align:center;padding-top:20px"><div style="font-size:60px">' + (kind === 'release' ? '🚀' : kind === 'trust' ? '📉' : '🫠') + '</div>' +
+      '<h2 style="margin-top:6px">' + head + '</h2><div class="mut" style="font-size:13px;margin:6px 8px">' + sub + '</div>' +
+      (kind === 'release' ? '<div class="stars">' + '★'.repeat(st) + '<span style="opacity:.25">' + '★'.repeat(3 - st) + '</span></div>' : '') +
+      '</div><div class="stats">' +
+      '<div class="stat"><b>💎 ' + S.totalVal + '</b><span>Gesamtwert</span></div>' +
+      '<div class="stat"><b>Sprint ' + (kind === 'release' ? CFG.sprints : S.sprint) + '</b><span>erreicht</span></div>' +
+      '<div class="stat"><b>' + S.history.filter(h => h.goalHit).length + ' / ' + S.history.length + '</b><span>Sprintziele</span></div>' +
+      '<div class="stat"><b>💎 ' + save.best + '</b><span>' + (newBest && kind === 'release' ? '★ neuer Rekord' : 'Rekord') + '</span></div></div>' +
+      (S.up.size ? '<div class="sec-h">Eure Verbesserungen</div><div class="tags">' + UPS.filter(u => has(u.id)).map(u => '<span class="tag">' + u.ico + ' ' + u.name + '</span>').join('') + '</div>' : '') +
+      '<button class="big" id="againBtn" style="width:100%;margin-top:8px">Nochmal</button>' +
+      '<a class="big sec" href="index.html" style="display:block;text-align:center;text-decoration:none;color:#fff;margin-top:8px">← Spielemenü</a>';
+    $('againBtn').addEventListener('click', () => { newRun(); renderPlan(); show('plan'); });
+    show('end');
+    sfx[kind === 'release' ? 'win' : 'lose']();
+    if (kind === 'release') confetti(120);
+  }
+
+  // ---------- Partikel ----------
+  const fx = $('fx'), fctx = fx.getContext('2d'); let parts = [], FW = 0, FH = 0;
+  function fxResize() { const d = Math.min(devicePixelRatio || 1, 2); FW = innerWidth; FH = innerHeight; fx.width = FW * d; fx.height = FH * d; fctx.setTransform(d, 0, 0, d, 0, 0); }
+  function confetti(n) {
+    for (let i = 0; i < n; i++) parts.push({ x: rnd(0, FW), y: rnd(-40, 0), vx: rnd(-60, 60), vy: rnd(120, 320), s: rnd(5, 9), c: pick(['#ff6bb5', '#4da6ff', '#5cff9d', '#ffcf4d', '#9a6bff']), life: rnd(1.6, 2.6), g: 200 });
+  }
+  function burstAtCard(id) {
+    const el = boardEls.get(id); if (!el) return;
+    const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    for (let i = 0; i < 22; i++) { const a = rnd(0, 6.28), s = rnd(60, 220); parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, s: rnd(3, 6), c: pick(['#5cff9d', '#ffffff', '#4da6ff']), life: rnd(0.5, 0.9), g: 300 }); }
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  }
+  function fxStep(dt) {
+    fctx.clearRect(0, 0, FW, FH);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i]; p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      fctx.globalAlpha = Math.min(1, p.life * 2); fctx.fillStyle = p.c; fctx.fillRect(p.x, p.y, p.s, p.s);
+    }
+    fctx.globalAlpha = 1;
+  }
+
+  // ---------- Verdrahtung ----------
+  $('startBtn').addEventListener('click', () => { tone(500, 900, .15, 'triangle', .1); newRun(); renderPlan(); show('plan'); });
+  $('goBtn').addEventListener('click', () => { sfx.good(); startSprint(); });
+  $('otBtn').addEventListener('click', overtime);
+  $('spdBtn').addEventListener('click', () => { S.speed = S.speed === 1 ? 2 : 1; updateSprintUI(); });
+  $('pauseBtn').addEventListener('click', () => { if (S.modal) return; S.paused = true; $('pauseOv').classList.add('on'); });
+  $('resumeBtn').addEventListener('click', () => { S.paused = false; $('pauseOv').classList.remove('on'); });
+  $('restartBtn').addEventListener('click', () => { $('pauseOv').classList.remove('on'); newRun(); renderPlan(); show('plan'); });
+  $('leaveBtn').addEventListener('click', () => { location.href = 'index.html'; });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && S && S.phase === 'sprint' && !S.modal) { S.paused = true; $('pauseOv').classList.add('on'); } });
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  addEventListener('resize', fxResize);
+
+  function menuLine() { $('bestLine').textContent = save.best ? 'Rekord: 💎 ' + save.best + '  ' + '★'.repeat(save.bestStars) : ''; }
+  menuLine(); fxResize();
+
+  let last = performance.now(), uiT = 0;
+  function frame(ts) {
+    const dt = Math.min((ts - last) / 1000, 0.1); last = ts;
+    tick(dt);
+    if (S && S.phase === 'sprint') { uiT += dt; if (uiT > 0.1) { uiT = 0; updateSprintUI(); } }
+    fxStep(dt);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  window.__SP = { get S() { return S; }, tick, newRun, renderPlan, startSprint, assign, UPS, forecast, finishSprint, show };
+})();
+</script>
+</body>
+</html>
