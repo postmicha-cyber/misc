@@ -246,6 +246,8 @@
       (isNew ? '<div class="lbl">Typ</div><div class="chips" id="tp">' + Object.entries(TYPES).map(([k, t]) => '<button data-k="' + k + '" class="' + (k === type ? 'on' : '') + '">' + t.ic + ' ' + t.n + '</button>').join('') + '</div><div class="help" style="margin-bottom:10px">Daraus werden passende Bauteile und Intervalle vorbelegt. Du kannst sie später ändern.</div>' : '') +
       '<div class="row"><div class="f"><span>Kilometerstand</span><input id="bk" inputmode="decimal" value="' + (b ? b.km : 0) + '"></div><div class="f"><span>Betriebsstunden</span><input id="bh" inputmode="decimal" value="' + (b ? b.h : 0) + '"></div></div>' +
       (isNew ? '<div class="help" style="margin-bottom:10px">Neue Bauteile starten bei diesem Stand als „frisch“. Wenn du Teile schon länger fährst, stelle den letzten Wechsel pro Bauteil nachträglich ein (✎).</div>' : '') +
+      '<div class="lbl">Seit Kauf / Neuaufbau</div><div class="row"><div class="f"><span>Gekauft am</span><input type="date" id="pd"></div><div class="f"><span>km beim Kauf</span><input id="pk" inputmode="decimal" value="0"></div></div>' +
+      '<div class="help" style="margin-bottom:10px">' + (isNew ? 'Optional: Mit Datum und km gelten alle Bauteile als „seit dem Kauf“ gefahren, die Wartung wird ab da berechnet.' : 'Setzt den „letzten Wechsel“ aller Bauteile auf diesen Stand. Nützlich, wenn noch nichts getauscht wurde. Bereits eingetragene Services werden überschrieben.') + '</div>' + (isNew ? '' : '<button class="btn sec" id="ap" style="margin-bottom:8px">Alle Bauteile auf Kaufstand setzen</button>') +
       '<button class="btn" id="sv">Speichern</button>' + (isNew ? '' : '<button class="btn red" id="dl" style="margin-top:8px">Rad löschen</button>') + '<button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>';
     sheet(body(), wire);
     function wire() {
@@ -254,9 +256,14 @@
       $('sv').onclick = () => {
         const name = val('bn').trim(); if (!name) { $('bn').focus(); return; }
         const km = Math.max(0, num(val('bk'))), h = Math.max(0, num(val('bh')));
-        if (isNew) { const nb = { id: uid(), name, type, km, h, comps: [], log: [] }; nb.comps = templates(type).map(t => mkComp(t, nb)); D.bikes.push(nb); D.bike = nb.id; D.view = 'bike'; toast('Rad angelegt mit ' + nb.comps.length + ' Bauteilen'); }
+        if (isNew) { const nb = { id: uid(), name, type, km, h, comps: [], log: [] }; nb.comps = templates(type).map(t => mkComp(t, nb)); if (val('pd')) nb.comps.forEach(c => { c.bkm = Math.min(km, num(val('pk'))); c.bh = 0; c.bd = val('pd'); }); D.bikes.push(nb); D.bike = nb.id; D.view = 'bike'; toast('Rad angelegt mit ' + nb.comps.length + ' Bauteilen'); }
         else { b.name = name; b.km = km; b.h = h; }
         save(); closeSheet(); view();
+      };
+      if (!isNew) $('ap').onclick = () => {
+        if (!val('pd')) { $('pd').focus(); toast('Bitte Kaufdatum wählen'); return; }
+        if (!confirm('Alle Bauteile von „' + b.name + '“ auf Stand ' + val('pd') + ' / ' + num(val('pk')) + ' km setzen?')) return;
+        b.comps.forEach(c => { c.bkm = Math.min(b.km, num(val('pk'))); c.bh = 0; c.bd = val('pd'); }); save(); closeSheet(); view(); toast('✔ Bauteile aktualisiert');
       };
       if (!isNew) $('dl').onclick = () => { if (confirm('Rad „' + b.name + '“ samt Fahrten löschen?')) { D.bikes = D.bikes.filter(x => x.id !== b.id); D.rides = D.rides.filter(r => r.bike !== b.id); D.view = 'bikes'; save(); closeSheet(); view(); } };
     }
