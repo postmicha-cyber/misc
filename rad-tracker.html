@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rad-Tracker">
+<meta name="theme-color" content="#0d1a17">
+<title>Rad-Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+  :root { --bg: #0c1815; --card: #14262a; --card2: #1b3236; --line: #2a4a4e; --txt: #eefaf6; --mut: #8fb3ad; --acc: #2fe0a8; --acc2: #19b88a; --ok: #3fe08f; --soon: #ffc247; --over: #ff5d6c; }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { position: fixed; inset: 0; height: 100dvh; color: var(--txt); background: radial-gradient(circle at 50% -10%, #17403a, var(--bg) 60%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; }
+  button, input, select, textarea { font-family: inherit; color: inherit; border: 0; }
+  button { cursor: pointer; }
+  #app { position: absolute; inset: 0; display: flex; flex-direction: column;
+    padding: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); }
+  .top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .top h1 { font-size: 21px; font-weight: 900; flex: 1; }
+  .ibtn { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,.08); display: grid; place-items: center; font-size: 18px; text-decoration: none; color: var(--txt); }
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; min-height: 0; padding-bottom: 12px; }
+  .nav { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 4px; margin-top: 6px; }
+  .nav button { flex: 1; padding: 9px 2px; border-radius: 12px; background: none; font-size: 11px; font-weight: 800; color: var(--mut); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .nav button i { font-style: normal; font-size: 19px; }
+  .nav button.on { background: var(--acc2); color: #04120d; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .lbl { font-size: 11px; font-weight: 900; letter-spacing: 1.2px; color: var(--mut); text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .lbl .sp { flex: 1; }
+  .help { font-size: 12px; color: var(--mut); line-height: 1.45; }
+  .btn { width: 100%; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 900; background: linear-gradient(135deg, #2fe0a8, #19b88a); color: #04120d; box-shadow: 0 6px 20px rgba(47,224,168,.3); }
+  .btn.sec { background: var(--card2); color: var(--txt); box-shadow: none; border: 1px solid var(--line); }
+  .btn.red { background: rgba(255,93,108,.15); color: var(--over); box-shadow: none; border: 1px solid var(--over); }
+  .btn:active { transform: scale(.98); }
+  .sm { padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 800; background: var(--card2); border: 1px solid var(--line); }
+  .sm.go { background: var(--acc2); color: #04120d; border-color: var(--acc2); }
+  input, select, textarea { width: 100%; padding: 11px 9px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); font-size: 16px; min-width: 0; }
+  input:focus, select:focus { outline: 1px solid var(--acc); }
+  .f { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+  .f span { font-size: 10px; font-weight: 800; letter-spacing: .8px; color: var(--mut); text-transform: uppercase; }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-end; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .big { background: var(--card2); border-radius: 14px; padding: 10px; text-align: center; }
+  .big b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; } .big span { font-size: 10px; letter-spacing: 1px; font-weight: 800; color: var(--mut); text-transform: uppercase; }
+  .bike { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .bike .h { display: flex; align-items: center; gap: 10px; }
+  .bike .ic { font-size: 30px; } .bike .nm { font-size: 16px; font-weight: 900; } .bike .sub { font-size: 12px; color: var(--mut); font-weight: 700; }
+  .bike .h > div:nth-child(2) { flex: 1; min-width: 0; } .bike .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pill { font-size: 11px; font-weight: 900; padding: 3px 8px; border-radius: 9px; color: #08130f; }
+  .pill.ok { background: var(--ok); } .pill.soon { background: var(--soon); } .pill.over { background: var(--over); color: #fff; }
+  .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: 6px; }
+  .bar i { display: block; height: 100%; border-radius: 4px; }
+  .bar i.ok { background: var(--ok); } .bar i.soon { background: var(--soon); } .bar i.over { background: var(--over); }
+  .comp { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .comp:last-child { border: 0; }
+  .comp .t { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; }
+  .comp .t b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .comp .d { font-size: 12px; color: var(--mut); margin-top: 4px; display: flex; gap: 8px; align-items: center; }
+  .comp .d span { flex: 1; }
+  .ride { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .ride:last-child { border: 0; }
+  .ride b { flex: 1; min-width: 0; font-weight: 800; } .ride small { display: block; color: var(--mut); font-size: 11px; font-weight: 600; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ride .km { font-weight: 900; color: var(--acc); font-variant-numeric: tabular-nums; }
+  .ride button { background: none; color: var(--mut); font-size: 15px; padding: 4px; }
+  .due { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 700; }
+  .due { flex-wrap: wrap; }
+  .due:last-child { border: 0; } .due b { flex: 1; min-width: 0; } .due small { color: var(--mut); font-weight: 600; flex-basis: 100%; padding-left: 2px; }
+  .ov { position: absolute; inset: 0; z-index: 50; background: rgba(2,10,8,.78); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); display: none; align-items: flex-end; }
+  .ov.on { display: flex; }
+  .sheet { width: 100%; max-height: 92%; overflow-y: auto; background: #102124; border-top: 1px solid var(--line); border-radius: 22px 22px 0 0; padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); animation: up .25s; }
+  @keyframes up { from { transform: translateY(40px); opacity: 0; } }
+  .sheet h3 { font-size: 18px; font-weight: 900; margin-bottom: 10px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chips button { padding: 8px 12px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); font-size: 13px; font-weight: 800; }
+  .chips button.on { background: var(--acc2); color: #04120d; border-color: var(--acc2); }
+  #toast { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); background: #000e; border: 1px solid var(--acc); border-radius: 12px; padding: 9px 14px; font-size: 13px; font-weight: 800; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 70; max-width: 90%; text-align: center; }
+  #toast.on { opacity: 1; }
+  .empty { text-align: center; padding: 30px 10px; color: var(--mut); font-size: 14px; line-height: 1.5; }
+  .empty .e { font-size: 50px; }
+  svg { width: 100%; height: auto; display: block; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1 id="ttl">🚴 Rad-Tracker</h1><button class="ibtn" id="fab" aria-label="Fahrt eintragen">＋</button></div>
+  <div class="scroll" id="sc"></div>
+  <div class="nav" id="nav">
+    <button data-v="home"><i>🏠</i>Übersicht</button><button data-v="rides"><i>🛣️</i>Fahrten</button><button data-v="bikes"><i>🚲</i>Räder</button><button data-v="more"><i>⚙️</i>Mehr</button>
+  </div>
+</div>
+<div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const KEY = 'radTracker.v1';
+  const TYPES = {
+    mtbf: { n: 'MTB Fully', ic: '🚵', e: false }, mtbh: { n: 'MTB Hardtail', ic: '🚵', e: false }, gravel: { n: 'Gravel', ic: '🚴', e: false },
+    road: { n: 'Rennrad', ic: '🚴', e: false }, emtb: { n: 'E-MTB', ic: '⚡', e: true }, egravel: { n: 'E-Gravel', ic: '⚡', e: true }, city: { n: 'Trekking / Stadt', ic: '🚲', e: false }, ecity: { n: 'E-Trekking', ic: '⚡', e: true }
+  };
+  let D = { v: 1, bikes: [], rides: [], view: 'home', bike: null };
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) D = Object.assign(D, s); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} };
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const num = v => { const x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? x : 0; };
+  const fn = (x, d = 0) => (Math.round(x * Math.pow(10, d)) / Math.pow(10, d)).toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: d });
+  const eur = x => x.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+  const today = () => new Date().toISOString().slice(0, 10);
+  const fdate = s => { const d = new Date(s + 'T12:00:00'); return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }); };
+  let toastT;
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2600); }
+
+  // ---------- Komponenten-Vorlagen ----------
+  // ikm = Intervall in km, ih = Stunden, imo = Monate
+  function templates(type) {
+    const e = TYPES[type].e, mtb = type === 'mtbf' || type === 'mtbh' || type === 'emtb', full = type === 'mtbf' || type === 'emtb' || type === 'egravel' && false;
+    const L = [
+      { name: 'Kette', ikm: e ? 1500 : 2500 }, { name: 'Kassette', ikm: e ? 5000 : 8000 },
+      { name: 'Kettenblatt', ikm: e ? 9000 : 15000 }, { name: 'Bremsbeläge vorn', ikm: mtb ? 1500 : 2500 }, { name: 'Bremsbeläge hinten', ikm: mtb ? 1200 : 2500 },
+      { name: 'Reifen vorn', ikm: mtb ? 3500 : 5000 }, { name: 'Reifen hinten', ikm: mtb ? 2500 : 4000 },
+      { name: 'Bremsflüssigkeit', imo: 18 }, { name: 'Schaltzüge / Hüllen', imo: 18 }, { name: 'Lager (Steuersatz, Tretlager)', ikm: 10000 }
+    ];
+    if (mtb || type === 'gravel' || type === 'egravel') L.push({ name: 'Dichtmilch (Tubeless)', imo: 5 });
+    if (mtb) L.push({ name: 'Gabel: Lowers-Service', ih: 50 }, { name: 'Gabel: Dämpfer-Service', ih: 200 });
+    if (full) L.push({ name: 'Dämpfer: Luftkammer-Service', ih: 50 }, { name: 'Dämpfer: Komplett-Service', ih: 200 }, { name: 'Hinterbau-Lager', ikm: 8000 });
+    if (mtb) L.push({ name: 'Vario-Sattelstütze: Service', ih: 150 });
+    if (e) L.push({ name: 'Motor: Software / Check', imo: 12 }, { name: 'Akku-Kontakte & Check', imo: 12 });
+    return L;
+  }
+  const mkComp = (t, b) => ({ id: uid(), name: t.name, ikm: t.ikm || 0, ih: t.ih || 0, imo: t.imo || 0, bkm: b.km, bh: b.h, bd: today() });
+
+  // ---------- Berechnung ----------
+  function monthsSince(d) { return (Date.now() - new Date(d + 'T12:00:00').getTime()) / (30.44 * 86400000); }
+  function status(bike, c) {
+    const r = [];
+    if (c.ikm) r.push({ k: 'km', ratio: (bike.km - c.bkm) / c.ikm, left: c.ikm - (bike.km - c.bkm), u: ' km' });
+    if (c.ih) r.push({ k: 'h', ratio: (bike.h - c.bh) / c.ih, left: c.ih - (bike.h - c.bh), u: ' h' });
+    if (c.imo) r.push({ k: 'mo', ratio: monthsSince(c.bd) / c.imo, left: c.imo - monthsSince(c.bd), u: ' Mon.' });
+    if (!r.length) return { ratio: 0, cls: 'ok', txt: 'kein Intervall', left: Infinity };
+    r.sort((a, b) => b.ratio - a.ratio);
+    const w = r[0], cls = w.ratio >= 1 ? 'over' : w.ratio >= 0.75 ? 'soon' : 'ok';
+    const l = Math.abs(w.left), val = w.k === 'mo' ? fn(l, 1) : fn(l, w.k === 'h' ? 1 : 0);
+    return { ratio: w.ratio, cls, left: w.left, k: w.k, txt: w.ratio >= 1 ? 'überfällig um ' + val + w.u : 'noch ' + val + w.u };
+  }
+  const bikeById = id => D.bikes.find(b => b.id === id);
+  const worst = bike => bike.comps.map(c => ({ c, s: status(bike, c) })).sort((a, b) => b.s.ratio - a.s.ratio)[0];
+  const pillTxt = s => s.cls === 'over' ? 'Fällig' : s.cls === 'soon' ? 'Bald' : 'OK';
+
+  // ---------- Sheet ----------
+  function sheet(html, wire) { $('sheet').innerHTML = html; $('ov').classList.add('on'); wire && wire(); $('ov').onclick = e => { if (e.target === $('ov')) closeSheet(); }; }
+  function closeSheet() { $('ov').classList.remove('on'); }
+  const val = id => $(id).value;
+
+  // ---------- Views ----------
+  function view() {
+    document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === D.view || (D.view === 'bike' && b.dataset.v === 'bikes')));
+    $('ttl').textContent = { home: '🚴 Rad-Tracker', rides: '🛣️ Fahrten', bikes: '🚲 Meine Räder', more: '⚙️ Mehr', bike: '🚲 Rad' }[D.view];
+    $('sc').scrollTop = 0; ({ home, rides, bikes, more, bike: bikeDetail })[D.view]();
+    $('fab').style.display = D.bikes.length ? '' : 'none';
+  }
+  function emptyBikes() { return '<div class="empty"><div class="e">🚲</div>Noch kein Rad angelegt.<br>Lege dein erstes Rad an. Die Wartungsintervalle werden passend zum Radtyp vorbelegt.<div style="margin-top:14px"><button class="btn" id="addB">Rad hinzufügen</button></div></div>'; }
+
+  function home() {
+    const sc = $('sc');
+    if (!D.bikes.length) { sc.innerHTML = emptyBikes(); $('addB').onclick = () => bikeSheet(); return; }
+    const yr = new Date().getFullYear(), yrRides = D.rides.filter(r => r.date.startsWith(yr));
+    const km = yrRides.reduce((a, r) => a + r.km, 0), h = yrRides.reduce((a, r) => a + r.h, 0);
+    const all = []; D.bikes.forEach(b => b.comps.forEach(c => { const s = status(b, c); if (s.ratio >= 0.75) all.push({ b, c, s }); }));
+    all.sort((a, b) => b.s.ratio - a.s.ratio);
+    const cost = D.bikes.reduce((a, b) => a + b.log.reduce((x, l) => x + (l.cost || 0), 0), 0);
+    // km pro Monat
+    const per = Array(12).fill(0); yrRides.forEach(r => per[+r.date.slice(5, 7) - 1] += r.km);
+    const mx = Math.max(10, ...per);
+    let svg = '<svg viewBox="0 0 340 110">' + per.map((v, i) => { const hgt = v / mx * 78; return '<rect x="' + (i * 28 + 6) + '" y="' + (88 - hgt) + '" width="20" height="' + hgt + '" rx="4" fill="' + (i === new Date().getMonth() ? '#2fe0a8' : '#1f8f73') + '"/>' + (v ? '<text x="' + (i * 28 + 16) + '" y="' + (84 - hgt) + '" text-anchor="middle" fill="#cdeee5" font-size="8" font-weight="700">' + fn(v) + '</text>' : '') + '<text x="' + (i * 28 + 16) + '" y="102" text-anchor="middle" fill="#8fb3ad" font-size="9">' + 'JFMAMJJASOND'[i] + '</text>'; }).join('') + '</svg>';
+    sc.innerHTML = '<div class="panel"><div class="lbl">' + yr + '</div><div class="grid2"><div class="big"><b>' + fn(km) + '</b><span>Kilometer</span></div><div class="big"><b>' + fn(h, 1) + '</b><span>Stunden</span></div><div class="big"><b>' + yrRides.length + '</b><span>Fahrten</span></div><div class="big"><b>' + (yrRides.length ? fn(km / Math.max(h, 0.01), 1) : '–') + '</b><span>Ø km/h</span></div></div><div style="margin-top:10px">' + svg + '</div></div>' +
+      '<div class="panel"><div class="lbl">Wartung <span class="sp"></span>' + (all.length ? '<span class="pill ' + (all[0].s.cls) + '">' + all.length + ' offen</span>' : '') + '</div>' +
+      (all.length ? all.slice(0, 7).map(x => '<div class="due" data-b="' + x.b.id + '"><span class="pill ' + x.s.cls + '">' + pillTxt(x.s) + '</span><b>' + esc(x.c.name) + '</b><small>' + esc(x.b.name) + ' · ' + x.s.txt + '</small></div>').join('') : '<div class="help">Alles im grünen Bereich. 👍</div>') + '</div>' +
+      '<div class="panel"><div class="lbl">Kosten gesamt</div><div class="grid2"><div class="big"><b>' + eur(cost) + '</b><span>Wartung &amp; Teile</span></div><div class="big"><b>' + (cost && D.bikes.reduce((a, b) => a + b.km, 0) ? fn(cost / D.bikes.reduce((a, b) => a + b.km, 0) * 100, 1) + ' ct' : '–') + '</b><span>pro km</span></div></div></div>';
+    sc.querySelectorAll('.due').forEach(d => d.onclick = () => { D.bike = d.dataset.b; D.view = 'bike'; view(); });
+  }
+
+  function rides() {
+    const sc = $('sc');
+    if (!D.bikes.length) { sc.innerHTML = emptyBikes(); $('addB').onclick = () => bikeSheet(); return; }
+    const list = D.rides.slice().sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)).slice(0, 80);
+    sc.innerHTML = '<button class="btn" id="nr" style="margin-bottom:10px">＋ Fahrt eintragen</button><div class="panel">' + (list.length ? list.map(r => { const b = bikeById(r.bike); return '<div class="ride"><div style="font-size:22px">' + (b ? TYPES[b.type].ic : '❔') + '</div><b>' + esc(b ? b.name : 'Gelöschtes Rad') + '<small>' + fdate(r.date) + (r.h ? ' · ' + fn(r.h, 1) + ' h' : '') + (r.note ? ' · ' + esc(r.note) : '') + '</small></b><span class="km">' + fn(r.km, 1) + ' km</span><button data-id="' + r.id + '" aria-label="Löschen">✕</button></div>'; }).join('') : '<div class="help">Noch keine Fahrten.</div>') + '</div>';
+    $('nr').onclick = () => rideSheet();
+    sc.querySelectorAll('.ride button').forEach(b => b.onclick = () => { if (!confirm('Fahrt löschen? Kilometer und Stunden werden vom Rad abgezogen.')) return; const i = D.rides.findIndex(r => r.id === b.dataset.id), r = D.rides[i], bk = bikeById(r.bike); if (bk) { bk.km = Math.max(0, bk.km - r.km); bk.h = Math.max(0, bk.h - r.h); } D.rides.splice(i, 1); save(); view(); });
+  }
+
+  function bikes() {
+    const sc = $('sc');
+    if (!D.bikes.length) { sc.innerHTML = emptyBikes(); $('addB').onclick = () => bikeSheet(); return; }
+    sc.innerHTML = D.bikes.map(b => { const w = worst(b), s = w ? w.s : null; return '<button class="bike" data-id="' + b.id + '"><div class="h"><div class="ic">' + TYPES[b.type].ic + '</div><div><div class="nm">' + esc(b.name) + '</div><div class="sub">' + TYPES[b.type].n + ' · ' + fn(b.km) + ' km · ' + fn(b.h, 1) + ' h</div></div>' + (s ? '<span class="pill ' + s.cls + '">' + pillTxt(s) + '</span>' : '') + '</div>' + (w ? '<div class="bar"><i class="' + s.cls + '" style="width:' + Math.min(100, s.ratio * 100) + '%"></i></div><div class="sub" style="margin-top:5px">Nächste: ' + esc(w.c.name) + ' · ' + s.txt + '</div>' : '') + '</button>'; }).join('') + '<button class="btn sec" id="addB">＋ Rad hinzufügen</button>';
+    sc.querySelectorAll('.bike').forEach(b => b.onclick = () => { D.bike = b.dataset.id; D.view = 'bike'; view(); });
+    $('addB').onclick = () => bikeSheet();
+  }
+
+  function bikeDetail() {
+    const b = bikeById(D.bike), sc = $('sc'); if (!b) { D.view = 'bikes'; return view(); }
+    const cost = b.log.reduce((a, l) => a + (l.cost || 0), 0);
+    const comps = b.comps.map(c => ({ c, s: status(b, c) })).sort((x, y) => y.s.ratio - x.s.ratio);
+    sc.innerHTML = '<div class="panel"><div class="h" style="display:flex;gap:10px;align-items:center"><div style="font-size:34px">' + TYPES[b.type].ic + '</div><div style="flex:1;min-width:0"><div style="font-size:18px;font-weight:900">' + esc(b.name) + '</div><div class="help">' + TYPES[b.type].n + '</div></div><button class="sm" id="eb">Bearbeiten</button></div>' +
+      '<div class="grid2" style="margin-top:10px"><div class="big"><b>' + fn(b.km) + '</b><span>Kilometer</span></div><div class="big"><b>' + fn(b.h, 1) + '</b><span>Stunden</span></div></div>' +
+      '<div class="help" style="margin-top:8px">Wartungskosten: <b>' + eur(cost) + '</b>' + (b.km ? ' · ' + fn(cost / b.km * 100, 1) + ' ct/km' : '') + '</div></div>' +
+      '<div class="panel"><div class="lbl">Bauteile &amp; Wartung <span class="sp"></span><button class="sm" id="ac">＋ Teil</button></div>' + comps.map(({ c, s }) => '<div class="comp" data-id="' + c.id + '"><div class="t"><span class="pill ' + s.cls + '">' + pillTxt(s) + '</span><b>' + esc(c.name) + '</b></div><div class="bar"><i class="' + s.cls + '" style="width:' + Math.min(100, s.ratio * 100) + '%"></i></div><div class="d"><span>' + s.txt + ' · ' + intervalTxt(c) + '</span><button class="sm go" data-a="done">✔ Gewartet</button><button class="sm" data-a="edit">✎</button></div></div>').join('') + '</div>' +
+      '<div class="panel"><div class="lbl">Wartungs-Log</div>' + (b.log.length ? b.log.slice().reverse().slice(0, 30).map(l => '<div class="ride"><b>' + esc(l.comp) + '<small>' + fdate(l.date) + ' · bei ' + fn(l.km) + ' km' + (l.note ? ' · ' + esc(l.note) : '') + '</small></b>' + (l.cost ? '<span class="km">' + eur(l.cost) + '</span>' : '') + '</div>').join('') : '<div class="help">Noch keine Einträge. Tippe bei einem Bauteil auf „Gewartet“.</div>') + '</div>';
+    $('eb').onclick = () => bikeSheet(b); $('ac').onclick = () => compSheet(b);
+    sc.querySelectorAll('.comp').forEach(el => { const c = b.comps.find(x => x.id === el.dataset.id); el.querySelectorAll('button').forEach(bt => bt.onclick = () => bt.dataset.a === 'done' ? doneSheet(b, c) : compSheet(b, c)); });
+  }
+  const intervalTxt = c => [c.ikm ? fn(c.ikm) + ' km' : '', c.ih ? fn(c.ih) + ' h' : '', c.imo ? c.imo + ' Mon.' : ''].filter(Boolean).join(' / ') || '–';
+
+  function more() {
+    $('sc').innerHTML = '<div class="panel"><div class="lbl">Backup</div><div class="help" style="margin-bottom:10px">Deine Daten liegen nur auf diesem Gerät im Browser. Sichere sie regelmäßig, besonders vor einem Wechsel des Handys oder dem Löschen von Safari-Daten.</div>' +
+      '<button class="btn" id="ex" style="margin-bottom:8px">📤 Backup erstellen</button><button class="btn sec" id="im">📥 Backup einspielen</button></div>' +
+      '<div class="panel"><div class="lbl">Info</div><div class="help">Fortschritt = Anteil des Intervalls, der verbraucht ist. Ab 75 % wird ein Teil „Bald“, ab 100 % „Fällig“. Intervalle sind Richtwerte. Passe sie an dein Gelände und Gewicht an.<br><br>Tipp: Bei E-Bikes verschleißen Kette und Kassette schneller, deshalb sind dort die Standardwerte kürzer.</div></div>' +
+      '<div class="panel"><button class="btn red" id="wipe">Alle Daten löschen</button></div>';
+    $('ex').onclick = backup; $('im').onclick = restore;
+    $('wipe').onclick = () => { if (confirm('Wirklich ALLE Daten löschen?') && confirm('Das kann nicht rückgängig gemacht werden. Fortfahren?')) { D = { v: 1, bikes: [], rides: [], view: 'home', bike: null }; save(); view(); } };
+  }
+  function backup() {
+    const txt = JSON.stringify({ v: 1, bikes: D.bikes, rides: D.rides });
+    sheet('<h3>📤 Backup</h3><div class="help" style="margin-bottom:8px">Kopiere den Text oder speichere ihn als Datei.</div><textarea id="bt" rows="5" readonly>' + esc(txt) + '</textarea><div class="row" style="margin-top:10px"><button class="btn" id="cp">Kopieren</button><button class="btn sec" id="dl">Als Datei</button></div><button class="btn sec" id="cl">Schließen</button>', () => {
+      $('cp').onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('Kopiert')).catch(() => { $('bt').select(); toast('Bitte manuell kopieren'); }); };
+      $('dl').onclick = () => { try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' })); a.download = 'rad-tracker-backup-' + today() + '.json'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { toast('Download nicht möglich, bitte kopieren'); } };
+      $('cl').onclick = closeSheet;
+    });
+  }
+  function restore() {
+    sheet('<h3>📥 Backup einspielen</h3><div class="help" style="margin-bottom:8px">Füge den Backup-Text ein. Achtung: Aktuelle Daten werden ersetzt.</div><textarea id="bt" rows="6" placeholder="Backup-Text hier einfügen"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="ok">Einspielen</button><button class="btn sec" id="cl">Abbrechen</button></div>', () => {
+      $('cl').onclick = closeSheet;
+      $('ok').onclick = () => { try { const o = JSON.parse(val('bt')); if (!Array.isArray(o.bikes) || !Array.isArray(o.rides)) throw 0; D.bikes = o.bikes; D.rides = o.rides; D.view = 'home'; save(); closeSheet(); view(); toast('Backup eingespielt'); } catch (e) { toast('Das ist kein gültiges Backup'); } };
+    });
+  }
+
+  // ---------- Sheets ----------
+  function bikeSheet(b) {
+    const isNew = !b; let type = b ? b.type : 'mtbf';
+    const body = () => '<h3>' + (isNew ? 'Neues Rad' : 'Rad bearbeiten') + '</h3><div class="row"><div class="f"><span>Name</span><input id="bn" value="' + esc(b ? b.name : '') + '" placeholder="z. B. Cube Stereo" maxlength="40"></div></div>' +
+      (isNew ? '<div class="lbl">Typ</div><div class="chips" id="tp">' + Object.entries(TYPES).map(([k, t]) => '<button data-k="' + k + '" class="' + (k === type ? 'on' : '') + '">' + t.ic + ' ' + t.n + '</button>').join('') + '</div><div class="help" style="margin-bottom:10px">Daraus werden passende Bauteile und Intervalle vorbelegt. Du kannst sie später ändern.</div>' : '') +
+      '<div class="row"><div class="f"><span>Kilometerstand</span><input id="bk" inputmode="decimal" value="' + (b ? b.km : 0) + '"></div><div class="f"><span>Betriebsstunden</span><input id="bh" inputmode="decimal" value="' + (b ? b.h : 0) + '"></div></div>' +
+      (isNew ? '<div class="help" style="margin-bottom:10px">Neue Bauteile starten bei diesem Stand als „frisch“. Wenn du Teile schon länger fährst, stelle den letzten Wechsel pro Bauteil nachträglich ein (✎).</div>' : '') +
+      '<button class="btn" id="sv">Speichern</button>' + (isNew ? '' : '<button class="btn red" id="dl" style="margin-top:8px">Rad löschen</button>') + '<button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>';
+    sheet(body(), wire);
+    function wire() {
+      $('cl').onclick = closeSheet;
+      if (isNew) $('tp').querySelectorAll('button').forEach(x => x.onclick = () => { type = x.dataset.k; $('tp').querySelectorAll('button').forEach(y => y.classList.toggle('on', y === x)); });
+      $('sv').onclick = () => {
+        const name = val('bn').trim(); if (!name) { $('bn').focus(); return; }
+        const km = Math.max(0, num(val('bk'))), h = Math.max(0, num(val('bh')));
+        if (isNew) { const nb = { id: uid(), name, type, km, h, comps: [], log: [] }; nb.comps = templates(type).map(t => mkComp(t, nb)); D.bikes.push(nb); D.bike = nb.id; D.view = 'bike'; toast('Rad angelegt mit ' + nb.comps.length + ' Bauteilen'); }
+        else { b.name = name; b.km = km; b.h = h; }
+        save(); closeSheet(); view();
+      };
+      if (!isNew) $('dl').onclick = () => { if (confirm('Rad „' + b.name + '“ samt Fahrten löschen?')) { D.bikes = D.bikes.filter(x => x.id !== b.id); D.rides = D.rides.filter(r => r.bike !== b.id); D.view = 'bikes'; save(); closeSheet(); view(); } };
+    }
+  }
+  function compSheet(b, c) {
+    const isNew = !c, x = c || { name: '', ikm: 0, ih: 0, imo: 0, bkm: b.km, bh: b.h, bd: today() };
+    sheet('<h3>' + (isNew ? 'Neues Bauteil' : 'Bauteil bearbeiten') + '</h3><div class="row"><div class="f"><span>Bezeichnung</span><input id="cn" value="' + esc(x.name) + '" placeholder="z. B. Kette"></div></div>' +
+      '<div class="lbl">Wartungsintervall (leer = nicht nutzen)</div><div class="row"><div class="f"><span>Kilometer</span><input id="ck" inputmode="decimal" value="' + (x.ikm || '') + '"></div><div class="f"><span>Stunden</span><input id="ch" inputmode="decimal" value="' + (x.ih || '') + '"></div><div class="f"><span>Monate</span><input id="cm" inputmode="decimal" value="' + (x.imo || '') + '"></div></div>' +
+      '<div class="lbl">Letzter Wechsel / Service</div><div class="row"><div class="f"><span>Bei km</span><input id="bk" inputmode="decimal" value="' + x.bkm + '"></div><div class="f"><span>Bei Stunden</span><input id="bh" inputmode="decimal" value="' + x.bh + '"></div></div><div class="row"><div class="f"><span>Datum</span><input type="date" id="bd" value="' + x.bd + '"></div></div>' +
+      '<button class="btn" id="sv">Speichern</button>' + (isNew ? '' : '<button class="btn red" id="dl" style="margin-top:8px">Bauteil löschen</button>') + '<button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+        $('cl').onclick = closeSheet;
+        $('sv').onclick = () => { const name = val('cn').trim(); if (!name) { $('cn').focus(); return; }
+          const o = { name, ikm: num(val('ck')), ih: num(val('ch')), imo: num(val('cm')), bkm: num(val('bk')), bh: num(val('bh')), bd: val('bd') || today() };
+          if (isNew) b.comps.push(Object.assign({ id: uid() }, o)); else Object.assign(c, o); save(); closeSheet(); view(); };
+        if (!isNew) $('dl').onclick = () => { if (confirm('Bauteil löschen?')) { b.comps = b.comps.filter(y => y !== c); save(); closeSheet(); view(); } };
+      });
+  }
+  function doneSheet(b, c) {
+    sheet('<h3>✔ ' + esc(c.name) + ' gewartet</h3><div class="help" style="margin-bottom:10px">Das Intervall startet neu bei ' + fn(b.km) + ' km / ' + fn(b.h, 1) + ' h.</div><div class="row"><div class="f"><span>Kosten (€, optional)</span><input id="co" inputmode="decimal" placeholder="0"></div></div><div class="row"><div class="f"><span>Notiz (optional)</span><input id="no" placeholder="z. B. Shimano XT, neu" maxlength="60"></div></div><button class="btn" id="sv">Eintragen</button><button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+      $('cl').onclick = closeSheet;
+      $('sv').onclick = () => { b.log.push({ date: today(), comp: c.name, km: b.km, cost: Math.max(0, num(val('co'))), note: val('no').trim() }); c.bkm = b.km; c.bh = b.h; c.bd = today(); save(); closeSheet(); view(); toast('✔ ' + c.name + ' zurückgesetzt'); };
+    });
+  }
+  function rideSheet(pre) {
+    const last = D.rides.slice().sort((a, b) => b.id.localeCompare(a.id))[0];
+    let sel = pre || (last && bikeById(last.bike) ? last.bike : D.bikes[0].id);
+    sheet('<h3>＋ Fahrt eintragen</h3><div class="lbl">Rad</div><div class="chips" id="rb">' + D.bikes.map(b => '<button data-id="' + b.id + '" class="' + (b.id === sel ? 'on' : '') + '">' + TYPES[b.type].ic + ' ' + esc(b.name) + '</button>').join('') + '</div>' +
+      '<div class="row"><div class="f"><span>Kilometer</span><input id="rk" inputmode="decimal" placeholder="0"></div><div class="f"><span>Stunden (optional)</span><input id="rh" inputmode="decimal" placeholder="0"></div></div><div class="row"><div class="f"><span>Datum</span><input type="date" id="rd" value="' + today() + '"></div></div><div class="row"><div class="f"><span>Notiz (optional)</span><input id="rn" maxlength="60" placeholder="z. B. Feierabendrunde"></div></div>' +
+      '<button class="btn" id="sv">Speichern</button><button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+      $('cl').onclick = closeSheet;
+      $('rb').querySelectorAll('button').forEach(x => x.onclick = () => { sel = x.dataset.id; $('rb').querySelectorAll('button').forEach(y => y.classList.toggle('on', y === x)); });
+      setTimeout(() => $('rk').focus(), 150);
+      $('sv').onclick = () => {
+        const km = num(val('rk')), h = num(val('rh')); if (km <= 0) { $('rk').focus(); return; }
+        const b = bikeById(sel), before = b.comps.map(c => status(b, c).cls);
+        b.km += km; b.h += h; D.rides.push({ id: uid(), bike: sel, date: val('rd') || today(), km, h, note: val('rn').trim() });
+        save(); closeSheet();
+        const newly = b.comps.filter((c, i) => status(b, c).cls !== before[i] && status(b, c).cls !== 'ok').map(c => c.name);
+        toast(newly.length ? '🔧 Jetzt ' + (status(b, b.comps.find(c => c.name === newly[0])).cls === 'over' ? 'fällig: ' : 'bald dran: ') + newly.slice(0, 2).join(', ') : '✔ ' + fn(km, 1) + ' km gespeichert');
+        view();
+      };
+    });
+  }
+
+  document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { D.view = b.dataset.v; save(); view(); });
+  $('fab').onclick = () => rideSheet(D.view === 'bike' ? D.bike : null);
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  if (D.view === 'bike' && !bikeById(D.bike)) D.view = 'home';
+  view();
+  window.__RT = { get D() { return D; }, templates, status, mkComp };
+})();
+</script>
+</body>
+</html>
