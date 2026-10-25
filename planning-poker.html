@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Planning Poker">
+<meta name="theme-color" content="#0e1424">
+<title>Planning Poker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+  :root { --bg: #0e1424; --card: #172036; --card2: #1f2b48; --line: #2e3d66; --txt: #eef2ff; --mut: #8e9cc7; --acc: #6c7bff; --good: #4cf0a0; --warn: #ffb340; --bad: #ff5d73; }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { position: fixed; inset: 0; height: 100dvh; color: var(--txt); background: radial-gradient(circle at 50% 0, #1b2749, var(--bg) 60%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  button, input { font-family: inherit; color: inherit; border: 0; }
+  button { cursor: pointer; }
+  #app { position: absolute; inset: 0; display: flex; flex-direction: column;
+    padding: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); }
+  .top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .top h1 { font-size: 20px; font-weight: 900; flex: 1; }
+  .ibtn { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,.08); display: grid; place-items: center; font-size: 18px; text-decoration: none; color: var(--txt); }
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; min-height: 0; }
+  .tabs { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 3px; margin-bottom: 10px; }
+  .tabs button { flex: 1; padding: 9px 4px; border-radius: 11px; background: none; font-size: 13px; font-weight: 800; color: var(--mut); }
+  .tabs button.on { background: var(--acc); color: #fff; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .lbl { font-size: 11px; font-weight: 900; letter-spacing: 1.2px; color: var(--mut); text-transform: uppercase; margin-bottom: 7px; }
+  .btn { width: 100%; padding: 15px; border-radius: 14px; font-size: 17px; font-weight: 900; background: linear-gradient(135deg, #5b6cff, #9a6bff); box-shadow: 0 6px 22px rgba(108,123,255,.4); }
+  .btn.sec { background: var(--card2); box-shadow: none; border: 1px solid var(--line); }
+  .btn[disabled] { opacity: .4; }
+  .btn:active { transform: scale(.98); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--card2); border: 1px solid var(--line); border-radius: 20px; padding: 6px 6px 6px 12px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
+  .chip button { width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.12); font-size: 12px; line-height: 22px; }
+  .row { display: flex; gap: 8px; }
+  input[type=text] { flex: 1; min-width: 0; padding: 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); font-size: 16px; user-select: text; -webkit-user-select: text; }
+  .add { width: 48px; border-radius: 12px; background: var(--acc); font-size: 22px; font-weight: 900; }
+  .deckrow { display: flex; gap: 6px; flex-wrap: wrap; }
+  .deckrow button { padding: 9px 12px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); font-size: 13px; font-weight: 800; }
+  .deckrow button.on { background: var(--acc); border-color: var(--acc); }
+  .preview { font-size: 12px; color: var(--mut); margin-top: 8px; line-height: 1.5; }
+
+  /* Karten */
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .pc { aspect-ratio: 2/3; border-radius: 14px; background: linear-gradient(160deg, #fff, #dfe6ff); color: #1b2550; font-size: 28px; font-weight: 900; display: grid; place-items: center;
+    box-shadow: 0 6px 16px rgba(0,0,0,.4); border: 3px solid transparent; transition: transform .15s; position: relative; }
+  .pc span { font-size: 10px; position: absolute; top: 5px; left: 7px; opacity: .45; }
+  .pc.sel { transform: translateY(-8px) scale(1.06); border-color: var(--acc); box-shadow: 0 0 24px rgba(108,123,255,.9); }
+  .pc:active { transform: scale(.96); }
+  .pc.sm { font-size: 20px; border-radius: 10px; aspect-ratio: 4/3; }
+
+  /* Karte umdrehen */
+  .flip { perspective: 900px; width: min(70vw, 260px); aspect-ratio: 2/3; margin: 0 auto; cursor: pointer; }
+  .flip .in { position: relative; width: 100%; height: 100%; transition: transform .6s; transform-style: preserve-3d; }
+  .flip.open .in { transform: rotateY(180deg); }
+  .flip .f, .flip .b { position: absolute; inset: 0; border-radius: 22px; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: grid; place-items: center; box-shadow: 0 12px 40px rgba(0,0,0,.55); }
+  .flip .b { background: repeating-linear-gradient(45deg, #3a46c9, #3a46c9 10px, #4a57e0 10px, #4a57e0 20px); border: 6px solid #fff; font-size: 60px; }
+  .flip .f { background: linear-gradient(160deg, #fff, #dfe6ff); color: #1b2550; font-size: 96px; font-weight: 900; transform: rotateY(180deg); }
+
+  /* Pass-around */
+  .big { text-align: center; padding-top: 24px; }
+  .big .nm { font-size: 34px; font-weight: 900; margin: 6px 0; }
+  .big .em { font-size: 64px; }
+  .dots { display: flex; gap: 6px; justify-content: center; margin: 10px 0; }
+  .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+  .dots i.d { background: var(--good); } .dots i.c { background: var(--acc); box-shadow: 0 0 8px var(--acc); }
+
+  /* Reveal */
+  .rv { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 8px 0 12px; }
+  .rv .it { text-align: center; width: 70px; animation: pop .5s backwards; }
+  .rv .it .pc { font-size: 26px; }
+  .rv .it.hi .pc { border-color: var(--bad); } .rv .it.lo .pc { border-color: var(--warn); }
+  .rv .it small { display: block; font-size: 11px; font-weight: 800; margin-top: 4px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @keyframes pop { from { transform: rotateY(90deg) scale(.8); opacity: 0; } }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+  .stat { background: var(--card2); border-radius: 12px; padding: 8px 4px; text-align: center; }
+  .stat b { display: block; font-size: 20px; } .stat span { font-size: 9px; letter-spacing: 1px; font-weight: 800; color: var(--mut); text-transform: uppercase; }
+  .verdict { border-radius: 14px; padding: 12px; font-size: 14px; font-weight: 700; line-height: 1.45; margin-bottom: 10px; }
+  .verdict.ok { background: rgba(76,240,160,.12); border: 1px solid var(--good); }
+  .verdict.dis { background: rgba(255,179,64,.12); border: 1px solid var(--warn); }
+  .timer { font-size: 38px; font-weight: 900; text-align: center; font-variant-numeric: tabular-nums; }
+  .hist { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .hist b { flex: 1; font-weight: 800; } .hist .pts { background: var(--acc); border-radius: 10px; padding: 3px 10px; font-weight: 900; }
+  .hist button { background: none; color: var(--mut); font-size: 16px; }
+  #toast { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); background: #000d; border: 1px solid var(--acc); border-radius: 12px; padding: 9px 14px; font-size: 13px; font-weight: 800; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 9; }
+  #toast.on { opacity: 1; }
+  .hint { font-size: 13px; color: var(--mut); line-height: 1.5; text-align: center; margin: 8px 6px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const DECKS = {
+    fib: { n: 'Fibonacci', v: ['0', '1', '2', '3', '5', '8', '13', '21', '34', '?', '☕'] },
+    mod: { n: 'Modifiziert', v: ['0', '½', '1', '2', '3', '5', '8', '13', '20', '40', '100', '?', '☕'] },
+    tee: { n: 'T-Shirt', v: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '?', '☕'] },
+    pow: { n: 'Zweierpotenzen', v: ['1', '2', '4', '8', '16', '32', '?', '☕'] }
+  };
+  const KEY = 'planningPoker.v1';
+  let st = { names: ['Anna', 'Ben', 'Cem'], deck: 'fib', history: [], tab: 'pass' };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+  const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const num = v => v === '½' ? 0.5 : (isFinite(parseFloat(v)) && /^[\d.]+$/.test(v) ? parseFloat(v) : null);
+  const TSIZE = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2200); }
+  let S = null;            // laufende Runde: {ticket, i, votes:[], phase}
+  let tmr = null;
+
+  const deckVals = () => DECKS[st.deck].v;
+  const cardsHTML = (sel, cls = '') => '<div class="cards">' + deckVals().map(v => '<button class="pc ' + cls + (sel === v ? ' sel' : '') + '" data-v="' + v + '">' + v + '</button>').join('') + '</div>';
+
+  // ---------------- Setup ----------------
+  function setup() {
+    clearInterval(tmr); S = null;
+    const app = $('app');
+    app.innerHTML = '<div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1>🃏 Planning Poker</h1><button class="ibtn" id="hBtn" aria-label="Verlauf">📋</button></div>' +
+      '<div class="tabs"><button data-t="pass" class="' + (st.tab === 'pass' ? 'on' : '') + '">Gerät herumreichen</button><button data-t="solo" class="' + (st.tab === 'solo' ? 'on' : '') + '">Eigene Karte</button></div>' +
+      '<div class="scroll" id="sc"></div>';
+    document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { st.tab = b.dataset.t; persist(); setup(); });
+    $('hBtn').onclick = history;
+    const sc = $('sc');
+    const deckPanel = '<div class="panel"><div class="lbl">Kartendeck</div><div class="deckrow">' + Object.entries(DECKS).map(([k, d]) => '<button data-d="' + k + '" class="' + (st.deck === k ? 'on' : '') + '">' + d.n + '</button>').join('') + '</div><div class="preview">' + deckVals().join(' · ') + '</div></div>';
+    if (st.tab === 'pass') {
+      sc.innerHTML = '<div class="panel"><div class="lbl">Ticket / Story</div><input type="text" id="tk" placeholder="z. B. Login mit SSO" maxlength="60"></div>' +
+        '<div class="panel"><div class="lbl">Teilnehmer (' + st.names.length + ')</div><div class="chips" id="ch"></div><div class="row" style="margin-top:10px"><input type="text" id="nn" placeholder="Name hinzufügen" maxlength="16"><button class="add" id="addB">+</button></div></div>' +
+        deckPanel + '<div class="hint">Jeder wählt der Reihe nach verdeckt. Dann werden alle Karten gleichzeitig aufgedeckt.</div>' +
+        '<button class="btn" id="go">Runde starten</button>';
+      const ch = $('ch'); st.names.forEach((n, i) => { const c = document.createElement('div'); c.className = 'chip'; c.innerHTML = esc(n) + '<button aria-label="Entfernen">✕</button>'; c.querySelector('button').onclick = () => { st.names.splice(i, 1); persist(); setup(); }; ch.appendChild(c); });
+      const add = () => { const v = $('nn').value.trim(); if (v && st.names.length < 12) { st.names.push(v); persist(); setup(); } };
+      $('addB').onclick = add; $('nn').onkeydown = e => { if (e.key === 'Enter') add(); };
+      $('go').onclick = () => { if (st.names.length < 2) { toast('Mindestens 2 Teilnehmer'); return; } start($('tk').value.trim()); };
+    } else {
+      sc.innerHTML = deckPanel + '<div class="hint">Jede Person nutzt ihr eigenes Handy. Wähle deine Karte, zeige sie verdeckt und drehe sie auf Kommando um.</div><button class="btn" id="go">Karte wählen</button>';
+      $('go').onclick = solo;
+    }
+    document.querySelectorAll('.deckrow button').forEach(b => b.onclick = () => { st.deck = b.dataset.d; persist(); const tk = $('tk') ? $('tk').value : ''; setup(); if (tk && $('tk')) $('tk').value = tk; });
+  }
+
+  // ---------------- Solo ----------------
+  function solo() {
+    const app = $('app'); let pick = null;
+    function pickView() {
+      app.innerHTML = '<div class="top"><button class="ibtn" id="bk">←</button><h1>Deine Karte</h1></div><div class="scroll">' + cardsHTML(pick) + '</div><button class="btn" id="ok" style="margin-top:10px"' + (pick ? '' : ' disabled') + '>Karte verdeckt halten</button>';
+      $('bk').onclick = setup;
+      document.querySelectorAll('.pc').forEach(b => b.onclick = () => { pick = b.dataset.v; pickView(); });
+      $('ok').onclick = hold;
+    }
+    function hold() {
+      app.innerHTML = '<div class="top"><button class="ibtn" id="bk">←</button><h1>Alle gleichzeitig!</h1></div><div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:24px"><div class="flip" id="fl"><div class="in"><div class="b">🃏</div><div class="f">' + pick + '</div></div></div><div class="hint">Tippe die Karte, wenn alle bereit sind.<br>Tippe nochmal, um sie wieder zu verdecken.</div></div><button class="btn sec" id="ch">Andere Karte wählen</button>';
+      $('bk').onclick = setup; $('ch').onclick = pickView;
+      $('fl').onclick = () => $('fl').classList.toggle('open');
+    }
+    pickView();
+  }
+
+  // ---------------- Pass-Around ----------------
+  function start(ticket) { S = { ticket: ticket || 'Ticket', i: 0, votes: [], phase: 'hand' }; handover(); }
+  const dotsHTML = () => '<div class="dots">' + st.names.map((_, k) => '<i class="' + (k < S.i ? 'd' : k === S.i ? 'c' : '') + '"></i>').join('') + '</div>';
+  function handover() {
+    const app = $('app'), n = st.names[S.i];
+    app.innerHTML = '<div class="top"><button class="ibtn" id="bk" aria-label="Abbrechen">✕</button><h1>' + esc(S.ticket) + '</h1></div><div class="big" style="flex:1;display:flex;flex-direction:column;justify-content:center"><div class="em">📱</div><div class="mut" style="color:var(--mut);font-weight:800">Gerät geht an</div><div class="nm">' + esc(n) + '</div>' + dotsHTML() +
+      '<div class="hint">Nur ' + esc(n) + ' schaut jetzt auf den Bildschirm.</div></div><button class="btn" id="rdy">Ich bin ' + esc(n) + '</button>';
+    $('bk').onclick = () => { if (confirm('Runde abbrechen?')) setup(); };
+    $('rdy').onclick = () => voteView();
+  }
+  function voteView() {
+    const app = $('app'), n = st.names[S.i]; let pick = null;
+    function draw() {
+      app.innerHTML = '<div class="top"><h1>' + esc(n) + ', wähle verdeckt</h1></div><div class="scroll">' + cardsHTML(pick) + '</div><button class="btn" id="ok" style="margin-top:10px"' + (pick ? '' : ' disabled') + '>Bestätigen und weitergeben</button>';
+      document.querySelectorAll('.pc').forEach(b => b.onclick = () => { pick = b.dataset.v; draw(); });
+      $('ok').onclick = () => { S.votes.push({ name: n, v: pick }); S.i++; if (S.i >= st.names.length) reveal(); else handover(); };
+    }
+    draw();
+  }
+
+  // ---------------- Aufdecken ----------------
+  function stats(votes) {
+    const nums = votes.map(x => num(x.v)).filter(x => x !== null).sort((a, b) => a - b);
+    const tee = votes.map(x => TSIZE.indexOf(x.v)).filter(x => x >= 0).sort((a, b) => a - b);
+    if (nums.length) {
+      const sum = nums.reduce((a, b) => a + b, 0), mid = nums.length % 2 ? nums[(nums.length - 1) / 2] : (nums[nums.length / 2 - 1] + nums[nums.length / 2]) / 2;
+      return { kind: 'num', min: nums[0], max: nums[nums.length - 1], avg: Math.round(sum / nums.length * 10) / 10, med: mid };
+    }
+    if (tee.length) return { kind: 'tee', min: TSIZE[tee[0]], max: TSIZE[tee[tee.length - 1]], med: TSIZE[tee[Math.floor(tee.length / 2)]], avg: '–' };
+    return null;
+  }
+  function reveal() {
+    const app = $('app'), vs = S.votes, s = stats(vs);
+    const vals = deckVals(); const idx = v => vals.indexOf(v);
+    const real = vs.filter(x => idx(x.v) >= 0 && !['?', '☕'].includes(x.v));
+    let lo = null, hi = null;
+    if (real.length) { const lows = real.slice().sort((a, b) => idx(a.v) - idx(b.v)); lo = lows[0].v; hi = lows[lows.length - 1].v; }
+    const spread = lo === null ? 0 : idx(hi) - idx(lo);
+    const same = new Set(vs.map(x => x.v)).size === 1;
+    const verdict = same ? ['ok', '✅ Einigkeit! Alle schätzen ' + vs[0].v + '. Das ist euer Ergebnis.']
+      : spread <= 1 ? ['ok', '👍 Fast einig. Nehmt den Wert ' + (s ? s.med : hi) + ' oder die höhere Zahl, wenn ihr vorsichtig sein wollt.']
+      : ['dis', '🗣 Große Streuung (' + lo + ' bis ' + hi + '). Die Person mit ' + lo + ' und die mit ' + hi + ' erklären ihre Annahmen, danach wird neu geschätzt.'];
+    app.innerHTML = '<div class="top"><button class="ibtn" id="bk">✕</button><h1>' + esc(S.ticket) + '</h1></div><div class="scroll">' +
+      '<div class="rv">' + vs.map((x, k) => '<div class="it ' + (spread > 1 && x.v === hi ? 'hi' : spread > 1 && x.v === lo ? 'lo' : '') + '" style="animation-delay:' + (k * 0.12) + 's"><div class="pc">' + x.v + '</div><small>' + esc(x.name) + '</small></div>').join('') + '</div>' +
+      (s ? '<div class="stats"><div class="stat"><b>' + s.min + '</b><span>Min</span></div><div class="stat"><b>' + s.max + '</b><span>Max</span></div><div class="stat"><b>' + s.med + '</b><span>Median</span></div><div class="stat"><b>' + s.avg + '</b><span>Ø</span></div></div>' : '') +
+      '<div class="verdict ' + verdict[0] + '">' + verdict[1] + '</div>' +
+      (verdict[0] === 'dis' ? '<div class="panel"><div class="lbl">Diskussions-Timer</div><div class="timer" id="tm">02:00</div><div class="row" style="margin-top:8px"><button class="btn sec" id="t1" style="padding:10px;font-size:14px">Start / Pause</button><button class="btn sec" id="t2" style="padding:10px;font-size:14px">Zurücksetzen</button></div></div>' : '') +
+      '<div class="lbl" style="margin-top:6px">Endergebnis festhalten</div>' + cardsHTML(null, 'sm') + '</div>' +
+      '<div class="row" style="margin-top:10px"><button class="btn sec" id="again">Neu schätzen</button></div>';
+    $('bk').onclick = () => { clearInterval(tmr); setup(); };
+    $('again').onclick = () => { clearInterval(tmr); start(S.ticket); };
+    document.querySelectorAll('.pc.sm').forEach(b => b.onclick = () => {
+      st.history.unshift({ t: S.ticket, v: b.dataset.v, n: vs.length, d: new Date().toISOString().slice(0, 10) }); st.history = st.history.slice(0, 80); persist();
+      clearInterval(tmr); toast('Gespeichert: ' + S.ticket + ' = ' + b.dataset.v); setup();
+    });
+    if ($('tm')) {
+      let left = 120, run = false; const show = () => { $('tm').textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0'); $('tm').style.color = left <= 10 ? 'var(--bad)' : ''; };
+      $('t1').onclick = () => { run = !run; clearInterval(tmr); if (run) tmr = setInterval(() => { if (left > 0) { left--; show(); } else { clearInterval(tmr); toast('⏰ Zeit um!'); } }, 1000); };
+      $('t2').onclick = () => { left = 120; run = false; clearInterval(tmr); show(); };
+    }
+  }
+
+  // ---------------- Verlauf ----------------
+  function history() {
+    const app = $('app');
+    const sumNum = st.history.map(h => num(h.v)).filter(x => x !== null).reduce((a, b) => a + b, 0);
+    app.innerHTML = '<div class="top"><button class="ibtn" id="bk">←</button><h1>Verlauf</h1></div><div class="scroll" id="hl"></div>' +
+      '<div class="row" style="margin-top:10px"><button class="btn sec" id="cp"' + (st.history.length ? '' : ' disabled') + '>📋 Als Text kopieren</button><button class="btn sec" id="cl"' + (st.history.length ? '' : ' disabled') + '>Leeren</button></div>';
+    const hl = $('hl');
+    if (!st.history.length) hl.innerHTML = '<div class="hint" style="margin-top:40px">Noch keine Schätzungen. Nach jeder Runde tippst du das Ergebnis an, dann landet es hier.</div>';
+    else { hl.innerHTML = st.history.map((h, i) => '<div class="hist"><b>' + esc(h.t) + '</b><span class="mut" style="color:var(--mut);font-size:11px">' + h.d + '</span><span class="pts">' + h.v + '</span><button data-i="' + i + '">✕</button></div>').join('') + '<div class="hint">Summe (nur Zahlen): <b>' + sumNum + '</b></div>';
+      hl.querySelectorAll('button').forEach(b => b.onclick = () => { st.history.splice(+b.dataset.i, 1); persist(); history(); }); }
+    $('bk').onclick = setup;
+    $('cp').onclick = () => { const txt = st.history.slice().reverse().map(h => h.t + ': ' + h.v).join('\n') + '\nSumme: ' + sumNum; (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('Kopiert')).catch(() => { prompt('Text kopieren:', txt); }); };
+    $('cl').onclick = () => { if (confirm('Verlauf löschen?')) { st.history = []; persist(); history(); } };
+  }
+
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  setup();
+  window.__PP = { get S() { return S; }, st, start, reveal, stats };
+})();
+</script>
+</body>
+</html>
