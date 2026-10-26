@@ -68,8 +68,6 @@
   .fl { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
   .fl span { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 8px; background: rgba(255,255,255,.07); line-height: 1.3; }
   .fl .r { background: rgba(255,93,108,.16); color: #ff9aa4; } .fl .y { background: rgba(255,194,71,.14); color: #ffd27a; } .fl .n { color: var(--mut); }
-  .bar { position: relative; height: 7px; border-radius: 4px; background: rgba(255,255,255,.1); margin-top: 10px; }
-  .bar i { display: block; height: 100%; border-radius: 4px; background: var(--g); max-width: 100%; } .bar i.y { background: var(--y); } .bar i.r { background: var(--r); }
   .bar u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; opacity: .75; border-radius: 1px; }
   .bt { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 800; color: var(--mut); margin-top: 5px; flex-wrap: wrap; }
   .pin { color: var(--y); }
@@ -107,6 +105,21 @@
     .btn { max-width: 520px; } #toast { bottom: 110px; }
   }
   @media (min-width: 1200px) { #sc { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); } }
+
+  .bar { position: relative; display: flex; height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); margin-top: 10px; overflow: visible; }
+  .bar i { display: block; height: 100%; flex: none; }
+  .bar i.ab { background: var(--g); border-radius: 4px 0 0 4px; } .bar i.ab.y { background: var(--y); } .bar i.ab.r { background: var(--r); }
+  .bar i.nb { background: repeating-linear-gradient(45deg, #ff9f43 0 4px, #b8691f 4px 8px); }
+  .bar u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; opacity: .85; border-radius: 1px; }
+  .tbar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.1); margin-top: 8px; } .tbar i { display: block; height: 100%; background: #7c8cff; border-radius: 2px; }
+  .who { display: flex; gap: 14px; font-size: 11px; color: var(--mut); margin-top: 6px; flex-wrap: wrap; } .who b { color: #d4dcff; font-weight: 800; }
+  .fl em { font-style: normal; opacity: .75; font-weight: 700; }
+  .tk { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; } .tk:last-child { border: 0; } .tk b { font-weight: 800; } .tk small { display: block; font-size: 12px; color: var(--mut); font-weight: 600; margin-top: 2px; line-height: 1.4; }
+  .rr { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); } .rr .rn { flex: 1; min-width: 0; }
+  .rr .rn b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rr small { font-size: 11px; color: var(--mut); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .seg3 { display: flex; gap: 3px; flex: none; } .seg3 button { padding: 7px 8px; border-radius: 9px; background: var(--card2); border: 1px solid var(--line); font-size: 11px; font-weight: 800; color: var(--mut); } .seg3 button.on { background: var(--acc); color: #fff; border-color: var(--acc); }
+  .raw { white-space: pre-wrap; font-size: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px; margin-top: 6px; color: #c9d3f5; word-break: break-word; font-family: inherit; }
+  .f select { padding: 9px 8px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -127,12 +140,16 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const KEY = 'standupBoard.v1';
-  const DEFCFG = { y: 85, r: 100, stale: 14, base: 'ab', done: 'abgeschlossen, fertig, erledigt, storniert, beendet' };
-  let D = { v: 1, rows: [], map: {}, my: '', cfg: Object.assign({}, DEFCFG), loc: {}, imported: '', file: '', demo: false, view: 'stand', who: 'Alle', q: '', sort: 'ampel', showDone: false, calm: false };
+  const DEFCFG = { y: 85, r: 100, stale: 14, done: 'abgeschlossen, fertig, erledigt, storniert, beendet' };
+  let D = { v: 2, rows: [], map: {}, my: '', cfg: Object.assign({}, DEFCFG), loc: {}, imported: '', file: '', demo: false, view: 'stand', fpl: 'Alle', fco: 'Alle', rhy: 'alle', red: true, q: '', sort: 'ampel', showDone: false, calm: false };
   try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) { D = Object.assign(D, s); D.cfg = Object.assign({}, DEFCFG, s.cfg || {}); } } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2400); };
+  async function copy(txt, msg) {
+    try { await navigator.clipboard.writeText(txt); toast(msg || '📋 Kopiert'); }
+    catch (e) { sheet('<h3>Text kopieren</h3><textarea id="tt" rows="12" readonly>' + esc(txt) + '</textarea><button class="btn sec2" id="tc2">Schließen</button>', () => { $('tt').select(); $('tc2').onclick = closeSheet; }); }
+  }
 
   // ---------- Felder & Spaltenzuordnung ----------
   const FIELDS = [
@@ -147,8 +164,8 @@
     { k: 'pl', l: 'Projektleiter', a: ['projektleiter', 'pl'] },
     { k: 'cons', l: 'Consultant', a: ['consultant', 'berater', 'bearbeiter'] },
     { k: 'status', l: 'Status', a: ['status'] },
-    { k: 'plan', l: 'Geplanter abrechenbarer Aufwand (h)', a: ['geplanterabrechenbareraufwand', 'geplanteraufwand', 'plan'] },
-    { k: 'ist', l: 'Gebuchter Aufwand (h)', a: ['gebuchteraufwand'] },
+    { k: 'plan', l: 'Geplanter abrechenbarer Aufwand (h) = Budget', a: ['geplanterabrechenbareraufwand', 'geplanteraufwand', 'plan'] },
+    { k: 'ist', l: 'Gebuchter Aufwand (h) = alle Zeiten', a: ['gebuchteraufwand'] },
     { k: 'istab', l: 'Gebuchter abrechenbarer Aufwand (h)', a: ['gebuchterabrechenbareraufwand'] },
     { k: 'start', l: 'Projekt Start', a: ['projektstart', 'start'] },
     { k: 'ende', l: 'Projekt Ende', a: ['projektende', 'ende'] }
@@ -163,20 +180,19 @@
         if (f.a.some(a => exact ? nh[i] === a : nh[i].startsWith(a))) { cols[f.k] = i; used.add(i); return; }
       }
     });
-    // gespeicherte Zuordnung (nach Spaltenname) zuerst
     FIELDS.forEach(f => { const s = D.map[f.k]; if (s) { const i = nh.indexOf(s); if (i >= 0 && !used.has(i)) { cols[f.k] = i; used.add(i); } } });
     pass(true); pass(false);
     return cols;
   }
 
-  // ---------- Parser ----------
+  // ---------- Datei-Parser ----------
   function decode(buf) {
     const u = new Uint8Array(buf);
     try { return new TextDecoder('utf-8', { fatal: true }).decode(u).replace(/^﻿/, ''); }
     catch (e) { return new TextDecoder('windows-1252').decode(u); }
   }
   function parseCSV(text) {
-    const first = text.slice(0, text.search(/\r?\n/) < 0 ? text.length : text.search(/\r?\n/));
+    const nl = text.search(/\r?\n/), first = nl < 0 ? text : text.slice(0, nl);
     const cnt = c => first.split(c).length - 1;
     const delim = cnt(';') >= cnt('\t') && cnt(';') >= cnt(',') ? ';' : cnt('\t') >= cnt(',') ? '\t' : ',';
     const rows = []; let row = [], cur = '', q = false;
@@ -216,12 +232,14 @@
     else s = s.replace(',', '.');
     const n = parseFloat(s); return isFinite(n) ? n : null;
   }
-  const str = v => (v == null ? '' : typeof v === 'number' ? String(v) : String(v)).trim();
+  const str = v => (v == null ? '' : String(v)).trim();
+  const person = v => str(v).replace(/^Benutzer\s+/i, '');
   function buildRows(raw, hi, cols) {
     const out = [];
     for (let r = hi + 1; r < raw.length; r++) {
       const a = raw[r], g = k => cols[k] === undefined ? '' : a[cols[k]];
-      const o = { nr: str(g('nr')), datum: toISO(g('datum')), kunde: str(g('kunde')), kom: str(g('kom')), akt: str(g('akt')), typ: str(g('typ')), phase: str(g('phase')), golive: typeof g('golive') === 'number' ? (toISO(g('golive')) ? fmtD(toISO(g('golive'))) : str(g('golive'))) : str(g('golive')), pl: str(g('pl')).replace(/^Benutzer\s+/i, ''), cons: str(g('cons')).replace(/^Benutzer\s+/i, ''), status: str(g('status')), plan: toNum(g('plan')), ist: toNum(g('ist')), istab: toNum(g('istab')), start: toISO(g('start')), ende: toISO(g('ende')) };
+      const gl = g('golive');
+      const o = { nr: str(g('nr')), datum: toISO(g('datum')), kunde: str(g('kunde')), kom: str(g('kom')), akt: str(g('akt')), typ: str(g('typ')), phase: str(g('phase')), golive: typeof gl === 'number' ? (toISO(gl) ? fmtD(toISO(gl)) : str(gl)) : str(gl), pl: person(g('pl')), cons: person(g('cons')), status: str(g('status')), plan: toNum(g('plan')), ist: toNum(g('ist')), istab: toNum(g('istab')), start: toISO(g('start')), ende: toISO(g('ende')) };
       if (!o.nr && !o.kunde) continue;
       o.id = o.nr || (o.kunde + '|' + o.kom);
       out.push(o);
@@ -229,83 +247,147 @@
     return out;
   }
 
-  // ---------- Datum & Ableitungen ----------
+  // ---------- Datum ----------
   const today = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
   const dOf = iso => iso ? new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) : null;
   const days = (a, b) => Math.round((b - a) / 864e5);
   const fmtD = iso => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) + '.' + iso.slice(0, 4) : '';
+  const fmtDate = d => pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
   const ago = n => n == null ? '' : n <= 0 ? 'heute' : n === 1 ? 'gestern' : 'vor ' + n + ' Tagen';
-  function mkDate(d, m, y) {
-    const t = today(); let yy = y ? (y.length === 2 ? 2000 + +y : +y) : t.getFullYear();
-    let dt = new Date(yy, +m - 1, +d);
-    if (!y && dt > new Date(t.getTime() + 14 * 864e5)) dt = new Date(yy - 1, +m - 1, +d);
-    return dt;
-  }
+
+  // ---------- „Aktuelles“: robuster Parser ----------
+  // Erkennt Einträge wie: 01.09.2026: Text | #1.9.26 - Text | [01.09.] Text | 2026-09-01 Text | 1. Sep 2026: Text | 01.09.2026# Text
+  // Mehrere Einträge in einer Zeile (getrennt durch #Datum) werden getrennt. Fortsetzungszeilen gehören zum Eintrag davor.
+  const MON = { jan: 1, feb: 2, 'mär': 3, mae: 3, mar: 3, mrz: 3, apr: 4, mai: 5, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, dez: 12, dec: 12 };
+  const HEAD = new RegExp(
+    '^[\\s#*\\-•·>\\[\\(]*' +                                   // Raute, Aufzählungszeichen, Klammer vorne
+    '(?:(?:stand|update|aktuell|vom|am|ab)\\s*[:\\-]?\\s*)?' +    // optionales Stichwort
+    '(?:(\\d{4})-(\\d{1,2})-(\\d{1,2})' +                       // ISO
+    '|(\\d{1,2})\\s*[./]\\s*(\\d{1,2})(?:\\s*[./]\\s*(\\d{4}|\\d{2}))?(?!\\d)\\.?' +   // TT.MM[.[JJ]JJ]
+    '|(\\d{1,2})\\.?\\s*(jan|feb|mär|mae|mar|mrz|apr|mai|may|jun|jul|aug|sep|okt|oct|nov|dez|dec)[a-zä]*\\.?\\s*(\\d{4}|\\d{2})?(?!\\d))' + // 1. Sep 2026
+    '[\\s\\]\\)#]*(?:\\([^)]{0,30}\\)\\s*)?[:\\-–—]?\\s*#?\\s*([\\s\\S]*)$', 'i');
+  const SPLIT = /(?=#\s*(?:\d{1,2}\s*[./]\s*\d{1,2}|\d{4}-\d{1,2}-\d{1,2}))/;
+  const AKT_CACHE = new Map();
   function parseAkt(text) {
-    const ent = []; let cur = null;
-    const re = /^\s*#?\s*(\d{1,2})\.(\d{1,2})(?:\.(\d{4}|\d{2}))?(?!\d)\s*[:\-–—]?\s*(.*)$/;
-    String(text || '').split(/\r?\n/).forEach(raw => {
-      const l = raw.trim(); if (!l) return;
-      const m = re.exec(l);
-      if (m && +m[1] >= 1 && +m[1] <= 31 && +m[2] >= 1 && +m[2] <= 12) { cur = { d: mkDate(m[1], m[2], m[3]), t: m[4] || '' }; ent.push(cur); }
-      else if (l.startsWith('#') || !cur) { cur = null; ent.push({ d: null, t: l.replace(/^#\s*/, '') }); }
-      else cur.t += (cur.t ? ' ' : '') + l;
-    });
-    return ent;
+    const key = String(text || ''); if (AKT_CACHE.has(key)) return AKT_CACHE.get(key);
+    let res;
+    try { res = parseAktRaw(key); } catch (e) { res = { ent: [], notes: [], issues: [], err: true, latest: null }; }
+    if (AKT_CACHE.size > 400) AKT_CACHE.clear(); AKT_CACHE.set(key, res); return res;
   }
+  function parseAktRaw(text) {
+    const t0 = today(), out = { ent: [], notes: [], issues: [], err: false, latest: null };
+    if (!text.trim()) return out;
+    const chunks = [];
+    text.replace(/\r/g, '').split('\n').forEach(line => line.split(SPLIT).forEach(p => { if (p.trim()) chunks.push(p.trim()); }));
+    let cur = null;
+    chunks.forEach(ch => {
+      const m = HEAD.exec(ch); let date = null, inferred = false, rest = ch;
+      if (m) {
+        let y, mo, d;
+        if (m[1]) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+        else if (m[4]) { d = +m[4]; mo = +m[5]; if (m[6]) y = m[6].length === 2 ? 2000 + +m[6] : +m[6]; }
+        else { d = +m[7]; mo = MON[m[8].toLowerCase()]; if (m[9]) y = m[9].length === 2 ? 2000 + +m[9] : +m[9]; }
+        if (!y) {   // Jahr fehlt: das Jahr wählen, das dem heutigen Tag am nächsten liegt
+          inferred = true;   // Einträge sind meist Vergangenheit: dieses Jahr, außer das Datum läge mehr als 30 Tage in der Zukunft
+          let dt = new Date(t0.getFullYear(), mo - 1, d); if (dt - t0 > 30 * 864e5) dt = new Date(t0.getFullYear() - 1, mo - 1, d);
+          if (dt.getMonth() === mo - 1 && dt.getDate() === d) date = dt;
+        } else { const dt = new Date(y, mo - 1, d); if (dt.getMonth() === mo - 1 && dt.getDate() === d && y >= 2010 && y <= t0.getFullYear() + 2) date = dt; }
+        if (date) rest = m[10];
+        else out.issues.push(ch.slice(0, 60));    // sieht nach Datum aus, ist aber keins (z. B. 31.02.)
+      }
+      if (date) { cur = { d: date, inf: inferred, t: (rest || '').trim(), future: days(t0, date) > 7 }; out.ent.push(cur); }
+      else if (/^\s*#/.test(ch) || !cur) { cur = null; out.notes.push(ch.replace(/^[\s#]+/, '')); }
+      else cur.t += (cur.t ? ' ' : '') + ch;
+    });
+    const real = out.ent.filter(e => !e.future);
+    out.latest = real.reduce((a, e) => !a || e.d > a.d ? e : a, null);
+    return out;
+  }
+  // bereinigte Schreibweise: TT.MM.JJJJ: Text, neuester Eintrag oben
+  function normAkt(text) {
+    const p = parseAkt(text), L = p.ent.slice().sort((a, b) => b.d - a.d).map(e => fmtDate(e.d) + ': ' + e.t);
+    return L.concat(p.notes.map(n => '#' + n)).join('\n');
+  }
+
   const short = s => String(s || '').replace(/\s*#\d+.*$/, '').trim();
+  const first = n => String(n || '').split(' ')[0];
   const isDone = r => { const w = D.cfg.done.toLowerCase().split(',').map(x => x.trim()).filter(Boolean), t = (r.phase + ' ' + r.status).toLowerCase(); return w.some(x => t.includes(x)); };
   const fh = n => n == null ? '–' : (Math.round(n * 10) / 10).toLocaleString('de-DE') + ' h';
+  const pct = n => Math.round(n) + ' %';
+
+  // ---------- Ableitungen ----------
+  // Verantwortung: Budget/Laufzeit -> Projektleiter (Gesamtverantwortung); „Aktuelles“ -> Consultant (Umsetzung), sonst PL
   function derive(r) {
     const c = D.cfg, L = D.loc[r.id] || {}, t = today(), flags = [];
-    const ent = parseAkt(r.akt), dated = ent.filter(e => e.d);
-    const last = dated.reduce((a, e) => !a || e.d > a.d ? e : a, null);
-    const age = last ? days(last.d, t) : null;
-    const used = c.base === 'ges' ? r.ist : (r.istab != null ? r.istab : r.ist);
-    const bp = r.plan > 0 && used != null ? used / r.plan * 100 : null;
-    const gp = r.plan > 0 && r.ist != null ? r.ist / r.plan * 100 : null;
+    const A = parseAkt(r.akt), last = A.latest, age = last ? days(last.d, t) : null;
+    const abU = r.istab != null ? r.istab : null, ges = r.ist;
+    const ap = r.plan > 0 && abU != null ? abU / r.plan * 100 : null;   // abrechenbar (vom Kunden bezahlt) vs. Budget
+    const gp = r.plan > 0 && ges != null ? ges / r.plan * 100 : null;   // alle gebuchten Zeiten vs. Budget
     const s = dOf(r.start), e = dOf(r.ende);
     const tp = s && e && e > s ? Math.max(0, Math.min(100, (t - s) / (e - s) * 100)) : null;
     const over = e && t > e ? days(e, t) : 0, done = isDone(r);
-    if (L.help) flags.push({ s: 'r', t: '🆘 ' + L.help });
-    if (bp != null && bp > c.r) flags.push({ s: 'r', t: '💶 Budget zu ' + Math.round(bp) + ' % verbraucht' });
-    else if (bp != null && bp >= c.y) flags.push({ s: 'y', t: '💶 Budget zu ' + Math.round(bp) + ' % verbraucht' });
-    else if (!L.mute && bp != null && tp != null && bp - tp >= 25) flags.push({ s: 'y', t: '⏱ Budget schneller verbraucht als Laufzeit' });
-    if (!L.mute && over > 0 && !done) flags.push({ s: 'y', t: '📅 Laufzeit seit ' + over + ' Tagen überschritten' });
-    if (!L.mute && age != null && age >= c.stale && !done) flags.push({ s: 'y', t: '🕒 „Aktuelles“ ' + age + ' Tage alt' });
-    if (!L.mute && !r.akt && !done) flags.push({ s: 'n', t: 'ℹ️ Kein Eintrag bei „Aktuelles“' });
-    if (gp != null && r.istab != null && r.ist - r.istab > 0 && (r.ist - r.istab) / Math.max(r.ist, 1) > 0.25 && c.base !== 'ges' && !flags.some(f => f.s !== 'n' && f.t.startsWith('💶'))) flags.push({ s: 'n', t: '🧾 ' + fh(r.ist - r.istab) + ' nicht abrechenbar gebucht' });
+    const ownPL = r.pl || 'PL', ownCO = r.cons || r.pl || 'Consultant';
+    const add = (s, t2, o) => flags.push({ s, t: t2, o });
+    if (L.help) add('r', '🆘 ' + L.help, '');
+    if (ap != null && ap > c.r) add('r', '💶 Abrechenbar über Budget (' + pct(ap) + ')', ownPL);
+    else if (ap != null && ap >= c.y) add('y', '💶 Abrechenbar zu ' + pct(ap) + ' im Budget', ownPL);
+    if (gp != null && (gp > c.r || (gp >= c.y && ap != null && gp > ap + 10)) && ges - (abU || 0) >= 1)
+      add(gp > c.r ? 'r' : 'y', '💸 Gesamtaufwand ' + pct(gp) + ' des Budgets (' + fh(ges - (abU || 0)) + ' nicht abrechenbar)', ownPL);
+    else if (gp != null && gp > c.r && ap == null) add('r', '💸 Gesamtaufwand ' + pct(gp) + ' des Budgets', ownPL);
+    if (!L.mute && gp != null && tp != null && gp - tp >= 25 && gp < c.y) add('y', '⏱ Aufwand schneller verbraucht als Laufzeit', ownPL);
+    if (!L.mute && over > 0 && !done) add('y', '📅 Projektende seit ' + over + ' Tagen überschritten', ownPL);
+    let q = 'ok';
+    if (A.err) q = 'err'; else if (!r.akt.trim()) q = 'empty'; else if (!A.ent.length) q = 'nodate'; else if (!last) q = 'future'; else if (age >= c.stale) q = 'stale';
+    if (!L.mute && !done) {
+      if (q === 'empty') add('y', '✍️ „Aktuelles“ ist leer', ownCO);
+      else if (q === 'nodate') add('y', '✍️ „Aktuelles“ ohne erkennbares Datum', ownCO);
+      else if (q === 'future') add('y', '✍️ Nur Einträge mit Datum in der Zukunft', ownCO);
+      else if (q === 'stale') add('y', '✍️ „Aktuelles“ ' + age + ' Tage alt', ownCO);
+      else if (q === 'err') add('n', 'ℹ️ „Aktuelles“ konnte nicht gelesen werden, Rohtext im Detail', '');
+    }
+    if (A.issues.length) add('n', 'ℹ️ Ungültiges Datum in „Aktuelles“: ' + A.issues[0], '');
     const sev = flags.some(f => f.s === 'r') ? 'r' : flags.some(f => f.s === 'y') ? 'y' : 'g';
-    return { r, L, ent, last, age, bp, gp, tp, over, done, flags, sev, used };
+    return { r, L, A, last, age, ap, gp, tp, over, done, flags, sev, q };
   }
   const all = () => D.rows.map(derive);
-  const mine = p => D.my && (p.r.cons === D.my || p.r.pl === D.my);
-  function filtered(list) {
-    return list.filter(p => (D.showDone || D.view === 'stand' ? (D.view === 'stand' ? !p.done : true) : !p.done)
-      && (D.who === 'Alle' || (D.who === 'Meine' ? mine(p) : p.r.cons === D.who))
-      && (!D.q || (p.r.kunde + ' ' + p.r.kom + ' ' + p.r.nr + ' ' + p.r.cons + ' ' + p.r.akt).toLowerCase().includes(D.q.toLowerCase())));
+  const pick = (v, who) => v === 'Alle' || (v === '__my' ? !!D.my && who === D.my : who === v);
+  function visible(p, scope) {
+    if (p.done && !(D.view === 'all' && D.showDone)) return false;
+    if (!pick(D.fpl, p.r.pl) || !pick(D.fco, p.r.cons)) return false;
+    if (D.q && !(p.r.kunde + ' ' + p.r.kom + ' ' + p.r.nr + ' ' + p.r.cons + ' ' + p.r.pl + ' ' + p.r.akt).toLowerCase().includes(D.q.toLowerCase())) return false;
+    if (scope && D.rhy !== 'alle') {
+      const c = p.L.cad || '';
+      if (!(D.rhy === 'tag' ? c === 'd' : (c === 'd' || c === 'w')) && !(D.red && p.sev === 'r')) return false;
+    }
+    return true;
   }
   const sevOrd = { r: 0, y: 1, g: 2 };
-  const byAmpel = (a, b) => sevOrd[a.sev] - sevOrd[b.sev] || (b.bp || 0) - (a.bp || 0);
+  const byAmpel = (a, b) => sevOrd[a.sev] - sevOrd[b.sev] || (b.gp || 0) - (a.gp || 0);
 
   // ---------- Darstellung ----------
   function card(p) {
-    const r = p.r, bcls = p.bp == null ? '' : p.bp >= D.cfg.r ? 'r' : p.bp >= D.cfg.y ? 'y' : '';
-    const lastTxt = p.last ? '<small>' + ago(p.age) + '</small>' + esc(p.last.t) : (r.akt ? esc(parseAkt(r.akt)[0].t) : '');
-    return '<button class="pc ' + p.sev + (p.done ? ' dn' : '') + '" data-id="' + esc(r.id) + '"><div class="h">' + (p.L.pin ? '<span class="pin">📌</span>' : '') + '<span class="nm">' + esc(short(r.kunde) || r.nr) + '</span>' + (r.cons ? '<span class="tag">' + esc(r.cons.split(' ')[0]) + '</span>' : '') + '</div>' +
+    const r = p.r, A = p.A;
+    const lastTxt = p.last ? '<small>' + ago(p.age) + '</small>' + esc(p.last.t || '(nur Datum)') : (A.ent.length ? esc(A.ent[0].t) : (A.notes.length ? esc(A.notes[0]) : ''));
+    const scale = Math.max(r.plan || 0, r.ist || 0, r.istab || 0), ab = r.istab || 0, nb = Math.max(0, (r.ist || 0) - ab);
+    const bcls = p.ap == null ? '' : p.ap > D.cfg.r ? 'r' : p.ap >= D.cfg.y ? 'y' : '';
+    return '<button class="pc ' + p.sev + (p.done ? ' dn' : '') + '" data-id="' + esc(r.id) + '"><div class="h">' + (p.L.pin ? '<span class="pin">📌</span>' : '') + '<span class="nm">' + esc(short(r.kunde) || r.nr) + '</span>' + (p.L.cad ? '<span class="tag ph">' + (p.L.cad === 'd' ? 'täglich' : 'wöchentl.') + '</span>' : '') + '</div>' +
       '<div class="sub">' + esc(r.kom || r.nr) + '</div>' +
+      '<div class="who"><span>PL <b>' + esc(first(r.pl) || '–') + '</b></span><span>Consultant <b>' + esc(first(r.cons) || '–') + '</b></span></div>' +
       '<div class="fl">' + (r.phase ? '<span class="n">' + esc(r.phase) + '</span>' : '') + (r.typ ? '<span class="n">' + esc(r.typ) + '</span>' : '') + (r.golive ? '<span class="n">🎯 ' + esc(r.golive) + '</span>' : '') + '</div>' +
       '<div class="ak' + (lastTxt ? '' : ' none') + '">' + (lastTxt || 'Kein Eintrag bei „Aktuelles“') + '</div>' +
-      (p.flags.length ? '<div class="fl">' + p.flags.map(f => '<span class="' + f.s + '">' + esc(f.t) + '</span>').join('') + '</div>' : '') +
-      (p.bp != null ? '<div class="bar"><i class="' + bcls + '" style="width:' + Math.min(100, p.bp) + '%"></i>' + (p.tp != null ? '<u style="left:' + p.tp.toFixed(1) + '%"></u>' : '') + '</div><div class="bt"><span>' + fh(p.used) + ' von ' + fh(r.plan) + ' · ' + Math.round(p.bp) + ' %</span>' + (p.tp != null ? '<span>Laufzeit ' + Math.round(p.tp) + ' %</span>' : '') + '</div>' : '') + '</button>';
+      (p.flags.length ? '<div class="fl">' + p.flags.map(f => '<span class="' + f.s + '">' + esc(f.t) + (f.o ? ' <em>→ ' + esc(first(f.o)) + '</em>' : '') + '</span>').join('') + '</div>' : '') +
+      (scale > 0 && r.plan > 0 ? '<div class="bar"><i class="ab ' + bcls + '" style="width:' + (ab / scale * 100).toFixed(1) + '%"></i><i class="nb" style="width:' + (nb / scale * 100).toFixed(1) + '%"></i><u style="left:' + (r.plan / scale * 100).toFixed(1) + '%"></u></div><div class="bt"><span>Budget ' + fh(r.plan) + ' · abrechenbar ' + fh(r.istab) + (p.ap != null ? ' (' + pct(p.ap) + ')' : '') + '</span>' + (r.ist != null ? '<span>gesamt ' + fh(r.ist) + (p.gp != null ? ' (' + pct(p.gp) + ')' : '') + '</span>' : '') + '</div>' : '') +
+      (p.tp != null ? '<div class="tbar"><i style="width:' + p.tp.toFixed(1) + '%"></i></div><div class="bt"><span>Laufzeit ' + fmtD(r.start) + ' – ' + fmtD(r.ende) + '</span><span>' + pct(p.tp) + '</span></div>' : '') + '</button>';
   }
-  const chipsWho = () => {
-    const names = [...new Set(D.rows.map(r => r.cons).filter(Boolean))].sort();
-    return '<div class="chips hs">' + ['Alle'].concat(D.my ? ['Meine'] : [], names).map(n => '<button data-w="' + esc(n) + '" class="' + (D.who === n ? 'on' : '') + '">' + esc(n) + '</button>').join('') + '</div>';
-  };
-  function wireCards() {
-    $('sc').querySelectorAll('.pc').forEach(b => b.onclick = () => detail(b.dataset.id));
-    $('sc').querySelectorAll('[data-w]').forEach(b => b.onclick = () => { D.who = b.dataset.w; save(); view(); });
+  const names = k => [...new Set(D.rows.map(r => r[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
+  function filterRow() {
+    const opt = (cur, k) => '<option value="Alle">Alle</option>' + (D.my ? '<option value="__my" ' + (cur === '__my' ? 'selected' : '') + '>Ich (' + esc(D.my) + ')</option>' : '') + names(k).map(n => '<option ' + (cur === n ? 'selected' : '') + '>' + esc(n) + '</option>').join('');
+    return '<div class="row full"><div class="f"><span>Projektleiter (Gesamtverantwortung)</span><select id="fpl">' + opt(D.fpl, 'pl') + '</select></div><div class="f"><span>Consultant (Umsetzung)</span><select id="fco">' + opt(D.fco, 'cons') + '</select></div></div>';
+  }
+  function wireCommon() {
+    const sc = $('sc');
+    sc.querySelectorAll('.pc').forEach(b => b.onclick = () => detail(b.dataset.id));
+    if ($('fpl')) { $('fpl').onchange = e => { D.fpl = e.target.value; save(); view(); }; $('fco').onchange = e => { D.fco = e.target.value; save(); view(); }; }
   }
   function emptyState() {
     return '<div class="empty"><div class="e">📣</div>Noch keine Projektliste geladen.<br>Importiere deinen Export (Excel oder CSV). Die Daten bleiben nur auf diesem Gerät.<div style="margin-top:14px"><button class="btn" id="e1">📥 Projektliste importieren</button><button class="btn sec2" id="e2">🧪 Mit Beispieldaten ansehen</button></div></div>';
@@ -313,58 +395,100 @@
   function standView() {
     const sc = $('sc'); sc.scrollTop = 0;
     if (!D.rows.length) { sc.innerHTML = emptyState(); $('e1').onclick = () => $('file').click(); $('e2').onclick = loadDemo; return; }
-    const list = filtered(all()), pin = list.filter(p => p.L.pin), rest = list.filter(p => !p.L.pin);
+    const base = all().filter(p => visible(p, false)), cntR = k => base.filter(p => k === 'alle' ? true : k === 'tag' ? p.L.cad === 'd' : (p.L.cad === 'd' || p.L.cad === 'w')).length;
+    const list = all().filter(p => visible(p, true)), pin = list.filter(p => p.L.pin), rest = list.filter(p => !p.L.pin);
     const att = rest.filter(p => p.sev !== 'g').sort(byAmpel), calm = rest.filter(p => p.sev === 'g');
     const cnt = s => list.filter(p => p.sev === s).length;
-    let h = '<div class="sum"><div><b style="color:var(--r)">' + cnt('r') + '</b><span>Rot</span></div><div><b style="color:var(--y)">' + cnt('y') + '</b><span>Gelb</span></div><div><b style="color:var(--g)">' + cnt('g') + '</b><span>Ruhig</span></div><div><b>' + list.length + '</b><span>Aktiv</span></div></div>';
-    h += chipsWho();
+    let h = '<div class="sum"><div><b style="color:var(--r)">' + cnt('r') + '</b><span>Rot</span></div><div><b style="color:var(--y)">' + cnt('y') + '</b><span>Gelb</span></div><div><b style="color:var(--g)">' + cnt('g') + '</b><span>Ruhig</span></div><div><b>' + list.length + '</b><span>Im Standup</span></div></div>';
+    h += '<div class="chips full">' + [['tag', '📅 Täglich'], ['wo', '🗓 Wöchentlich'], ['alle', 'Alle aktiven']].map(([k, n]) => '<button data-r="' + k + '" class="' + (D.rhy === k ? 'on' : '') + '">' + n + ' (' + cntR(k) + ')</button>').join('') + '<button id="ed" style="border-style:dashed">✏️ Auswahl festlegen</button></div>';
+    h += filterRow();
+    if (D.rhy !== 'alle' && !cntR(D.rhy)) h += '<div class="note">Für diesen Rhythmus sind noch keine Projekte ausgewählt. Tippe auf <b>✏️ Auswahl festlegen</b> und markiere, was täglich oder wöchentlich besprochen wird.</div>';
+    if (D.rhy !== 'alle') h += '<div class="help full" style="margin:-4px 2px 10px"><label><input type="checkbox" id="rd" ' + (D.red ? 'checked' : '') + ' style="width:auto;vertical-align:middle"> Rote Projekte immer zusätzlich zeigen</label></div>';
     if (D.demo) h += '<div class="note">🧪 Das sind <b>Beispieldaten</b>. Importiere deine Projektliste über 📥, dann werden sie ersetzt.</div>';
     if (pin.length) h += '<div class="sec">📌 Heute im Fokus <span class="sp"></span>' + pin.length + '</div>' + pin.sort(byAmpel).map(card).join('');
     h += '<div class="sec">🔥 Braucht Aufmerksamkeit <span class="sp"></span>' + att.length + '</div>' + (att.length ? att.map(card).join('') : '<div class="note full" style="border-color:var(--g);background:rgba(63,224,143,.1)">✅ Keine Auffälligkeiten. Alles läuft ruhig.</div>');
     if (calm.length) h += '<div class="sec">✅ Läuft ruhig <span class="sp"></span>' + calm.length + ' <button id="tc">' + (D.calm ? 'ausblenden' : 'anzeigen') + '</button></div>' + (D.calm ? calm.sort(byAmpel).map(card).join('') : '');
-    sc.innerHTML = h; wireCards();
+    h += pflegePanel(all().filter(p => visible(p, false)));
+    sc.innerHTML = h; wireCommon();
+    sc.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { D.rhy = b.dataset.r; save(); view(); });
+    $('ed').onclick = rhythmSheet;
+    if ($('rd')) $('rd').onchange = e => { D.red = e.target.checked; save(); view(); };
     if ($('tc')) $('tc').onclick = () => { D.calm = !D.calm; save(); view(); };
+    if ($('pfc')) $('pfc').onclick = () => copy(pflegeText(base), '📋 Erinnerung kopiert');
+  }
+  // Pflege von „Aktuelles“: wer sollte was aktualisieren
+  function pflegeList(list) { return list.filter(p => !p.done && !p.L.mute && ['empty', 'nodate', 'stale', 'future', 'err'].includes(p.q)); }
+  function qText(p) { return p.q === 'empty' ? 'leer' : p.q === 'nodate' ? 'kein Datum erkennbar' : p.q === 'future' ? 'nur zukünftige Daten' : p.q === 'err' ? 'nicht lesbar' : p.age + ' Tage alt'; }
+  function pflegePanel(list) {
+    const L = pflegeList(list), ok = list.filter(p => !p.done && p.q === 'ok').length;
+    const g = {}; L.forEach(p => { const k = p.r.cons || p.r.pl || '(ohne Zuordnung)'; (g[k] = g[k] || []).push(p); });
+    return '<div class="sec">✍️ „Aktuelles“ pflegen <span class="sp"></span>' + (L.length ? L.length + ' offen' : '') + (L.length ? ' <button id="pfc">📋 Erinnerung kopieren</button>' : '') + '</div>' +
+      '<div class="panel full">' + (L.length ? Object.keys(g).sort().map(k => '<div class="tk"><b>' + esc(k) + '<small>' + g[k].map(p => esc(short(p.r.kunde) || p.r.nr) + ' (' + qText(p) + ')').join(' · ') + '</small></b></div>').join('') : '<div class="help">✅ Alle ' + ok + ' Projekte haben ein aktuelles, lesbares „Aktuelles“.</div>') +
+      '<div class="help" style="margin-top:8px">Empfohlen: <b>TT.MM.JJJJ: Text</b>, neuester Eintrag oben, ein Eintrag pro Zeile. Das Board liest auch andere Schreibweisen, aber so ist es für alle eindeutig. Im Projekt-Detail kannst du einen Eintrag vorbereiten und kopieren.</div></div>';
+  }
+  function pflegeText(list) {
+    const L = pflegeList(list), g = {}; L.forEach(p => { const k = p.r.cons || p.r.pl || '(ohne Zuordnung)'; (g[k] = g[k] || []).push(p); });
+    return ['Bitte „Aktuelles“ pflegen (Format: TT.MM.JJJJ: Text, neuester Eintrag oben):', ''].concat(Object.keys(g).sort().map(k => k + ': ' + g[k].map(p => (short(p.r.kunde) || p.r.nr) + ' (' + qText(p) + ')').join(', '))).join('\n');
   }
   function allView() {
     const sc = $('sc'); sc.scrollTop = 0;
     if (!D.rows.length) { sc.innerHTML = emptyState(); $('e1').onclick = () => $('file').click(); $('e2').onclick = loadDemo; return; }
-    let list = filtered(all());
-    const sorts = { ampel: ['ampel', 'Ampel'], kunde: ['kunde', 'Kunde'], budget: ['budget', 'Budget %'], alter: ['alter', 'Aktualität'] };
-    list.sort(D.sort === 'kunde' ? (a, b) => short(a.r.kunde).localeCompare(short(b.r.kunde), 'de') : D.sort === 'budget' ? (a, b) => (b.bp || -1) - (a.bp || -1) : D.sort === 'alter' ? (a, b) => (b.age == null ? -1 : b.age) - (a.age == null ? -1 : a.age) : byAmpel);
-    let h = '<div class="full"><input id="q" type="search" placeholder="Suchen: Kunde, Kommission, Nummer …" value="' + esc(D.q) + '" style="margin-bottom:8px"></div>' + chipsWho() +
-      '<div class="chips">' + Object.values(sorts).map(([k, n]) => '<button data-s="' + k + '" class="' + (D.sort === k ? 'on' : '') + '">' + n + '</button>').join('') + '<button data-dn="1" class="' + (D.showDone ? 'on' : '') + '">inkl. abgeschlossene</button></div>' +
+    const list = all().filter(p => visible(p, false));
+    list.sort(D.sort === 'kunde' ? (a, b) => short(a.r.kunde).localeCompare(short(b.r.kunde), 'de') : D.sort === 'budget' ? (a, b) => (b.gp || -1) - (a.gp || -1) : D.sort === 'alter' ? (a, b) => (b.age == null ? 9999 : b.age) - (a.age == null ? 9999 : a.age) : byAmpel);
+    const sorts = [['ampel', 'Ampel'], ['kunde', 'Kunde'], ['budget', 'Budget %'], ['alter', 'Aktualität']];
+    sc.innerHTML = '<div class="full"><input id="q" type="search" placeholder="Suchen: Kunde, Kommission, Nummer, Person …" value="' + esc(D.q) + '" style="margin-bottom:8px"></div>' + filterRow() +
+      '<div class="chips full">' + sorts.map(([k, n]) => '<button data-s="' + k + '" class="' + (D.sort === k ? 'on' : '') + '">' + n + '</button>').join('') + '<button data-dn="1" class="' + (D.showDone ? 'on' : '') + '">inkl. abgeschlossene</button></div>' +
       '<div class="sec">' + list.length + ' Projekte</div>' + (list.length ? list.map(card).join('') : '<div class="empty">Keine Treffer.</div>');
-    sc.innerHTML = h; wireCards();
+    wireCommon();
     $('q').oninput = e => { D.q = e.target.value; const p = e.target.selectionStart; save(); allView(); const q = $('q'); q.focus(); try { q.setSelectionRange(p, p); } catch (x) {} };
     sc.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { D.sort = b.dataset.s; save(); view(); });
     sc.querySelector('[data-dn]').onclick = () => { D.showDone = !D.showDone; save(); view(); };
   }
   function moreView() {
     const sc = $('sc'); sc.scrollTop = 0; const c = D.cfg;
-    const names = [...new Set(D.rows.flatMap(r => [r.pl, r.cons]).filter(Boolean))].sort();
+    const people = [...new Set(D.rows.flatMap(r => [r.pl, r.cons]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
     sc.innerHTML = '<div class="panel"><div class="lbl">Daten</div><div class="help" style="margin-bottom:8px">' + (D.rows.length ? '<b>' + D.rows.length + ' Projekte</b> · ' + (D.demo ? 'Beispieldaten' : esc(D.file || 'Import')) + (D.imported ? ' · Stand ' + new Date(D.imported).toLocaleString('de-DE') : '') : 'Noch nichts importiert.') + '</div>' +
       '<button class="btn" id="m1" style="margin-top:0">📥 Projektliste importieren (Excel / CSV)</button><button class="btn sec2" id="m2">🧪 Beispieldaten laden</button>' + (D.rows.length ? '<button class="btn red" id="m3">Alle Daten löschen</button>' : '') +
-      '<div class="help" style="margin-top:10px">🔒 Die Daten werden <b>nur in diesem Browser</b> gelesen und gespeichert. Es gibt keinen Upload und keinen Cloud-Sync. Auf einem anderen Gerät importierst du den Export einfach erneut. Deine lokalen Markierungen (Fokus, Hilfe, Notizen) bleiben beim erneuten Import erhalten.</div></div>' +
-      '<div class="panel"><div class="lbl">Ich bin</div><select id="my"><option value="">– nicht festgelegt –</option>' + names.map(n => '<option ' + (n === D.my ? 'selected' : '') + '>' + esc(n) + '</option>').join('') + '</select><div class="help" style="margin-top:6px">Damit gibt es den Filter „Meine“ (als Projektleiter oder Consultant).</div></div>' +
-      '<div class="panel"><div class="lbl">Schwellen für die Ampel</div><div class="row"><div class="f"><span>Budget gelb ab %</span><input id="cy" inputmode="numeric" value="' + c.y + '"></div><div class="f"><span>Budget rot ab %</span><input id="cr" inputmode="numeric" value="' + c.r + '"></div><div class="f"><span>„Aktuelles“ alt ab Tagen</span><input id="cs" inputmode="numeric" value="' + c.stale + '"></div></div>' +
-      '<div class="f" style="margin-bottom:8px"><span>Budget rechnet auf Basis von</span><select id="cb"><option value="ab" ' + (c.base === 'ab' ? 'selected' : '') + '>Gebuchter abrechenbarer Aufwand</option><option value="ges" ' + (c.base === 'ges' ? 'selected' : '') + '>Gebuchter Aufwand gesamt</option></select></div>' +
-      '<div class="f"><span>Als abgeschlossen werten, wenn Phase/Status enthält</span><input id="cd" value="' + esc(c.done) + '"></div><div class="help" style="margin-top:8px">Die Laufzeit-Markierung (weißer Strich im Balken) zeigt, wie viel der Zeit zwischen Projekt Start und Ende schon vergangen ist.</div></div>' +
-      '<div class="panel"><div class="lbl">Standup-Text</div><div class="help">📋 oben erzeugt eine kompakte Zusammenfassung (Rot/Gelb, Fokus, Hilfe nötig) zum Einfügen in Teams oder Outlook. Sie berücksichtigt den gewählten Filter.</div></div>';
+      '<div class="help" style="margin-top:10px">🔒 Die Daten werden <b>nur in diesem Browser</b> gelesen und gespeichert. Es gibt keinen Upload und keinen Cloud-Sync. Auf einem anderen Gerät importierst du den Export einfach erneut. Deine lokalen Markierungen (Rhythmus, Fokus, Hilfe, Notizen) bleiben beim erneuten Import erhalten.</div></div>' +
+      '<div class="panel"><div class="lbl">Ich bin</div><select id="my"><option value="">– nicht festgelegt –</option>' + people.map(n => '<option ' + (n === D.my ? 'selected' : '') + '>' + esc(n) + '</option>').join('') + '</select><div class="help" style="margin-top:6px">Erscheint als „Ich“ in den Filtern Projektleiter und Consultant.</div></div>' +
+      '<div class="panel"><div class="lbl">Schwellen für die Ampel</div><div class="row"><div class="f"><span>Budget gelb ab %</span><input id="cy" inputmode="numeric" value="' + c.y + '"></div><div class="f"><span>Budget rot über %</span><input id="cr" inputmode="numeric" value="' + c.r + '"></div><div class="f"><span>„Aktuelles“ alt ab Tagen</span><input id="cs" inputmode="numeric" value="' + c.stale + '"></div></div>' +
+      '<div class="f"><span>Als abgeschlossen werten, wenn Phase/Status enthält</span><input id="cd" value="' + esc(c.done) + '"></div>' +
+      '<div class="help" style="margin-top:8px"><b>So wird gerechnet:</b> Budget = „Geplanter abrechenbarer Aufwand“. <b>Abrechenbar</b> = gebuchte abrechenbare Stunden, die der Kunde bezahlt. <b>Gesamt</b> = alle gebuchten Zeiten. Liegt der Gesamtaufwand über dem Budget, ist der Mehraufwand unbezahlt. Budget und Laufzeit gehören zur Verantwortung des Projektleiters, „Aktuelles“ pflegt der Consultant.<br><br>Projekt Start/Ende werden nicht überall sauber gepflegt. Die Hinweise zur Laufzeit sind deshalb Anhaltspunkte. Mit „🔕 Läuft ruhig“ im Projekt schaltest du Laufzeit- und Aktualitätshinweise für einzelne Projekte ab.</div></div>' +
+      '<div class="panel"><div class="lbl">Standup-Text</div><div class="help">📋 oben erzeugt eine kompakte Zusammenfassung (Rot/Gelb mit Verantwortlichen, Fokus, Hilfe nötig, fehlendes „Aktuelles“) zum Einfügen in Teams oder Outlook. Sie berücksichtigt Rhythmus und Filter.</div></div>';
     $('m1').onclick = () => $('file').click(); $('m2').onclick = loadDemo; if ($('m3')) $('m3').onclick = () => { if (confirm('Alle importierten Daten und lokalen Markierungen löschen?')) { D.rows = []; D.loc = {}; D.demo = false; D.file = ''; D.imported = ''; save(); view(); toast('Gelöscht'); } };
     $('my').onchange = e => { D.my = e.target.value; save(); };
     const num = (id, k) => $(id).onchange = e => { const v = parseFloat(e.target.value); if (isFinite(v)) D.cfg[k] = v; save(); badge(); };
     num('cy', 'y'); num('cr', 'r'); num('cs', 'stale');
-    $('cb').onchange = e => { D.cfg.base = e.target.value; save(); badge(); }; $('cd').onchange = e => { D.cfg.done = e.target.value; save(); badge(); };
+    $('cd').onchange = e => { D.cfg.done = e.target.value; save(); badge(); };
   }
   function badge() {
-    const n = D.rows.length ? all().filter(p => !p.done && p.sev !== 'g' && !p.L.pin && (D.who === 'Alle' || (D.who === 'Meine' ? mine(p) : p.r.cons === D.who))).length : 0;
+    const n = D.rows.length ? all().filter(p => visible(p, true) && p.sev !== 'g' && !p.L.pin).length : 0;
     const b = $('bd'); b.style.display = n ? '' : 'none'; b.textContent = n;
   }
   function view() {
+    if (D.fpl !== 'Alle' && D.fpl !== '__my' && !names('pl').includes(D.fpl)) D.fpl = 'Alle';
+    if (D.fco !== 'Alle' && D.fco !== '__my' && !names('cons').includes(D.fco)) D.fco = 'Alle';
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === D.view));
     ({ stand: standView, all: allView, more: moreView })[D.view]();
     $('ttl').textContent = { stand: '📣 Standup', all: '📚 Alle Projekte', more: '⚙️ Mehr' }[D.view];
     badge();
+  }
+
+  // ---------- Rhythmus-Auswahl ----------
+  function rhythmSheet() {
+    const draw = () => {
+      const q = ($('rq') ? $('rq').value : '').toLowerCase(), list = all().filter(p => !p.done && (!q || (p.r.kunde + ' ' + p.r.kom + ' ' + p.r.cons + ' ' + p.r.pl).toLowerCase().includes(q))).sort((a, b) => short(a.r.kunde).localeCompare(short(b.r.kunde), 'de'));
+      $('rl').innerHTML = list.map(p => { const c = p.L.cad || ''; return '<div class="rr"><div class="rn"><b>' + esc(short(p.r.kunde) || p.r.nr) + '</b><small>' + esc(p.r.kom) + ' · PL ' + esc(first(p.r.pl) || '–') + ' · Cons. ' + esc(first(p.r.cons) || '–') + '</small></div><div class="seg3" data-id="' + esc(p.r.id) + '"><button data-c="" class="' + (c === '' ? 'on' : '') + '">–</button><button data-c="w" class="' + (c === 'w' ? 'on' : '') + '">Woche</button><button data-c="d" class="' + (c === 'd' ? 'on' : '') + '">Täglich</button></div></div>'; }).join('') || '<div class="help">Keine Projekte.</div>';
+      $('rl').querySelectorAll('.seg3').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { const id = s.dataset.id, L = D.loc[id] = D.loc[id] || {}; if (b.dataset.c) L.cad = b.dataset.c; else delete L.cad; if (!Object.keys(L).length) delete D.loc[id]; save(); draw(); }));
+    };
+    sheet('<h3>✏️ Auswahl für das Standup</h3><div class="help" style="margin-bottom:8px"><b>Täglich</b>: kommt in jedes Standup. <b>Woche</b>: nur im wöchentlichen Standup. <b>–</b>: bei Bedarf (erscheint nur unter „Alle aktiven“).</div>' +
+      '<input id="rq" type="search" placeholder="Suchen …" style="margin-bottom:8px"><div class="chips"><button id="ra">Alle aktiven → täglich</button><button id="rm">Meine Projekte → täglich</button><button id="rz">Alle zurücksetzen</button></div><div id="rl"></div><button class="btn" id="rok">Fertig</button>', () => {
+      draw(); $('rq').oninput = draw;
+      const setAll = (fn, v) => { all().filter(p => !p.done && fn(p)).forEach(p => { const L = D.loc[p.r.id] = D.loc[p.r.id] || {}; if (v) L.cad = v; else delete L.cad; if (!Object.keys(L).length) delete D.loc[p.r.id]; }); save(); draw(); };
+      $('ra').onclick = () => setAll(() => true, 'd'); $('rz').onclick = () => setAll(() => true, '');
+      $('rm').onclick = () => { if (!D.my) { toast('Unter „Mehr“ festlegen, wer du bist'); return; } setAll(p => p.r.pl === D.my || p.r.cons === D.my, 'd'); };
+      $('rok').onclick = () => { closeSheet(); if (D.rhy === 'alle' && Object.values(D.loc).some(l => l.cad)) D.rhy = 'tag'; save(); view(); };
+    });
   }
 
   // ---------- Detail ----------
@@ -372,18 +496,27 @@
   function closeSheet() { $('ov').classList.remove('on'); }
   function detail(id) {
     const r = D.rows.find(x => x.id === id); if (!r) return;
-    const L = D.loc[id] = D.loc[id] || {}, p = derive(r);
+    const L = D.loc[id] = D.loc[id] || {}, p = derive(r), A = p.A;
     const kv = (l, v) => v ? '<div><span>' + l + '</span><b>' + esc(v) + '</b></div>' : '';
+    const entHtml = A.ent.slice().sort((a, b) => b.d - a.d).map(e => '<div class="ent"><small>' + fmtDate(e.d) + (e.inf ? ' (Jahr geschätzt)' : '') + (e.future ? ' · geplant' : ' · ' + ago(days(today(), e.d) * -1)) + '</small>' + esc(e.t || '(nur Datum)') + '</div>').join('') + A.notes.map(n => '<div class="ent"><small>Notiz ohne Datum</small>' + esc(n) + '</div>').join('');
     sheet('<h3>' + esc(short(r.kunde) || r.nr) + '</h3><div class="help" style="margin-bottom:8px">' + esc(r.kom) + '</div>' +
-      (p.flags.length ? '<div class="fl" style="margin:0 0 10px">' + p.flags.map(f => '<span class="' + f.s + '">' + esc(f.t) + '</span>').join('') + '</div>' : '') +
-      '<div class="kv">' + kv('Auftrag', r.nr + (r.datum ? ' · ' + fmtD(r.datum) : '')) + kv('Typ', r.typ) + kv('Phase', r.phase) + kv('Status', r.status) + kv('Projektleiter', r.pl) + kv('Consultant', r.cons) + kv('GoLive-Ziel', r.golive) + kv('Laufzeit', (r.start ? fmtD(r.start) : '?') + ' – ' + (r.ende ? fmtD(r.ende) : '?')) +
-      kv('Geplant (abrechenbar)', fh(r.plan)) + kv('Gebucht gesamt', fh(r.ist) + (p.gp != null ? ' · ' + Math.round(p.gp) + ' %' : '')) + kv('Gebucht abrechenbar', fh(r.istab)) + '</div>' +
-      '<div class="lbl" style="margin-top:12px">Aktuelles</div>' + (p.ent.length ? p.ent.map(e => '<div class="ent">' + (e.d ? '<small>' + fmtD(isoOf(e.d.getFullYear(), e.d.getMonth() + 1, e.d.getDate())) + ' · ' + ago(days(e.d, today())) + '</small>' : '') + esc(e.t) + '</div>').join('') : '<div class="help">Kein Eintrag.</div>') +
-      '<div class="lbl" style="margin-top:14px">Für das Standup (nur lokal)</div><div class="chips"><button id="dpin" class="' + (L.pin ? 'on' : '') + '">📌 Heute im Fokus</button><button id="dmute" class="' + (L.mute ? 'on' : '') + '">🔕 Läuft ruhig, nicht melden</button></div>' +
+      (p.flags.length ? '<div class="fl" style="margin:0 0 10px">' + p.flags.map(f => '<span class="' + f.s + '">' + esc(f.t) + (f.o ? ' <em>→ ' + esc(first(f.o)) + '</em>' : '') + '</span>').join('') + '</div>' : '') +
+      '<div class="kv">' + kv('Auftrag', r.nr + (r.datum ? ' · ' + fmtD(r.datum) : '')) + kv('Typ', r.typ) + kv('Phase', r.phase) + kv('Status', r.status) + kv('Projektleiter (Gesamtverantwortung)', r.pl) + kv('Consultant (Umsetzung)', r.cons) + kv('GoLive-Ziel', r.golive) + kv('Laufzeit', (r.start ? fmtD(r.start) : '?') + ' – ' + (r.ende ? fmtD(r.ende) : '?')) +
+      kv('Budget (geplant, abrechenbar)', fh(r.plan)) + kv('Abrechenbar gebucht (bezahlt)', fh(r.istab) + (p.ap != null ? ' · ' + pct(p.ap) : '')) + kv('Gebucht gesamt (alle Zeiten)', fh(r.ist) + (p.gp != null ? ' · ' + pct(p.gp) : '')) + kv('Nicht abrechenbar', r.ist != null && r.istab != null ? fh(Math.max(0, r.ist - r.istab)) : '') + '</div>' +
+      '<div class="lbl" style="margin-top:12px">Aktuelles <span class="sp"></span>' + (p.last ? 'letzter Eintrag ' + ago(p.age) : '') + '</div>' + (entHtml || '<div class="help">Kein Eintrag.</div>') +
+      '<details style="margin:8px 0"><summary class="help" style="cursor:pointer">Rohtext aus dem Quellsystem anzeigen</summary><pre class="raw">' + esc(r.akt || '(leer)') + '</pre></details>' +
+      '<div class="lbl" style="margin-top:12px">✍️ Neuer Eintrag für „Aktuelles“</div><div class="f" style="margin-bottom:6px"><span>Text (Datum von heute wird vorangestellt)</span><textarea id="dnew" rows="2" placeholder="Was ist passiert, was kommt als Nächstes?"></textarea></div>' +
+      '<div class="chips"><button id="dc1">📋 Nur den Eintrag kopieren</button><button id="dc2">📋 Gesamttext bereinigt kopieren</button></div><div class="help">Füge den Text anschließend im Quellsystem bei „Aktuelles“ ein. „Gesamttext“ enthält den neuen Eintrag oben und alle alten Einträge einheitlich als TT.MM.JJJJ: Text.' + (A.ent.some(e => e.inf) ? ' <b>Achtung:</b> Bei Einträgen ohne Jahr wurde das Jahr geschätzt.' : '') + '</div>' +
+      '<div class="lbl" style="margin-top:14px">Für das Standup (nur lokal)</div><div class="chips"><button data-c="d" class="' + (L.cad === 'd' ? 'on' : '') + '">📅 Täglich</button><button data-c="w" class="' + (L.cad === 'w' ? 'on' : '') + '">🗓 Wöchentlich</button><button data-c="" class="' + (!L.cad ? 'on' : '') + '">Bei Bedarf</button></div>' +
+      '<div class="chips"><button id="dpin" class="' + (L.pin ? 'on' : '') + '">📌 Heute im Fokus</button><button id="dmute" class="' + (L.mute ? 'on' : '') + '">🔕 Läuft ruhig, nicht melden</button></div>' +
       '<div class="f" style="margin-bottom:8px"><span>🆘 Hilfe nötig / Blocker (erscheint rot)</span><input id="dhelp" value="' + esc(L.help || '') + '" placeholder="z. B. Entscheidung Kunde fehlt" maxlength="120"></div>' +
       '<div class="f"><span>Meine Notiz</span><textarea id="dnote" rows="3" placeholder="Nur auf diesem Gerät …">' + esc(L.note || '') + '</textarea></div><button class="btn sec2" id="dcl">Schließen</button>', () => {
       const upd = () => { L.help = $('dhelp').value.trim(); L.note = $('dnote').value; Object.keys(L).forEach(k => { if (!L[k]) delete L[k]; }); if (!Object.keys(L).length) delete D.loc[id]; save(); };
       const done = () => { upd(); closeSheet(); view(); };
+      const line = () => { const t = $('dnew').value.trim(); return t ? fmtDate(today()) + ': ' + t : ''; };
+      $('dc1').onclick = () => { const l = line(); if (!l) { toast('Bitte erst einen Text eingeben'); return; } copy(l, '📋 Eintrag kopiert'); };
+      $('dc2').onclick = () => { const l = line(), old = normAkt(r.akt); if (!l && !old) { toast('Nichts zu kopieren'); return; } copy([l, old].filter(Boolean).join('\n'), '📋 Gesamttext kopiert'); };
+      $('sheet').querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (b.dataset.c) L.cad = b.dataset.c; else delete L.cad; done(); });
       $('dpin').onclick = () => { L.pin = !L.pin; done(); }; $('dmute').onclick = () => { L.mute = !L.mute; done(); }; $('dcl').onclick = done;
       $('ov').onclick = e => { if (e.target === $('ov')) done(); };
     });
@@ -402,10 +535,21 @@
       importSheet();
     } catch (err) { toast('Datei nicht lesbar: ' + err.message); }
   };
+  function aktReport(rows) {
+    const rep = { n: rows.length, ok: 0, empty: 0, nodate: 0, inferred: 0, issues: 0, ex: [] };
+    rows.forEach(r => {
+      const A = parseAkt(r.akt);
+      if (!r.akt.trim()) rep.empty++; else if (!A.ent.length) { rep.nodate++; if (rep.ex.length < 3) rep.ex.push(short(r.kunde) + ': ' + r.akt.split('\n')[0].slice(0, 50)); } else rep.ok++;
+      if (A.ent.some(e => e.inf)) rep.inferred++;
+      if (A.issues.length) { rep.issues++; if (rep.ex.length < 3) rep.ex.push(short(r.kunde) + ': „' + A.issues[0] + '“'); }
+    });
+    return rep;
+  }
   function importSheet() {
-    const P = pending, H = P.raw[P.hi].map(String), rows = buildRows(P.raw, P.hi, P.cols);
+    const P = pending, H = P.raw[P.hi].map(String), rows = buildRows(P.raw, P.hi, P.cols), rep = aktReport(rows);
     const miss = FIELDS.filter(f => P.cols[f.k] === undefined).map(f => f.l);
     sheet('<h3>📥 Import: ' + esc(P.name) + '</h3><div class="note"><b>' + rows.length + ' Projekte</b> erkannt, ' + Object.keys(P.cols).length + ' von ' + FIELDS.length + ' Spalten zugeordnet.' + (miss.length ? '<br>Nicht gefunden: ' + esc(miss.join(', ')) : '') + '</div>' +
+      '<div class="note" style="border-color:' + (rep.empty + rep.nodate + rep.issues ? 'var(--y)' : 'var(--g)') + '">✍️ <b>„Aktuelles“:</b> ' + rep.ok + ' mit lesbarem Datum' + (rep.empty ? ', ' + rep.empty + ' leer' : '') + (rep.nodate ? ', ' + rep.nodate + ' ohne erkennbares Datum' : '') + (rep.inferred ? ', ' + rep.inferred + ' mit Einträgen ohne Jahr (Jahr wird geschätzt)' : '') + (rep.issues ? ', ' + rep.issues + ' mit ungültigem Datum' : '') + '.' + (rep.ex.length ? '<br><small>' + rep.ex.map(esc).join('<br>') + '</small>' : '') + '</div>' +
       '<details><summary style="font-weight:800;font-size:13px;margin-bottom:8px;cursor:pointer">Spaltenzuordnung prüfen / ändern</summary><div class="mp">' + FIELDS.map(f => '<span>' + esc(f.l) + '</span><select data-k="' + f.k + '"><option value="">– keine –</option>' + H.map((h, i) => '<option value="' + i + '" ' + (P.cols[f.k] === i ? 'selected' : '') + '>' + esc(h || '(leer)') + '</option>').join('') + '</select>').join('') + '</div></details>' +
       '<div class="help">Vorhandene Projekte werden aktualisiert, deine lokalen Markierungen bleiben erhalten.</div><button class="btn" id="ok">Übernehmen</button><button class="btn sec2" id="no">Abbrechen</button>', () => {
       $('sheet').querySelectorAll('select[data-k]').forEach(s => s.onchange = () => { if (s.value === '') delete P.cols[s.dataset.k]; else P.cols[s.dataset.k] = +s.value; importSheet(); $('sheet').querySelector('details').open = true; });
@@ -414,7 +558,7 @@
         D.rows = rows; D.demo = false; D.file = P.name; D.imported = new Date().toISOString();
         FIELDS.forEach(f => { if (P.cols[f.k] !== undefined) D.map[f.k] = norm(H[P.cols[f.k]]); });
         if (!D.my) { const c = {}; rows.forEach(r => { if (r.pl) c[r.pl] = (c[r.pl] || 0) + 1; }); const t = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; if (t) D.my = t[0]; }
-        D.who = 'Alle'; pending = null; save(); closeSheet(); D.view = 'stand'; view(); toast('✔ ' + rows.length + ' Projekte importiert');
+        pending = null; save(); closeSheet(); D.view = 'stand'; view(); toast('✔ ' + rows.length + ' Projekte importiert');
       };
       $('ov').onclick = e => { if (e.target === $('ov')) { pending = null; closeSheet(); } };
     });
@@ -422,30 +566,35 @@
 
   // ---------- Beispieldaten (fiktiv) ----------
   function loadDemo() {
-    const t = today(), d = n => { const x = new Date(t.getTime() - n * 864e5); return pad(x.getDate()) + '.' + pad(x.getMonth() + 1) + '.' + x.getFullYear(); };
+    const t = today(), d = n => { const x = new Date(t.getTime() - n * 864e5); return pad(x.getDate()) + '.' + pad(x.getMonth() + 1) + '.' + x.getFullYear(); }, dk = n => d(n).slice(0, 5);
     const iso = n => { const x = new Date(t.getTime() + n * 864e5); return isoOf(x.getFullYear(), x.getMonth() + 1, x.getDate()); };
-    const R = (nr, kunde, kom, akt, typ, phase, cons, plan, ist, istab, s, e) => ({ id: nr, nr, datum: iso(-400), kunde, kom, akt, typ, phase, golive: '', pl: 'Max Muster', cons, status: 'Auftrag bestätigt', plan, ist, istab, start: iso(s), ende: iso(e) });
+    const R = (nr, kunde, kom, akt, typ, phase, pl, cons, plan, ist, istab, s, e) => ({ id: nr, nr, datum: iso(-400), kunde, kom, akt, typ, phase, golive: '', pl, cons, status: 'Auftrag bestätigt', plan, ist, istab, start: iso(s), ende: iso(e) });
     D.rows = [
-      R('DEMO-001', 'Nordlicht Handels GmbH #1001', 'Einführung Rechnungsverarbeitung', '#' + d(2) + ': Abnahmetest läuft, 2 offene Punkte\n#' + d(12) + ': Schnittstelle zum ERP steht', 'Projekt', 'Test & Abnahme', 'Anna Beispiel', 200, 188, 150, -200, 40),
-      R('DEMO-002', 'Alpenblick Maschinenbau AG #1002', 'Erweiterung Freigabe-Workflow', '#' + d(30) + ': Wartet auf Rückmeldung des Kunden', 'Projekt', 'Wartend', 'Max Muster', 120, 96, 90, -150, 20),
-      R('DEMO-003', 'Küstenwerk Logistik #1003', 'Rollout weitere Standorte', '#' + d(1) + ': Standort 3 produktiv\n#' + d(8) + ': Schulung durchgeführt', 'Projekt', 'Rollout', 'Ben Beispiel', 160, 175, 160, -120, -10),
-      R('DEMO-004', 'Seeblick Fachhandel #1004', 'Servicekontingent 2026', '#' + d(5) + ': Produktivbegleitung nach Bedarf', 'DL-Kontingent', 'Einsatz nach Bedarf', 'Cem Beispiel', 80, 22, 20, -250, 90),
-      R('DEMO-005', 'Waldmann Elektro GmbH #1005', 'Migration auf neue Version', '#' + d(3) + ': Testsystem aufgebaut', 'Projekt', 'Umsetzung', 'Anna Beispiel', 240, 60, 55, -40, 120),
-      R('DEMO-006', 'Bergstadt Druck KG #1006', 'Prozessanalyse', '', 'Projekt', 'Konzeption', 'Dana Beispiel', 60, 10, 10, -20, 60),
-      R('DEMO-007', 'Altes Projekt GmbH #1007', 'Abschlussarbeiten', '#' + d(40) + ': Projekt abgeschlossen', 'Projekt', 'Abgeschlossen', 'Max Muster', 100, 99, 99, -300, -30)
+      R('DEMO-001', 'Nordlicht Handels GmbH #1001', 'Einführung Rechnungsverarbeitung', '#' + d(2) + ': Abnahmetest läuft, 2 offene Punkte\n#' + d(12) + ': Schnittstelle zum ERP steht', 'Projekt', 'Test & Abnahme', 'Max Muster', 'Anna Beispiel', 200, 188, 150, -200, 40),
+      R('DEMO-002', 'Alpenblick Maschinenbau AG #1002', 'Erweiterung Freigabe-Workflow', dk(30) + ': Wartet auf Rückmeldung des Kunden', 'Projekt', 'Wartend', 'Max Muster', 'Max Muster', 120, 96, 90, -150, 20),
+      R('DEMO-003', 'Küstenwerk Logistik #1003', 'Rollout weitere Standorte', dk(1) + ' - Standort 3 produktiv\n[' + dk(8) + '] Schulung durchgeführt', 'Projekt', 'Rollout', 'Max Muster', 'Ben Beispiel', 160, 175, 160, -120, -10),
+      R('DEMO-004', 'Seeblick Fachhandel #1004', 'Servicekontingent 2026', '#Produktivbegleitung nach Bedarf\n' + d(5) + '# Anfrage bearbeitet', 'DL-Kontingent', 'Einsatz nach Bedarf', 'Max Muster', 'Cem Beispiel', 80, 22, 20, -250, 90),
+      R('DEMO-005', 'Waldmann Elektro GmbH #1005', 'Migration auf neue Version', '#' + d(3).slice(0, 6) + String(t.getFullYear()).slice(2) + ': Testsystem aufgebaut', 'Projekt', 'Umsetzung', 'Dana Beispiel', 'Anna Beispiel', 240, 60, 55, -40, 120),
+      R('DEMO-006', 'Bergstadt Druck KG #1006', 'Prozessanalyse', 'Termin mit Kunde war gut, Konzept folgt', 'Projekt', 'Konzeption', 'Dana Beispiel', 'Dana Beispiel', 60, 10, 10, -20, 60),
+      R('DEMO-007', 'Talwind Energie GmbH #1007', 'Schnittstellen Ausbau', '', 'Projekt', 'Umsetzung', 'Max Muster', 'Cem Beispiel', 90, 40, 40, -60, 50),
+      R('DEMO-008', 'Altes Projekt GmbH #1008', 'Abschlussarbeiten', '#' + d(40) + ': Projekt abgeschlossen', 'Projekt', 'Abgeschlossen', 'Max Muster', 'Max Muster', 100, 99, 99, -300, -30)
     ];
-    D.demo = true; D.file = ''; D.imported = ''; D.my = 'Max Muster'; D.who = 'Alle'; D.view = 'stand'; save(); view(); toast('Beispieldaten geladen');
+    D.loc = { 'DEMO-001': { cad: 'd' }, 'DEMO-003': { cad: 'd' }, 'DEMO-005': { cad: 'w' } };
+    D.demo = true; D.file = ''; D.imported = ''; D.my = 'Max Muster'; D.fpl = D.fco = 'Alle'; D.view = 'stand'; save(); view(); toast('Beispieldaten geladen');
   }
 
   // ---------- Standup-Text ----------
   function standText() {
-    const list = filtered(all()), t = today();
-    const line = p => '- ' + (short(p.r.kunde) || p.r.nr) + (p.r.kom ? ' (' + p.r.kom + ')' : '') + (p.r.cons ? ' [' + p.r.cons.split(' ')[0] + ']' : '') + ': ' + p.flags.filter(f => f.s !== 'n').map(f => f.t.replace(/^\S+\s/, '')).join('; ');
-    const L = ['Standup ' + pad(t.getDate()) + '.' + pad(t.getMonth() + 1) + '.' + t.getFullYear() + (D.who !== 'Alle' ? ' – ' + (D.who === 'Meine' ? D.my : D.who) : '')];
-    const grp = (s, ttl, f) => { const g = list.filter(p => p.sev === s && !p.L.pin); if (g.length) { L.push('', ttl); g.sort(byAmpel).forEach(p => L.push(line(p))); } };
+    const list = all().filter(p => visible(p, true)), t = today(), base = all().filter(p => visible(p, false));
+    const lab = { tag: ' (täglich)', wo: ' (wöchentlich)', alle: '' }[D.rhy];
+    const who = p => ' [PL ' + (first(p.r.pl) || '–') + ' / Cons. ' + (first(p.r.cons) || '–') + ']';
+    const line = p => '- ' + (short(p.r.kunde) || p.r.nr) + (p.r.kom ? ' (' + p.r.kom + ')' : '') + who(p) + ': ' + p.flags.filter(f => f.s !== 'n' && !f.t.startsWith('✍️')).map(f => f.t.replace(/^\S+\s/, '')).join('; ');
+    const L = ['Standup ' + fmtDate(t) + lab];
+    const grp = (s, ttl) => { const g = list.filter(p => p.sev === s && !p.L.pin && p.flags.some(f => f.s !== 'n' && !f.t.startsWith('✍️'))); if (g.length) { L.push('', ttl); g.sort(byAmpel).forEach(p => L.push(line(p))); } };
     const help = list.filter(p => p.L.help); if (help.length) { L.push('', '🆘 Hilfe nötig'); help.forEach(p => L.push('- ' + (short(p.r.kunde) || p.r.nr) + ': ' + p.L.help)); }
     grp('r', '🔴 Rot'); grp('y', '🟡 Gelb');
-    const pin = list.filter(p => p.L.pin); if (pin.length) { L.push('', '📌 Fokus heute'); pin.forEach(p => L.push('- ' + (short(p.r.kunde) || p.r.nr) + (p.r.kom ? ' (' + p.r.kom + ')' : ''))); }
+    const pin = list.filter(p => p.L.pin); if (pin.length) { L.push('', '📌 Fokus heute'); pin.forEach(p => L.push('- ' + (short(p.r.kunde) || p.r.nr) + (p.r.kom ? ' (' + p.r.kom + ')' : '') + who(p))); }
+    const pf = pflegeList(base); if (pf.length) { L.push('', pflegeText(base).split('\n').slice(0, 1)[0].replace('Bitte', '✍️ Bitte')); pflegeText(base).split('\n').slice(2).forEach(x => L.push('- ' + x)); }
     L.push('', '✅ ' + list.filter(p => p.sev === 'g').length + ' Projekte laufen ruhig');
     return L.join('\n');
   }
@@ -453,20 +602,16 @@
   // ---------- Events ----------
   document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { D.view = b.dataset.v; save(); view(); });
   $('im').onclick = () => $('file').click();
-  $('cp').onclick = async () => {
-    if (!D.rows.length) { toast('Erst Daten importieren'); return; }
-    const txt = standText();
-    try { await navigator.clipboard.writeText(txt); toast('📋 Standup-Text kopiert'); }
-    catch (e) { sheet('<h3>Standup-Text</h3><textarea id="tt" rows="12" readonly>' + esc(txt) + '</textarea><button class="btn sec2" id="tc2">Schließen</button>', () => { $('tt').select(); $('tc2').onclick = closeSheet; }); }
-  };
+  $('cp').onclick = () => { if (!D.rows.length) { toast('Erst Daten importieren'); return; } copy(standText(), '📋 Standup-Text kopiert'); };
   $('pr').onclick = () => { D.view = 'stand'; view(); document.body.classList.add('pres'); try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); } catch (e) {} };
   $('exit').onclick = () => { document.body.classList.remove('pres'); try { document.fullscreenElement && document.exitFullscreen(); } catch (e) {} };
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) document.body.classList.remove('pres'); });
   $('ov').onclick = e => { if (e.target === $('ov')) closeSheet(); };
   document.addEventListener('gesturestart', e => e.preventDefault());
   if (D.view === 'proj') D.view = 'stand';
+  if (D.who) { delete D.who; }
   view();
-  window.__SB = { get D() { return D; }, parseAkt, derive, toNum, toISO, parseCSV, autoMap, buildRows, standText, loadDemo };
+  window.__SB = { get D() { return D; }, parseAkt, normAkt, derive, toNum, toISO, parseCSV, autoMap, buildRows, standText, loadDemo, visible, all };
 })();
 </script>
 </body>
