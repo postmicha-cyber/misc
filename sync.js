@@ -106,6 +106,7 @@
     '.as-b.s{background:#1f2b48;border:1px solid #2c3a63}.as-b.r{background:rgba(255,93,108,.14);color:#ff5d6c;border:1px solid #ff5d6c}.as-b:active{transform:scale(.98)}' +
     '.as-in{width:100%;padding:11px;border-radius:10px;background:#0b1020;border:1px solid #2c3a63;color:#eef2ff;font:16px inherit;font-family:inherit;margin:4px 0 8px}' +
     '.as-st{padding:10px;border-radius:12px;font-size:13px;font-weight:700;line-height:1.4;margin-bottom:6px;background:#1f2b48}.as-st.ok{border:1px solid #3fe08f}.as-st.err{border:1px solid #ff5d6c}.as-st.pend{border:1px solid #ffc247}' +
+    '@media(min-width:760px){.as-ov{align-items:center;justify-content:center}.as-sh{max-width:560px;border-radius:22px;border:1px solid #2c3a63}}' +
     '.as-x{float:right;background:rgba(255,255,255,.1);border:0;color:#fff;border-radius:10px;width:32px;height:32px;font-size:15px}.as-s{font-size:12px;color:#8d9bc6;line-height:1.45}';
   function ensureCss() { if (!document.getElementById('as-css')) { const s = document.createElement('style'); s.id = 'as-css'; s.textContent = CSS; document.head.appendChild(s); } }
   function overlay(html) { ensureCss(); const o = document.createElement('div'); o.className = 'as-ov'; o.innerHTML = '<div class="as-sh">' + html + '</div>'; document.body.appendChild(o); return o; }

@@ -55,6 +55,16 @@
   #vl { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
   .seg { display: flex; gap: 4px; } .seg button { flex: 1; padding: 9px 0; border-radius: 9px; background: var(--card2); font-size: 13px; font-weight: 800; color: var(--mut); }
   .seg button.on { background: var(--acc); color: #fff; }
+
+  /* ---- Breite Bildschirme (iPad, Notebook) ---- */
+  @media (min-width: 760px) {
+    #app { max-width: 1240px; width: 100%; margin: 0 auto; padding-left: calc(24px + env(safe-area-inset-left)); padding-right: calc(24px + env(safe-area-inset-right)); }
+    .top { margin-bottom: 14px; } .top h1 { font-size: 26px; } .ibtn { width: 44px; height: 44px; }
+    .tabs { max-width: 640px; } .tabs button { font-size: 14px; padding: 11px 2px; }
+    #sc { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 14px; align-content: start; align-items: start; padding-bottom: 18px; }
+    #sc > * { margin: 0 !important; min-width: 0; }
+    .heat { max-width: 420px; margin: 0 auto; }
+  }
 </style>
 </head>
 <body>

@@ -82,6 +82,24 @@
   #toast.on { opacity: 1; }
   .empty { text-align: center; padding: 34px 10px; color: var(--mut); font-size: 14px; line-height: 1.5; } .empty .e { font-size: 50px; }
   .note { font-size: 13px; line-height: 1.45; padding: 10px; border-radius: 12px; background: rgba(255,194,71,.12); border: 1px solid var(--y); margin-bottom: 10px; }
+
+  /* ---- Breite Bildschirme (iPad, Notebook) ---- */
+  @media (min-width: 760px) {
+    #app { max-width: 1320px; width: 100%; margin: 0 auto; padding-left: calc(24px + env(safe-area-inset-left)); padding-right: calc(24px + env(safe-area-inset-right)); }
+    .top { margin-bottom: 14px; } .top h1 { font-size: 26px; } .ibtn { width: 44px; height: 44px; }
+    #sc { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; align-content: start; align-items: start; padding-bottom: 18px; }
+    #sc > * { margin: 0 !important; min-width: 0; }
+    #sc > .sum, #sc > .note, #sc > .chips, #sc > .empty, #sc > .help { grid-column: 1 / -1; }
+    .sum b { font-size: 28px; }
+    .chips.hs { flex-wrap: wrap; overflow: visible; padding: 0; }
+    .nav { max-width: 620px; width: 100%; align-self: center; margin-top: 10px; }
+    .nav button { font-size: 12px; padding: 10px 2px; }
+    .ov { align-items: center; justify-content: center; }
+    .sheet { max-width: 580px; border-radius: 22px; border: 1px solid var(--line); padding-bottom: 16px; }
+    .btn { max-width: 520px; }
+    #toast { bottom: 110px; }
+  }
+  @media (min-width: 1200px) { #sc { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); } }
 </style>
 </head>
 <body>
