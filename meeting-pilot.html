@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meeting-Pilot">
+<meta name="theme-color" content="#1a0f12">
+<title>Meeting-Pilot</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+  :root { --bg: #150c10; --card: #241519; --card2: #2f1c21; --line: #4a2c33; --txt: #fff3f0; --mut: #c09a98; --acc: #ff7a59; --acc2: #e85d3f; --ok: #3fe08f; --soon: #ffc247; --over: #ff4d6a; }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { position: fixed; inset: 0; height: 100dvh; color: var(--txt); background: radial-gradient(circle at 50% -10%, #4a1e1c, var(--bg) 60%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; }
+  button, input, select, textarea { font-family: inherit; color: inherit; border: 0; }
+  button { cursor: pointer; }
+  #app { position: absolute; inset: 0; display: flex; flex-direction: column;
+    padding: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); }
+  .top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .top h1 { font-size: 21px; font-weight: 900; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ibtn { width: 38px; height: 38px; flex: none; border-radius: 12px; background: rgba(255,255,255,.08); display: grid; place-items: center; font-size: 18px; text-decoration: none; color: var(--txt); }
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; min-height: 0; padding-bottom: 12px; }
+  .nav { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 4px; margin-top: 6px; }
+  .nav button { flex: 1; padding: 9px 2px; border-radius: 12px; background: none; font-size: 11px; font-weight: 800; color: var(--mut); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .nav button i { font-style: normal; font-size: 19px; }
+  .nav button.on { background: var(--acc2); color: #1a0805; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .lbl { font-size: 11px; font-weight: 900; letter-spacing: 1.2px; color: var(--mut); text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .lbl .sp { flex: 1; }
+  .help { font-size: 12px; color: var(--mut); line-height: 1.45; }
+  .btn { width: 100%; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 900; background: linear-gradient(135deg, #ff9a6b, #e85d3f); color: #1a0805; box-shadow: 0 6px 20px rgba(255,122,89,.3); }
+  .btn.sec { background: var(--card2); color: var(--txt); box-shadow: none; border: 1px solid var(--line); }
+  .btn.red { background: rgba(255,77,106,.15); color: var(--over); box-shadow: none; border: 1px solid var(--over); }
+  .btn:active, .ctl button:active { transform: scale(.97); }
+  .sm { padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 800; background: var(--card2); border: 1px solid var(--line); }
+  .sm.go { background: var(--acc2); color: #1a0805; border-color: var(--acc2); }
+  input, select, textarea { width: 100%; padding: 11px 9px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); font-size: 16px; min-width: 0; }
+  textarea { resize: none; min-height: 70px; }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--acc); }
+  .f { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+  .f span { font-size: 10px; font-weight: 800; letter-spacing: .8px; color: var(--mut); text-transform: uppercase; }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-end; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .big { background: var(--card2); border-radius: 14px; padding: 10px 4px; text-align: center; }
+  .big b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; } .big span { font-size: 10px; letter-spacing: 1px; font-weight: 800; color: var(--mut); text-transform: uppercase; }
+  .ag { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .ag .h { display: flex; align-items: center; gap: 10px; }
+  .ag .nm { font-size: 16px; font-weight: 900; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ag .sub { font-size: 12px; color: var(--mut); font-weight: 700; margin-top: 3px; }
+  .ag .acts { display: flex; gap: 6px; margin-top: 10px; }
+  .ag .acts .sm { flex: 1; }
+  .it { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .it:last-child { border: 0; }
+  .it b { flex: 1; min-width: 0; font-weight: 800; } .it small { display: block; color: var(--mut); font-size: 11px; font-weight: 600; margin-top: 1px; }
+  .it .tm { font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .it button { background: none; color: var(--mut); font-size: 16px; padding: 4px 5px; }
+  .it.cur { background: rgba(255,122,89,.1); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
+  .it.done b { color: var(--mut); text-decoration: line-through; }
+  .ok { color: var(--ok); } .soon { color: var(--soon); } .over { color: var(--over); }
+  .ring { position: relative; width: min(64vw, 260px); margin: 4px auto 10px; }
+  .ring svg { width: 100%; height: auto; display: block; transform: rotate(-90deg); }
+  .ring .c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 16%; }
+  .ring .t { font-size: clamp(38px, 13vw, 56px); font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+  .ring .n { font-size: 14px; font-weight: 800; line-height: 1.25; max-height: 2.5em; overflow: hidden; }
+  .ring .w { font-size: 12px; color: var(--mut); font-weight: 700; margin-top: 2px; }
+  .ctl { display: flex; gap: 8px; margin-bottom: 10px; }
+  .ctl button { flex: 1; padding: 13px 0; border-radius: 14px; background: var(--card2); border: 1px solid var(--line); font-size: 15px; font-weight: 900; }
+  .ctl button.main { flex: 1.5; background: linear-gradient(135deg, #ff9a6b, #e85d3f); color: #1a0805; border: 0; }
+  .ctl button:disabled { opacity: .35; }
+  .quick { display: flex; gap: 6px; margin-bottom: 10px; }
+  .quick button { flex: 1; padding: 10px 0; border-radius: 12px; background: var(--card); border: 1px solid var(--line); font-size: 12px; font-weight: 800; }
+  .note { display: flex; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.35; }
+  .note:last-child { border: 0; }
+  .note .k { flex: none; } .note div { flex: 1; min-width: 0; word-wrap: break-word; } .note small { color: var(--mut); font-weight: 700; }
+  .note button { background: none; color: var(--mut); padding: 0 4px; font-size: 14px; flex: none; }
+  .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: 8px; display: flex; }
+  .bar i { display: block; height: 100%; }
+  .ov { position: absolute; inset: 0; z-index: 50; background: rgba(12,4,6,.78); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); display: none; align-items: flex-end; }
+  .ov.on { display: flex; }
+  .sheet { width: 100%; max-height: 92%; overflow-y: auto; background: #1f1215; border-top: 1px solid var(--line); border-radius: 22px 22px 0 0; padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); animation: up .25s; }
+  @keyframes up { from { transform: translateY(40px); opacity: 0; } }
+  .sheet h3 { font-size: 18px; font-weight: 900; margin-bottom: 10px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chips button { padding: 8px 12px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); font-size: 13px; font-weight: 800; }
+  .chips button.on { background: var(--acc2); color: #1a0805; border-color: var(--acc2); }
+  .ed { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .ed input.t { flex: 3; } .ed input.m { flex: 0 0 62px; text-align: center; } .ed input.w { flex: 1.4; }
+  .ed button { background: none; color: var(--mut); font-size: 16px; padding: 4px; flex: none; }
+  #toast { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); background: #000e; border: 1px solid var(--acc); border-radius: 12px; padding: 9px 14px; font-size: 13px; font-weight: 800; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 70; max-width: 90%; text-align: center; }
+  #toast.on { opacity: 1; }
+  .empty { text-align: center; padding: 30px 10px; color: var(--mut); font-size: 14px; line-height: 1.5; }
+  .empty .e { font-size: 50px; }
+  .live-flash { animation: fl 1s infinite; } @keyframes fl { 50% { opacity: .45; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1 id="ttl">⏱️ Meeting-Pilot</h1><button class="ibtn" id="syncb" aria-label="Sync und Backup">☁️</button><button class="ibtn" id="fab" aria-label="Neue Agenda">＋</button></div>
+  <div class="scroll" id="sc"></div>
+  <div class="nav" id="nav">
+    <button data-v="home"><i>📋</i>Agenden</button><button data-v="live"><i>⏱️</i>Live</button><button data-v="hist"><i>🗂️</i>Protokolle</button><button data-v="more"><i>⚙️</i>Mehr</button>
+  </div>
+</div>
+<div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
+<script src="sync.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const KEY = 'meetingPilot.v1';
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const TEMPLATES = [
+    { name: 'Daily Standup', people: 7, rate: 75, items: [['Check-in', 1], ['Runde: gestern / heute / Blocker', 10], ['Board-Blick & Blocker-Owner', 3], ['Abschluss', 1]] },
+    { name: 'Sprint Review', people: 10, rate: 85, items: [['Sprint-Ziel & Rahmen', 5], ['Demo der Inkremente', 35], ['Feedback der Stakeholder', 15], ['Backlog-Ausblick', 5]] },
+    { name: 'Retrospektive', people: 7, rate: 75, items: [['Stimmung (Check-in)', 5], ['Daten sammeln', 15], ['Einsichten gewinnen', 20], ['Maßnahmen beschließen', 15], ['Abschluss & Feedback', 5]] },
+    { name: 'Jour fixe', people: 4, rate: 90, items: [['Offene Punkte vom letzten Mal', 5], ['Status & Risiken', 15], ['Entscheidungen', 15], ['Nächste Schritte', 5]] }
+  ];
+  const fromTpl = t => ({ id: uid(), name: t.name, people: t.people, rate: t.rate, items: t.items.map(([n, m]) => ({ id: uid(), t: n, min: m, who: '' })) });
+  let D = { v: 1, agendas: TEMPLATES.map(fromTpl), history: [], live: null, view: 'home', defRate: 80 };
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) D = Object.assign(D, s); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} if (window.AppSync && !save.quiet) AppSync.changed(); };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const num = v => { const x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? x : 0; };
+  const eur = x => x.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: x < 100 ? 2 : 0 });
+  const clock = ms => { const neg = ms < 0, s = Math.floor(Math.abs(ms) / 1000); return (neg ? '+' : '') + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const mins = ms => Math.round(ms / 60000);
+  const fdt = ts => new Date(ts).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const planMin = a => a.items.reduce((s, i) => s + (i.min || 0), 0);
+  let toastT;
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2600); }
+  const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+  function sheet(html, wire) { $('sheet').innerHTML = html; $('ov').classList.add('on'); wire && wire(); $('ov').onclick = e => { if (e.target === $('ov')) closeSheet(); }; }
+  function closeSheet() { $('ov').classList.remove('on'); }
+  const val = id => $(id).value;
+
+  // ---------- Live-Zeitmessung ----------
+  // Die Zeit wird über Zeitstempel gemessen, damit sie auch weiterläuft, wenn die App im Hintergrund ist.
+  const L = () => D.live;
+  const itemUsed = (i) => { const l = L(), it = l.items[i]; return it.used + (i === l.idx && l.runStart ? Date.now() - l.runStart : 0); };
+  const totalUsed = () => L().items.reduce((s, _, i) => s + itemUsed(i), 0);
+  const wallUsed = () => { const l = L(); return l.wall + (l.runStart ? Date.now() - l.runStart : 0); };
+  function bank() { const l = L(); if (l.runStart) { const d = Date.now() - l.runStart; l.items[l.idx].used += d; l.wall += d; l.runStart = Date.now(); } }
+
+  function startMeeting(a) {
+    D.live = { aid: a.id, name: a.name, people: a.people, rate: a.rate, startedAt: Date.now(), runStart: Date.now(), wall: 0, idx: 0,
+      items: a.items.map(i => ({ t: i.t, min: i.min, who: i.who, used: 0, warned: 0 })), notes: [] };
+    D.view = 'live'; save(); wake(true); view(); buzz(20);
+  }
+  function toggleRun() { const l = L(); if (l.runStart) { bank(); l.runStart = null; wake(false); } else { l.runStart = Date.now(); wake(true); } save(); view(); }
+  function go(d) {
+    const l = L(), n = l.idx + d; if (n < 0 || n >= l.items.length) return;
+    bank(); l.idx = n; save(); buzz(15); view();
+  }
+  function addMinute() { const it = L().items[L().idx]; it.min += 1; it.warned = 0; save(); toast('+1 Minute für „' + it.t + '“'); view(); }
+  function finishMeeting() {
+    bank(); const l = L();
+    const ms = l.wall, cost = costOf(ms, l);
+    const rec = { id: uid(), name: l.name, date: l.startedAt, dur: ms, people: l.people, rate: l.rate, cost,
+      items: l.items.map(i => ({ t: i.t, who: i.who, plan: i.min, act: i.used })), notes: l.notes };
+    D.history.unshift(rec); D.history = D.history.slice(0, 200);
+    D.live = null; D.view = 'hist'; save(); wake(false); view(); showRecord(rec);
+  }
+  const costOf = (ms, l) => ms / 3600000 * l.people * l.rate;
+
+  let lock = null;
+  async function wake(on) {
+    try {
+      if (on && !lock && navigator.wakeLock) { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => { lock = null; }); }
+      if (!on && lock) { await lock.release(); lock = null; }
+    } catch (e) {}
+  }
+
+  // Warnungen: 1 Minute vorher und bei Ablauf vibrieren
+  function checkAlerts() {
+    const l = L(); if (!l || !l.runStart) return;
+    const it = l.items[l.idx], left = it.min * 60000 - itemUsed(l.idx);
+    if (left <= 60000 && it.min > 1 && it.warned < 1) { it.warned = 1; buzz([60, 80, 60]); toast('⏳ Noch 1 Minute: ' + it.t); save(); }
+    if (left <= 0 && it.warned < 2) { it.warned = 2; buzz([200, 100, 200, 100, 200]); toast('⏰ Zeit für „' + it.t + '“ ist um'); save(); }
+  }
+
+  // ---------- Notizen ----------
+  const KINDS = { d: { ic: '✅', n: 'Entscheidung' }, a: { ic: '📌', n: 'Aufgabe' }, n: { ic: '📝', n: 'Notiz' } };
+  function noteSheet(k) {
+    const l = L(), kk = KINDS[k];
+    sheet('<h3>' + kk.ic + ' ' + kk.n + '</h3><div class="help" style="margin-bottom:8px">Zu: ' + esc(l.items[l.idx].t) + '</div>' +
+      '<div class="row"><div class="f"><span>Text</span><textarea id="nt" maxlength="400"></textarea></div></div>' +
+      (k === 'a' ? '<div class="row"><div class="f"><span>Wer?</span><input id="nw" maxlength="40" placeholder="Name"></div><div class="f"><span>Bis wann?</span><input id="nd" type="date"></div></div>' : '') +
+      '<button class="btn" id="sv">Speichern</button><button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+      $('cl').onclick = closeSheet; setTimeout(() => $('nt').focus(), 150);
+      $('sv').onclick = () => {
+        const txt = val('nt').trim(); if (!txt) return $('nt').focus();
+        l.notes.push({ id: uid(), k, txt, item: l.idx, who: k === 'a' ? val('nw').trim() : '', due: k === 'a' ? val('nd') : '' });
+        save(); closeSheet(); view(); toast(kk.ic + ' gespeichert');
+      };
+    });
+  }
+  function noteHTML(n, items, del) {
+    const meta = [n.who && '👤 ' + esc(n.who), n.due && '📅 ' + new Date(n.due + 'T12:00').toLocaleDateString('de-DE'), items && items[n.item] && esc(items[n.item].t)].filter(Boolean).join(' · ');
+    return '<div class="note"><span class="k">' + KINDS[n.k].ic + '</span><div>' + esc(n.txt) + (meta ? '<br><small>' + meta + '</small>' : '') + '</div>' + (del ? '<button data-del="' + n.id + '">✕</button>' : '') + '</div>';
+  }
+
+  // ---------- Views ----------
+  let tick = null;
+  function view() {
+    if (D.view === 'live' && !D.live) D.view = 'home';
+    document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === D.view));
+    $('fab').style.visibility = D.view === 'home' ? 'visible' : 'hidden';
+    const sc = $('sc');
+    clearInterval(tick); tick = null;
+    if (D.view === 'home') sc.innerHTML = homeHTML(), wireHome();
+    else if (D.view === 'live') { liveRender(true); tick = setInterval(() => { checkAlerts(); liveRender(false); }, 250); }
+    else if (D.view === 'hist') sc.innerHTML = histHTML(), wireHist();
+    else sc.innerHTML = moreHTML(), wireMore();
+  }
+
+  function homeHTML() {
+    let h = '';
+    if (D.live) h += '<button class="ag" data-v="live" style="border-color:var(--acc)"><div class="h"><span class="live-flash">🔴</span><div class="nm">Läuft: ' + esc(D.live.name) + '</div><span class="sm go">Öffnen</span></div></button>';
+    if (!D.agendas.length) h += '<div class="empty"><div class="e">📋</div>Noch keine Agenda.<br>Tippe auf ＋, um eine anzulegen.</div>';
+    D.agendas.forEach(a => {
+      const pm = planMin(a), cost = costOf(pm * 60000, a);
+      h += '<div class="ag"><div class="h"><div class="nm">' + esc(a.name) + '</div></div>' +
+        '<div class="sub">' + a.items.length + ' Punkte · ' + pm + ' min · ' + a.people + ' Pers. · ca. ' + eur(cost) + '</div>' +
+        '<div class="bar">' + a.items.map((it, i) => '<i style="width:' + (it.min / (pm || 1) * 100) + '%;background:hsl(' + (15 + i * 37) + ',90%,62%)"></i>').join('') + '</div>' +
+        '<div class="acts"><button class="sm go" data-start="' + a.id + '">▶ Starten</button><button class="sm" data-edit="' + a.id + '">✏️ Bearbeiten</button><button class="sm" data-dup="' + a.id + '">⧉</button></div></div>';
+    });
+    return h;
+  }
+  function wireHome() {
+    const sc = $('sc');
+    sc.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { D.view = b.dataset.v; save(); view(); });
+    sc.querySelectorAll('[data-start]').forEach(b => b.onclick = () => {
+      const a = D.agendas.find(x => x.id === b.dataset.start);
+      if (!a.items.length) return toast('Die Agenda hat noch keine Punkte');
+      if (D.live) return sheet('<h3>Es läuft schon ein Meeting</h3><p class="help" style="margin-bottom:12px">„' + esc(D.live.name) + '“ ist noch aktiv. Beenden (und ins Protokoll übernehmen) und „' + esc(a.name) + '“ starten?</p><button class="btn" id="y">Beenden &amp; neu starten</button><button class="btn sec" id="n" style="margin-top:8px">Abbrechen</button>', () => {
+        $('n').onclick = closeSheet; $('y').onclick = () => { closeSheet(); finishMeeting(); closeSheet(); startMeeting(a); };
+      });
+      startMeeting(a);
+    });
+    sc.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editSheet(D.agendas.find(x => x.id === b.dataset.edit)));
+    sc.querySelectorAll('[data-dup]').forEach(b => b.onclick = () => {
+      const a = D.agendas.find(x => x.id === b.dataset.dup), c = JSON.parse(JSON.stringify(a));
+      c.id = uid(); c.name += ' (Kopie)'; c.items.forEach(i => i.id = uid());
+      D.agendas.splice(D.agendas.indexOf(a) + 1, 0, c); D.edited = true; save(); view(); toast('Kopie angelegt');
+    });
+  }
+
+  function editSheet(a) {
+    const isNew = !a;
+    const w = isNew ? { id: uid(), name: '', people: 5, rate: D.defRate, items: [{ id: uid(), t: '', min: 5, who: '' }] } : JSON.parse(JSON.stringify(a));
+    const rows = () => w.items.map((it, i) => '<div class="ed" data-i="' + i + '"><input class="t" placeholder="Punkt ' + (i + 1) + '" value="' + esc(it.t) + '" maxlength="80"><input class="m" inputmode="numeric" value="' + it.min + '" aria-label="Minuten"><input class="w" placeholder="Wer" value="' + esc(it.who) + '" maxlength="30"><button data-up="' + i + '" aria-label="Nach oben">↑</button><button data-rm="' + i + '" aria-label="Entfernen">✕</button></div>').join('');
+    const read = () => {
+      w.name = val('en').trim(); w.people = Math.max(1, Math.round(num(val('ep')))); w.rate = Math.max(0, num(val('er')));
+      $('eit').querySelectorAll('.ed').forEach(r => { const it = w.items[+r.dataset.i]; it.t = r.querySelector('.t').value.trim(); it.min = Math.max(1, Math.round(num(r.querySelector('.m').value)) || 1); it.who = r.querySelector('.w').value.trim(); });
+    };
+    const sum = () => { const pm = planMin(w); $('esum').textContent = pm + ' min geplant · ca. ' + eur(costOf(pm * 60000, w)); };
+    const redraw = () => { $('eit').innerHTML = rows(); wireRows(); sum(); };
+    const wireRows = () => {
+      $('eit').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { read(); w.items.splice(+b.dataset.rm, 1); redraw(); });
+      $('eit').querySelectorAll('[data-up]').forEach(b => b.onclick = () => { read(); const i = +b.dataset.up; if (i > 0) { const t = w.items[i]; w.items[i] = w.items[i - 1]; w.items[i - 1] = t; } redraw(); });
+      $('eit').querySelectorAll('input').forEach(x => x.oninput = () => { read(); sum(); });
+    };
+    sheet('<h3>' + (isNew ? '＋ Neue Agenda' : '✏️ Agenda bearbeiten') + '</h3>' +
+      (isNew ? '<div class="lbl">Vorlage</div><div class="chips" id="tpl">' + TEMPLATES.map((t, i) => '<button data-t="' + i + '">' + esc(t.name) + '</button>').join('') + '</div>' : '') +
+      '<div class="row"><div class="f"><span>Titel</span><input id="en" maxlength="60" placeholder="z. B. Steering Committee" value="' + esc(w.name) + '"></div></div>' +
+      '<div class="row"><div class="f"><span>Teilnehmende</span><input id="ep" inputmode="numeric" value="' + w.people + '"></div><div class="f"><span>€ / Stunde p. P.</span><input id="er" inputmode="decimal" value="' + w.rate + '"></div></div>' +
+      '<div class="lbl">Punkte <span class="sp"></span><span style="text-transform:none;letter-spacing:0">Titel · Min · Wer</span></div><div id="eit"></div>' +
+      '<button class="sm" id="eadd" style="width:100%;margin:2px 0 10px">＋ Punkt hinzufügen</button>' +
+      '<div class="help" id="esum" style="margin-bottom:10px"></div>' +
+      '<button class="btn" id="sv">Speichern</button>' + (isNew ? '' : '<button class="btn red" id="del" style="margin-top:8px">Agenda löschen</button>') +
+      '<button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+      redraw();
+      $('cl').onclick = closeSheet;
+      $('eadd').onclick = () => { read(); w.items.push({ id: uid(), t: '', min: 5, who: '' }); redraw(); const r = $('eit').querySelectorAll('.t'); r[r.length - 1].focus(); };
+      if ($('tpl')) $('tpl').querySelectorAll('button').forEach(b => b.onclick = () => {
+        const t = fromTpl(TEMPLATES[+b.dataset.t]); Object.assign(w, { name: t.name, people: t.people, rate: t.rate, items: t.items });
+        $('en').value = w.name; $('ep').value = w.people; $('er').value = w.rate; redraw();
+      });
+      if ($('del')) $('del').onclick = () => { if (!confirm('„' + w.name + '“ wirklich löschen?')) return; D.agendas = D.agendas.filter(x => x.id !== w.id); D.edited = true; save(); closeSheet(); view(); };
+      $('sv').onclick = () => {
+        read(); w.items = w.items.filter(i => i.t);
+        if (!w.name) return $('en').focus();
+        if (!w.items.length) return toast('Mindestens einen Punkt mit Titel anlegen');
+        if (isNew) D.agendas.unshift(w); else D.agendas[D.agendas.findIndex(x => x.id === w.id)] = w;
+        D.defRate = w.rate; D.edited = true; save(); closeSheet(); view(); toast('✔ Gespeichert');
+      };
+    });
+  }
+
+  function ringSVG(frac, cls) {
+    const r = 54, c = 2 * Math.PI * r, f = Math.max(0, Math.min(1, frac));
+    const col = cls === 'over' ? 'var(--over)' : cls === 'soon' ? 'var(--soon)' : 'var(--acc)';
+    return '<svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="' + r + '" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="9"/>' +
+      '<circle id="arc" cx="60" cy="60" r="' + r + '" fill="none" stroke="' + col + '" stroke-width="9" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + c * (1 - f) + '"/></svg>';
+  }
+  function liveRender(full) {
+    const l = L(); if (!l) return;
+    const it = l.items[l.idx], used = itemUsed(l.idx), left = it.min * 60000 - used;
+    const cls = left < 0 ? 'over' : left <= 60000 ? 'soon' : 'ok';
+    const plan = l.items.reduce((s, i) => s + i.min, 0) * 60000, tot = totalUsed();
+    // Prognose: Bereits verbrauchte Zeit + Restplan der kommenden Punkte (mind. 0 für den aktuellen)
+    const forecast = l.items.reduce((s, x, i) => s + (i < l.idx ? x.used : i === l.idx ? Math.max(x.min * 60000, used) : x.min * 60000), 0);
+    const delta = forecast - plan;
+    if (full) {
+      $('sc').innerHTML =
+        '<div class="ring" id="ring"></div>' +
+        '<div class="ctl"><button id="cPrev" ' + (l.idx === 0 ? 'disabled' : '') + '>⏮</button><button class="main" id="cRun"></button><button id="cPlus">+1′</button><button id="cNext"></button></div>' +
+        '<div class="quick"><button data-k="d">✅ Entscheidung</button><button data-k="a">📌 Aufgabe</button><button data-k="n">📝 Notiz</button></div>' +
+        '<div class="grid3" style="margin-bottom:10px"><div class="big"><b id="sTot"></b><span>Gesamt</span></div><div class="big"><b id="sDelta"></b><span>Prognose</span></div><div class="big"><b id="sCost"></b><span>Kosten</span></div></div>' +
+        '<div class="panel"><div class="lbl">Agenda <span class="sp"></span>' + esc(l.name) + '</div><div id="lItems"></div></div>' +
+        '<div class="panel" id="lNotesP"><div class="lbl">Ergebnisse</div><div id="lNotes"></div></div>' +
+        '<button class="btn" id="cEnd">■ Meeting beenden</button><button class="btn sec" id="cDiscard" style="margin-top:8px">Verwerfen</button>';
+      $('cPrev').onclick = () => go(-1);
+      $('cRun').onclick = toggleRun;
+      $('cPlus').onclick = addMinute;
+      $('cNext').onclick = () => l.idx < l.items.length - 1 ? go(1) : finishMeeting();
+      $('cEnd').onclick = finishMeeting;
+      $('cDiscard').onclick = () => { if (confirm('Meeting verwerfen? Zeiten und Notizen gehen verloren.')) { D.live = null; D.view = 'home'; save(); wake(false); view(); } };
+      $('sc').querySelectorAll('[data-k]').forEach(b => b.onclick = () => noteSheet(b.dataset.k));
+      $('cRun').textContent = l.runStart ? '⏸ Pause' : '▶ Weiter';
+      $('cNext').textContent = l.idx < l.items.length - 1 ? '⏭' : '🏁';
+      $('lNotesP').style.display = l.notes.length ? '' : 'none';
+      $('lNotes').innerHTML = l.notes.map(n => noteHTML(n, l.items, true)).join('');
+      $('lNotes').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { l.notes = l.notes.filter(n => n.id !== b.dataset.del); save(); view(); });
+    }
+    $('ring').innerHTML = ringSVG(1 - used / (it.min * 60000), cls) +
+      '<div class="c"><div class="w">Punkt ' + (l.idx + 1) + ' / ' + l.items.length + (l.runStart ? '' : ' · pausiert') + '</div><div class="t ' + (cls === 'ok' ? '' : cls) + (l.runStart ? '' : ' live-flash') + '">' + clock(left) + '</div><div class="n">' + esc(it.t) + '</div>' + (it.who ? '<div class="w">👤 ' + esc(it.who) + '</div>' : '') + '</div>';
+    $('sTot').textContent = clock(wallUsed()).replace('+', '');
+    $('sDelta').textContent = (delta > 0 ? '+' : delta < 0 ? '−' : '±') + Math.abs(mins(delta)) + 'm';
+    $('sDelta').className = delta > 60000 ? 'over' : delta < -60000 ? 'ok' : '';
+    $('sCost').textContent = eur(costOf(wallUsed(), l));
+    const rows = l.items.map((x, i) => {
+      const u = itemUsed(i), c = u > x.min * 60000 ? 'over' : 'ok';
+      return '<div class="it ' + (i === l.idx ? 'cur' : i < l.idx ? 'done' : '') + '" data-go="' + i + '"><b>' + esc(x.t) + (x.who ? '<small>👤 ' + esc(x.who) + '</small>' : '') + '</b><span class="tm ' + (u ? c : '') + '">' + (u ? clock(u).replace('+', '') + ' / ' : '') + x.min + '′</span></div>';
+    }).join('');
+    // Nur bei Änderungen neu zeichnen, sonst gehen Taps während des Ticks verloren
+    if ($('lItems').dataset.h === rows) return;
+    $('lItems').innerHTML = rows; $('lItems').dataset.h = rows;
+    $('lItems').querySelectorAll('[data-go]').forEach(r => r.onclick = () => go(+r.dataset.go - l.idx));
+  }
+
+  // ---------- Protokolle ----------
+  function histHTML() {
+    if (!D.history.length) return '<div class="empty"><div class="e">🗂️</div>Noch keine Protokolle.<br>Nach jedem Meeting landet hier die Zusammenfassung mit Entscheidungen und Aufgaben.</div>';
+    const last30 = D.history.filter(r => r.date > Date.now() - 30 * 864e5);
+    const totMs = last30.reduce((s, r) => s + r.dur, 0), totCost = last30.reduce((s, r) => s + r.cost, 0);
+    const onTime = last30.filter(r => r.dur <= r.items.reduce((s, i) => s + i.plan, 0) * 60000 + 60000).length;
+    let h = '<div class="panel"><div class="lbl">Letzte 30 Tage</div><div class="grid3"><div class="big"><b>' + last30.length + '</b><span>Meetings</span></div><div class="big"><b>' + (totMs / 3600000).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' h</b><span>Dauer</span></div><div class="big"><b>' + eur(totCost) + '</b><span>Kosten</span></div></div>' +
+      (last30.length ? '<div class="help" style="margin-top:8px">⏱️ ' + Math.round(onTime / last30.length * 100) + ' % pünktlich beendet</div>' : '') + '</div>';
+    h += '<div class="panel">' + D.history.map(r => {
+      const plan = r.items.reduce((s, i) => s + i.plan, 0), act = mins(r.dur), cls = act > plan + 1 ? 'over' : 'ok';
+      const nd = r.notes.filter(n => n.k === 'd').length, na = r.notes.filter(n => n.k === 'a').length;
+      return '<div class="it" data-r="' + r.id + '"><b>' + esc(r.name) + '<small>' + fdt(r.date) + (nd ? ' · ✅ ' + nd : '') + (na ? ' · 📌 ' + na : '') + '</small></b><span class="tm ' + cls + '">' + act + ' / ' + plan + '′</span></div>';
+    }).join('') + '</div>';
+    return h;
+  }
+  function wireHist() { $('sc').querySelectorAll('[data-r]').forEach(x => x.onclick = () => showRecord(D.history.find(r => r.id === x.dataset.r))); }
+
+  function protocolText(r) {
+    const plan = r.items.reduce((s, i) => s + i.plan, 0);
+    const L = ['📋 ' + r.name, fdt(r.date) + ' · ' + mins(r.dur) + ' min (geplant ' + plan + ') · ' + r.people + ' Pers. · ' + eur(r.cost), ''];
+    const sec = (k, title) => { const ns = r.notes.filter(n => n.k === k); if (!ns.length) return; L.push(title); ns.forEach(n => L.push('• ' + n.txt + (n.who ? ' – ' + n.who : '') + (n.due ? ' (bis ' + new Date(n.due + 'T12:00').toLocaleDateString('de-DE') + ')' : ''))); L.push(''); };
+    sec('d', '✅ Entscheidungen'); sec('a', '📌 Aufgaben'); sec('n', '📝 Notizen');
+    L.push('⏱️ Agenda'); r.items.forEach(i => L.push('• ' + i.t + ': ' + mins(i.act) + '/' + i.plan + ' min'));
+    return L.join('\n');
+  }
+  function showRecord(r) {
+    const plan = r.items.reduce((s, i) => s + i.plan, 0);
+    sheet('<h3>🗂️ ' + esc(r.name) + '</h3><div class="help" style="margin-bottom:10px">' + fdt(r.date) + '</div>' +
+      '<div class="grid3" style="margin-bottom:10px"><div class="big"><b class="' + (mins(r.dur) > plan + 1 ? 'over' : 'ok') + '">' + mins(r.dur) + '′</b><span>von ' + plan + '′</span></div><div class="big"><b>' + r.people + '</b><span>Personen</span></div><div class="big"><b>' + eur(r.cost) + '</b><span>Kosten</span></div></div>' +
+      (r.notes.length ? '<div class="panel"><div class="lbl">Ergebnisse</div>' + ['d', 'a', 'n'].map(k => r.notes.filter(n => n.k === k).map(n => noteHTML(n, r.items, false)).join('')).join('') + '</div>' : '') +
+      '<div class="panel"><div class="lbl">Plan vs. Ist</div>' + r.items.map(i => { const a = i.act / 60000; return '<div class="it"><b>' + esc(i.t) + '</b><span class="tm ' + (a > i.plan + .5 ? 'over' : 'ok') + '">' + mins(i.act) + ' / ' + i.plan + '′</span></div>'; }).join('') + '</div>' +
+      '<button class="btn" id="sh">📤 Protokoll teilen</button><button class="btn sec" id="cp" style="margin-top:8px">📋 Als Text kopieren</button><button class="btn red" id="rm" style="margin-top:8px">Protokoll löschen</button><button class="btn sec" id="cl" style="margin-top:8px">Schließen</button>', () => {
+      const txt = protocolText(r);
+      $('cl').onclick = closeSheet;
+      $('sh').onclick = async () => { if (navigator.share) { try { await navigator.share({ title: r.name, text: txt }); } catch (e) {} } else copy(txt); };
+      $('cp').onclick = () => copy(txt);
+      $('rm').onclick = () => { if (!confirm('Protokoll löschen?')) return; D.history = D.history.filter(x => x.id !== r.id); save(); closeSheet(); view(); };
+    });
+  }
+  async function copy(t) {
+    try { await navigator.clipboard.writeText(t); toast('📋 In die Zwischenablage kopiert'); }
+    catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('📋 Kopiert'); } catch (e2) { toast('Kopieren nicht möglich'); } ta.remove(); }
+  }
+
+  // ---------- Mehr ----------
+  function moreHTML() {
+    return '<div class="panel"><div class="lbl">So funktioniert’s</div><div class="help">' +
+      '1. Agenda mit Timeboxen anlegen (oder Vorlage nehmen).<br>2. ▶ Starten: Der Ring zeigt die Restzeit des aktuellen Punkts. Eine Minute vorher und bei Ablauf vibriert das Handy.<br>' +
+      '3. Während des Meetings Entscheidungen, Aufgaben und Notizen festhalten.<br>4. 🏁 Beenden: Das Protokoll mit Plan-vs.-Ist und Kosten lässt sich direkt teilen.<br><br>' +
+      'Die Kosten-Uhr rechnet Teilnehmende × Stundensatz × Dauer – ein guter Anstoß, Meetings kurz zu halten.</div></div>' +
+      '<div class="panel"><div class="lbl">Daten</div><div class="help" style="margin-bottom:10px">' + D.agendas.length + ' Agenden · ' + D.history.length + ' Protokolle. Alles bleibt lokal auf dem Gerät; über ☁️ lässt es sich synchronisieren oder als Datei sichern.</div>' +
+      '<button class="btn sec" id="mSync">☁️ Sync &amp; Backup</button><button class="btn sec" id="mTpl" style="margin-top:8px">Vorlagen wieder hinzufügen</button><button class="btn red" id="mClr" style="margin-top:8px">Alle Protokolle löschen</button></div>';
+  }
+  function wireMore() {
+    $('mSync').onclick = () => AppSync.open();
+    $('mTpl').onclick = () => { D.agendas = D.agendas.concat(TEMPLATES.map(fromTpl)); save(); toast('Vorlagen hinzugefügt'); D.view = 'home'; view(); };
+    $('mClr').onclick = () => { if (!D.history.length || !confirm('Alle ' + D.history.length + ' Protokolle löschen?')) return; D.history = []; save(); view(); };
+  }
+
+  document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
+    if (b.dataset.v === 'live' && !D.live) return toast('Starte ein Meeting über ▶ bei einer Agenda');
+    D.view = b.dataset.v; save(); view();
+  });
+  $('fab').onclick = () => editSheet(null);
+  $('syncb').onclick = () => AppSync.open();
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && D.live && D.live.runStart) wake(true); });
+  view();
+  AppSync.init({ name: 'meeting-pilot', label: 'Meeting-Pilot',
+    getData: () => ({ agendas: D.agendas, history: D.history }),
+    setData: d => { D.agendas = d.agendas || []; D.history = d.history || []; save.quiet = true; save(); save.quiet = false; view(); },
+    hasData: () => D.history.length > 0 || !!D.edited });
+  window.__MP = { get D() { return D; }, startMeeting, finishMeeting, protocolText };
+})();
+</script>
+</body>
+</html>
