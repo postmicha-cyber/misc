@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ideen-Werkstatt">
+<meta name="theme-color" content="#11140a">
+<title>Ideen-Werkstatt</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+  :root { --bg: #0f1209; --card: #1a1f12; --card2: #232a17; --line: #3a4524; --txt: #f6fbe9; --mut: #a8b58c; --acc: #d4f542; --acc2: #b5d62c; --ok: #3fe08f; --soon: #ffc247; --over: #ff5d6c; --vio: #b48cff; }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { position: fixed; inset: 0; height: 100dvh; color: var(--txt); background: radial-gradient(circle at 50% -10%, #34401a, var(--bg) 60%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; }
+  button, input, select, textarea { font-family: inherit; color: inherit; border: 0; }
+  button { cursor: pointer; }
+  #app { position: absolute; inset: 0; display: flex; flex-direction: column;
+    padding: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); }
+  .top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .top h1 { font-size: 21px; font-weight: 900; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ibtn { width: 38px; height: 38px; flex: none; border-radius: 12px; background: rgba(255,255,255,.08); display: grid; place-items: center; font-size: 18px; text-decoration: none; color: var(--txt); }
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; min-height: 0; padding-bottom: 12px; }
+  .nav { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 4px; margin-top: 6px; }
+  .nav button { flex: 1; padding: 9px 2px; border-radius: 12px; background: none; font-size: 11px; font-weight: 800; color: var(--mut); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .nav button i { font-style: normal; font-size: 19px; }
+  .nav button.on { background: var(--acc2); color: #141a05; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .lbl { font-size: 11px; font-weight: 900; letter-spacing: 1.2px; color: var(--mut); text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .lbl .sp { flex: 1; }
+  .help { font-size: 12px; color: var(--mut); line-height: 1.45; }
+  .btn { width: 100%; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 900; background: linear-gradient(135deg, #e2ff5c, #9fc21c); color: #141a05; box-shadow: 0 6px 20px rgba(212,245,66,.25); }
+  .btn.sec { background: var(--card2); color: var(--txt); box-shadow: none; border: 1px solid var(--line); }
+  .btn.red { background: rgba(255,93,108,.15); color: var(--over); box-shadow: none; border: 1px solid var(--over); }
+  .btn.vio { background: linear-gradient(135deg, #c9a8ff, #8a5cff); color: #12052a; box-shadow: 0 6px 20px rgba(180,140,255,.3); }
+  .btn:active, .sm:active { transform: scale(.98); }
+  .btn:disabled { opacity: .5; }
+  .sm { padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 800; background: var(--card2); border: 1px solid var(--line); }
+  .sm.go { background: var(--acc2); color: #141a05; border-color: var(--acc2); }
+  .sm.vio { background: rgba(180,140,255,.18); border-color: var(--vio); color: #e3d6ff; }
+  input, select, textarea { width: 100%; padding: 11px 9px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); font-size: 16px; min-width: 0; }
+  textarea { resize: none; min-height: 64px; line-height: 1.4; field-sizing: content; max-height: 50vh; }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--acc); }
+  .f { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; margin-bottom: 8px; }
+  .f > span { font-size: 10px; font-weight: 800; letter-spacing: .8px; color: var(--mut); text-transform: uppercase; }
+  .f > small { font-size: 11px; color: var(--mut); line-height: 1.35; margin-top: -2px; }
+  .row { display: flex; gap: 8px; align-items: flex-end; }
+  .idea { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .idea .h { display: flex; align-items: flex-start; gap: 8px; }
+  .idea .nm { font-size: 16px; font-weight: 900; flex: 1; min-width: 0; line-height: 1.25; }
+  .idea .sub { font-size: 13px; color: var(--mut); margin-top: 4px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .idea .meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+  .pill { font-size: 11px; font-weight: 900; padding: 3px 8px; border-radius: 9px; background: var(--card2); border: 1px solid var(--line); white-space: nowrap; }
+  .score { font-size: 13px; font-weight: 900; min-width: 38px; text-align: center; padding: 4px 6px; border-radius: 10px; color: #141a05; }
+  .tag { font-size: 11px; color: var(--acc); font-weight: 800; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chips button { padding: 7px 11px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); font-size: 13px; font-weight: 800; }
+  .chips button.on { background: var(--acc2); color: #141a05; border-color: var(--acc2); }
+  .hscroll { display: flex; gap: 6px; overflow-x: auto; touch-action: pan-x; padding-bottom: 4px; margin-bottom: 6px; scrollbar-width: none; }
+  .hscroll::-webkit-scrollbar { display: none; }
+  .hscroll button { flex: none; padding: 7px 11px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); font-size: 13px; font-weight: 800; }
+  .hscroll button.on { background: var(--acc2); color: #141a05; border-color: var(--acc2); }
+  .slider { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .slider b { flex: 0 0 104px; font-size: 13px; } .slider b small { display: block; font-size: 10px; color: var(--mut); font-weight: 600; }
+  .dots { display: flex; gap: 5px; flex: 1; }
+  .dots button { flex: 1; height: 34px; border-radius: 9px; background: var(--card2); border: 1px solid var(--line); font-weight: 900; font-size: 13px; color: var(--mut); }
+  .dots button.on { background: var(--acc2); color: #141a05; border-color: var(--acc2); }
+  .meth { display: block; width: 100%; text-align: left; background: var(--card2); border: 1px solid var(--line); border-radius: 14px; padding: 11px 12px; margin-bottom: 8px; }
+  .meth b { font-size: 15px; } .meth span { display: block; font-size: 12px; color: var(--mut); margin-top: 3px; line-height: 1.4; }
+  .conc { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .conc:last-child { border: 0; } .conc b { flex: 1; font-size: 14px; } .conc small { display: block; color: var(--mut); font-size: 11px; font-weight: 600; margin-top: 2px; }
+  .fld { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-bottom: 8px; }
+  .fld .t { font-size: 13px; font-weight: 900; color: var(--acc); }
+  .fld .q { font-size: 11px; color: var(--mut); margin: 2px 0 6px; line-height: 1.35; }
+  .fld textarea { background: rgba(0,0,0,.25); }
+  .bar2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .bar2 .full { grid-column: 1 / -1; }
+  .ov { position: absolute; inset: 0; z-index: 50; background: rgba(6,8,2,.78); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); display: none; align-items: flex-end; }
+  .ov.on { display: flex; }
+  .sheet { width: 100%; max-height: 92%; overflow-y: auto; touch-action: pan-y; background: #161b0e; border-top: 1px solid var(--line); border-radius: 22px 22px 0 0; padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); animation: up .25s; }
+  @keyframes up { from { transform: translateY(40px); opacity: 0; } }
+  .sheet h3 { font-size: 18px; font-weight: 900; margin-bottom: 10px; }
+  #toast { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); background: #000e; border: 1px solid var(--acc); border-radius: 12px; padding: 9px 14px; font-size: 13px; font-weight: 800; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 70; max-width: 90%; text-align: center; }
+  #toast.on { opacity: 1; }
+  .empty { text-align: center; padding: 30px 10px; color: var(--mut); font-size: 14px; line-height: 1.5; }
+  .empty .e { font-size: 50px; }
+  svg { width: 100%; height: auto; display: block; }
+  .spin { display: inline-block; animation: sp 1s linear infinite; } @keyframes sp { to { transform: rotate(360deg); } }
+  .kv { font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-wrap: break-word; }
+  .kv + .lbl { margin-top: 10px; }
+  .warn { border-color: var(--soon); } .warn .help { color: #ffe0a3; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top"><button class="ibtn" id="back" aria-label="Zurück">←</button><h1 id="ttl">💡 Ideen-Werkstatt</h1><button class="ibtn" id="syncb" aria-label="Sync und Backup">☁️</button><button class="ibtn" id="fab" aria-label="Neue Idee">＋</button></div>
+  <div class="scroll" id="sc"></div>
+  <div class="nav" id="nav">
+    <button data-v="list"><i>💡</i>Ideen</button><button data-v="matrix"><i>🎯</i>Portfolio</button><button data-v="methods"><i>🧭</i>Methoden</button><button data-v="more"><i>⚙️</i>Mehr</button>
+  </div>
+</div>
+<div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
+<script src="sync.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const KEY = 'ideenWerkstatt.v1', KEYKEY = 'ideenWerkstatt.apiKey';
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fdate = ts => new Date(ts).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+  // ---------- Status & Bewertung ----------
+  const STATUS = {
+    new: { n: 'Eingang', ic: '📥', c: '#8fb3ff' }, check: { n: 'Prüfen', ic: '🔍', c: '#ffc247' }, concept: { n: 'Konzept', ic: '🧪', c: '#b48cff' },
+    build: { n: 'Umsetzung', ic: '🚀', c: '#d4f542' }, done: { n: 'Umgesetzt', ic: '✅', c: '#3fe08f' }, park: { n: 'Geparkt', ic: '🅿️', c: '#a8b58c' }, drop: { n: 'Verworfen', ic: '✖️', c: '#ff5d6c' }
+  };
+  const CRIT = [
+    { k: 'value', n: 'Nutzen', d: 'Wert für Kunde/Nutzer', w: 3 }, { k: 'fit', n: 'Strategie-Fit', d: 'passt zu Zielen', w: 2 },
+    { k: 'novelty', n: 'Neuheit', d: 'wie anders als heute', w: 1 }, { k: 'feas', n: 'Machbarkeit', d: 'technisch & organisatorisch', w: 2 },
+    { k: 'effort', n: 'Aufwand', d: '1 = gering · 5 = hoch', w: 2, inv: true }
+  ];
+  function score(i) {
+    const s = i.score || {}; if (!CRIT.every(c => s[c.k])) return null;
+    const tot = CRIT.reduce((a, c) => a + (c.inv ? 6 - s[c.k] : s[c.k]) * c.w, 0), max = CRIT.reduce((a, c) => a + 5 * c.w, 0);
+    return Math.round(tot / max * 100);
+  }
+  const scoreCol = v => v == null ? 'var(--card2)' : v >= 70 ? '#3fe08f' : v >= 50 ? '#d4f542' : v >= 35 ? '#ffc247' : '#ff8a6b';
+
+  // ---------- Methoden ----------
+  // pre: Feld der Idee, das als Vorbelegung übernommen wird
+  const METHODS = [
+    { id: 'steckbrief', n: 'Ideen-Steckbrief', ic: '📄', src: 'One-Pager fürs Ideenmanagement',
+      d: 'Die kompakte Entscheidungsvorlage – wie ein Exposé beim Immobilienkauf: alles Wichtige auf einer Seite, damit ein Gremium Ja, Nein oder „mehr Infos“ sagen kann.',
+      f: [['ausgangslage', 'Ausgangslage & Problem', 'Was ist heute schlecht, teuer oder langsam? Woran merkt man das?', 'problem'], ['idee', 'Idee in einem Satz', 'Was genau schlagen wir vor?', 'idea'],
+        ['zielgruppe', 'Zielgruppe', 'Für wen ist das? Wer profitiert, wer ist betroffen?', 'audience'], ['nutzen', 'Nutzen & Mehrwert', 'Was wird besser – möglichst messbar (Zeit, Geld, Qualität, Zufriedenheit)?', 'benefit'],
+        ['umsetzung', 'Umsetzungsskizze', 'Wie könnte es in groben Schritten umgesetzt werden?'], ['aufwand', 'Aufwand & Ressourcen', 'Grobe Schätzung: Personen, Zeit, Budget, Know-how.'],
+        ['risiken', 'Risiken & offene Fragen', 'Was könnte schiefgehen? Was wissen wir noch nicht?'], ['kpi', 'Erfolgskriterien', 'Woran erkennen wir nach 3–6 Monaten, dass es funktioniert?'],
+        ['next', 'Nächste Schritte', 'Was sind die nächsten 2–3 konkreten Schritte, wer macht sie?'], ['entscheidung', 'Entscheidungsbedarf', 'Was soll das Gremium konkret beschließen?']] },
+    { id: 'nabc', n: 'NABC-Pitch', ic: '🎤', src: 'SRI International',
+      d: 'Vier Fragen für einen überzeugenden Kurz-Pitch: Need, Approach, Benefits, Competition. Wie ein Fahrstuhl-Pitch mit Geländer.',
+      f: [['need', 'Need – Bedarf', 'Welches wichtige Bedürfnis hat die Zielgruppe? Wie groß ist es?', 'problem'], ['approach', 'Approach – Ansatz', 'Wie lösen wir es? Was ist das Besondere am Vorgehen?', 'idea'],
+        ['benefits', 'Benefits – Nutzen pro Kosten', 'Welcher quantifizierbare Nutzen entsteht im Verhältnis zum Aufwand?', 'benefit'], ['competition', 'Competition – Alternativen', 'Was nutzt die Zielgruppe heute stattdessen? Warum sind wir besser?']] },
+    { id: 'lean', n: 'Lean Canvas', ic: '🧩', src: 'Ash Maurya',
+      d: 'Geschäftsmodell auf einer Seite, optimiert für neue Ideen mit viel Unsicherheit. Startet beim Problem statt beim Produkt.',
+      f: [['problem', 'Problem', 'Die 1–3 wichtigsten Probleme der Zielgruppe – und heutige Alternativen.', 'problem'], ['segmente', 'Kundensegmente', 'Wer genau hat das Problem? Wer sind die Early Adopter?', 'audience'],
+        ['uvp', 'Einzigartiges Wertversprechen', 'Eine klare Botschaft: Warum ist das anders und einen Blick wert?', 'benefit'], ['loesung', 'Lösung', 'Die 1–3 wichtigsten Funktionen, die die Probleme lösen.', 'idea'],
+        ['kanaele', 'Kanäle', 'Wie erreichen wir die Zielgruppe?'], ['einnahmen', 'Einnahmequellen / Wertbeitrag', 'Wie entsteht Umsatz oder interner Nutzen (Einsparung)?'],
+        ['kosten', 'Kostenstruktur', 'Wesentliche Kosten für Entwicklung und Betrieb.'], ['kennzahlen', 'Schlüsselkennzahlen', 'Welche Kennzahlen zeigen, ob es funktioniert?'],
+        ['vorteil', 'Unfairer Vorteil', 'Was kann man nicht einfach kopieren oder kaufen?']] },
+    { id: 'vpc', n: 'Value Proposition Canvas', ic: '🎯', src: 'Strategyzer / Osterwalder',
+      d: 'Prüft den Fit zwischen dem, was Kunden brauchen, und dem, was wir anbieten – wie ein Schlüssel, der ins Schloss passen muss.',
+      f: [['jobs', 'Kundenaufgaben (Jobs)', 'Was versucht die Zielgruppe zu erledigen – funktional, sozial, emotional?', 'audience'], ['pains', 'Pains – Probleme & Frust', 'Was nervt, kostet, blockiert oder macht Angst?', 'problem'],
+        ['gains', 'Gains – erhoffte Gewinne', 'Was würde die Zielgruppe begeistern oder entlasten?'], ['produkte', 'Produkte & Services', 'Woraus besteht unser Angebot?', 'idea'],
+        ['relievers', 'Pain Relievers', 'Wie lindert unser Angebot die wichtigsten Pains?'], ['creators', 'Gain Creators', 'Wie erzeugt unser Angebot die gewünschten Gains?', 'benefit'],
+        ['fit', 'Fit-Hypothese', 'Welche Annahme über den Fit testen wir zuerst?']] },
+    { id: 'bmc', n: 'Business Model Canvas', ic: '🏛️', src: 'Osterwalder & Pigneur',
+      d: 'Die neun Bausteine eines Geschäftsmodells. Sinnvoll, wenn die Idee schon reifer ist und ins Unternehmen „eingebaut“ werden soll.',
+      f: [['partner', 'Schlüsselpartner', 'Wen brauchen wir als Partner oder Lieferanten?'], ['aktivitaeten', 'Schlüsselaktivitäten', 'Was müssen wir besonders gut können und tun?'],
+        ['ressourcen', 'Schlüsselressourcen', 'Welche Ressourcen (Menschen, Technik, Daten, Marken) sind nötig?'], ['wert', 'Wertangebot', 'Welchen Wert liefern wir, welches Problem lösen wir?', 'benefit'],
+        ['beziehung', 'Kundenbeziehungen', 'Wie gestalten wir die Beziehung (persönlich, Self-Service, Community)?'], ['kanaele', 'Kanäle', 'Über welche Wege erreichen und beliefern wir Kunden?'],
+        ['segmente', 'Kundensegmente', 'Für wen schaffen wir Wert?', 'audience'], ['kosten', 'Kostenstruktur', 'Was sind die wichtigsten Kosten?'], ['einnahmen', 'Einnahmequellen', 'Wofür zahlen Kunden – oder welche Einsparung entsteht?']] },
+    { id: 'dt', n: 'Design Thinking: Point of View', ic: '🧠', src: 'Stanford d.school / HPI',
+      d: 'Bringt den Menschen in den Mittelpunkt: Wer genau, was braucht sie wirklich, und welche Erkenntnis steckt dahinter? Daraus entstehen „Wie könnten wir…“-Fragen.',
+      f: [['persona', 'Persona', 'Eine konkrete Person der Zielgruppe mit Kontext, Zielen und Alltag.', 'audience'], ['beduerfnis', 'Bedürfnis', 'Was braucht sie wirklich (als Verb formuliert)?', 'problem'],
+        ['einsicht', 'Überraschende Einsicht', 'Welche Erkenntnis erklärt das Verhalten, das man nicht sofort sieht?'], ['pov', 'Point of View', '„[Persona] braucht [Bedürfnis], weil [Einsicht].“'],
+        ['hmw', 'Wie könnten wir …?', '3–5 Fragen, die Lösungsräume öffnen, ohne die Lösung vorwegzunehmen.'], ['prototyp', 'Erster Prototyp', 'Was ist die einfachste greifbare Version zum Ausprobieren?', 'idea'],
+        ['test', 'Testplan', 'Mit wem testen wir, was beobachten wir, welche Fragen stellen wir?']] },
+    { id: 'scamper', n: 'SCAMPER-Varianten', ic: '🔀', src: 'Bob Eberle / Alex Osborn',
+      d: 'Sieben Denkrichtungen, um eine Idee weiterzuentwickeln – wie sieben verschiedene Brillen, durch die man dieselbe Sache anschaut.',
+      f: [['s', 'Substitute – Ersetzen', 'Was ließe sich durch etwas anderes ersetzen (Material, Prozess, Person)?'], ['c', 'Combine – Kombinieren', 'Womit ließe es sich verbinden?'],
+        ['a', 'Adapt – Anpassen', 'Was gibt es Ähnliches anderswo, das wir übernehmen können?'], ['m', 'Modify – Verändern', 'Was wird größer, kleiner, schneller, häufiger?'],
+        ['p', 'Put to other uses – Zweckentfremden', 'Wofür oder für wen könnte es noch nützlich sein?'], ['e', 'Eliminate – Weglassen', 'Was kann ersatzlos entfallen?'],
+        ['r', 'Reverse – Umkehren', 'Was passiert, wenn wir Reihenfolge oder Rollen umdrehen?'], ['beste', 'Vielversprechendste Variante', 'Welche Variante verfolgen wir weiter und warum?']] },
+    { id: 'annahmen', n: 'Annahmen & Experimente', ic: '🧪', src: 'Lean Startup (Eric Ries)',
+      d: 'Jede Idee steht auf Annahmen. Hier werden die riskantesten sichtbar gemacht und mit kleinen, billigen Experimenten geprüft – erst den Fallschirm testen, dann springen.',
+      f: [['annahmen', 'Kernannahmen', 'Was muss wahr sein, damit die Idee funktioniert (Wunsch, Machbarkeit, Wirtschaftlichkeit)?'], ['riskant', 'Riskanteste Annahme', 'Welche Annahme ist am wichtigsten und am unsichersten?'],
+        ['experiment', 'Experiment / MVP', 'Wie testen wir sie mit minimalem Aufwand in 1–4 Wochen?', 'idea'], ['metrik', 'Messgröße & Schwelle', 'Was messen wir, und ab welchem Wert gilt die Annahme als bestätigt?'],
+        ['entscheidung', 'Entscheidungsregel', 'Was tun wir bei Erfolg (weiter), bei Misserfolg (anpassen/stoppen)?']] },
+    { id: 'premortem', n: 'Pre-Mortem', ic: '🪦', src: 'Gary Klein',
+      d: 'Gedankenexperiment: Es ist ein Jahr später und die Idee ist krachend gescheitert. Warum? Das deckt Risiken auf, die im Optimismus sonst untergehen.',
+      f: [['gruende', 'Gründe des Scheiterns', 'Was sind die wahrscheinlichsten Ursachen – technisch, menschlich, wirtschaftlich?'], ['signale', 'Frühwarnsignale', 'Woran hätte man es früh erkennen können?'],
+        ['massnahmen', 'Gegenmaßnahmen', 'Was tun wir jetzt, um die größten Risiken zu entschärfen?'], ['abbruch', 'Abbruchkriterien', 'Wann ziehen wir bewusst die Reißleine?']] }
+  ];
+  const methodById = id => METHODS.find(m => m.id === id);
+
+  // ---------- Daten ----------
+  let D = { v: 1, ideas: [], view: 'list', idea: null, concept: null, filter: 'all', sort: 'new', q: '', ctx: '', model: 'claude-opus-5-5' };
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) D = Object.assign(D, s); } catch (e) {}
+  let apiKey = ''; try { apiKey = localStorage.getItem(KEYKEY) || ''; } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} if (window.AppSync && !save.quiet) AppSync.changed(); };
+  const ideaById = id => D.ideas.find(i => i.id === id);
+  let toastT;
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2800); }
+  function sheet(html, wire) { $('sheet').innerHTML = html; $('ov').classList.add('on'); $('sheet').scrollTop = 0; wire && wire(); $('ov').onclick = e => { if (e.target === $('ov')) closeSheet(); }; }
+  function closeSheet() { $('ov').classList.remove('on'); }
+  async function copy(t) {
+    try { await navigator.clipboard.writeText(t); toast('📋 In die Zwischenablage kopiert'); return true; }
+    catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove(); toast(ok ? '📋 Kopiert' : 'Kopieren nicht möglich'); return ok; }
+  }
+  async function share(title, text) { if (navigator.share) { try { await navigator.share({ title, text }); } catch (e) {} } else copy(text); }
+
+  // ---------- Navigation ----------
+  function go(view, extra) { Object.assign(D, { view }, extra || {}); save(); render(); $('sc').scrollTop = 0; }
+  function render() {
+    if (D.view === 'idea' && !ideaById(D.idea)) D.view = 'list';
+    if (D.view === 'concept' && !(ideaById(D.idea) && ideaById(D.idea).concepts.find(c => c.id === D.concept))) D.view = ideaById(D.idea) ? 'idea' : 'list';
+    const tab = ['idea', 'concept'].includes(D.view) ? 'list' : D.view;
+    document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === tab));
+    $('back').style.visibility = ['idea', 'concept'].includes(D.view) ? 'visible' : 'hidden';
+    $('fab').style.visibility = ['list', 'matrix'].includes(D.view) ? 'visible' : 'hidden';
+    const T = { list: '💡 Ideen-Werkstatt', matrix: '🎯 Portfolio', methods: '🧭 Methoden', more: '⚙️ Einstellungen' };
+    const it = ideaById(D.idea);
+    $('ttl').textContent = D.view === 'idea' ? it.title : D.view === 'concept' ? methodById(it.concepts.find(c => c.id === D.concept).method).n : T[D.view];
+    ({ list: viewList, matrix: viewMatrix, methods: viewMethods, more: viewMore, idea: viewIdea, concept: viewConcept })[D.view]();
+  }
+
+  // ---------- Ideenliste ----------
+  function viewList() {
+    const q = (D.q || '').toLowerCase();
+    let L = D.ideas.filter(i => (D.filter === 'all' ? !['drop', 'done', 'park'].includes(i.status) : i.status === D.filter) &&
+      (!q || [i.title, i.idea, i.problem, (i.tags || []).join(' ')].join(' ').toLowerCase().includes(q)));
+    L.sort(D.sort === 'score' ? (a, b) => (score(b) ?? -1) - (score(a) ?? -1) : (a, b) => b.created - a.created);
+    const cnt = k => D.ideas.filter(i => i.status === k).length;
+    let h = '<div class="row" style="margin-bottom:8px"><input id="q" placeholder="🔎 Suchen …" value="' + esc(D.q) + '"><button class="sm" id="sort" style="flex:none;padding:11px 10px">' + (D.sort === 'score' ? '⭐ Score' : '🕒 Neu') + '</button></div>' +
+      '<div class="hscroll" id="flt"><button data-f="all" class="' + (D.filter === 'all' ? 'on' : '') + '">Aktiv</button>' +
+      Object.entries(STATUS).map(([k, s]) => '<button data-f="' + k + '" class="' + (D.filter === k ? 'on' : '') + '">' + s.ic + ' ' + s.n + ' ' + cnt(k) + '</button>').join('') + '</div>';
+    if (!D.ideas.length) h += '<div class="empty"><div class="e">💡</div>Noch keine Ideen.<br>Tippe auf ＋ und halte fest, was dir einfällt – fertig muss da noch nichts sein.<br><br><button class="sm go" id="spark">✨ Kreativ-Impuls holen</button></div>';
+    else if (!L.length) h += '<div class="empty">Keine Ideen in dieser Ansicht.</div>';
+    L.forEach(i => {
+      const s = score(i), st = STATUS[i.status];
+      h += '<button class="idea" data-id="' + i.id + '"><div class="h"><div class="nm">' + esc(i.title) + '</div><span class="score" style="background:' + scoreCol(s) + ';' + (s == null ? 'color:var(--mut)' : '') + '">' + (s == null ? '–' : s) + '</span></div>' +
+        (i.idea ? '<div class="sub">' + esc(i.idea) + '</div>' : '') +
+        '<div class="meta"><span class="pill" style="border-color:' + st.c + '">' + st.ic + ' ' + st.n + '</span>' + (i.concepts.length ? '<span class="pill">📑 ' + i.concepts.length + '</span>' : '') +
+        (i.tags || []).map(t => '<span class="tag">#' + esc(t) + '</span>').join(' ') + '</div></button>';
+    });
+    if (D.ideas.length) h += '<button class="btn sec" id="spark" style="margin-top:4px">✨ Kreativ-Impuls</button>';
+    $('sc').innerHTML = h;
+    const qi = $('q'); qi.oninput = () => { D.q = qi.value; const p = qi.selectionStart; save(); viewList(); const n = $('q'); n.focus(); n.setSelectionRange(p, p); };
+    $('sort').onclick = () => { D.sort = D.sort === 'score' ? 'new' : 'score'; save(); viewList(); };
+    $('flt').querySelectorAll('button').forEach(b => b.onclick = () => { D.filter = b.dataset.f; save(); viewList(); });
+    $('sc').querySelectorAll('.idea').forEach(b => b.onclick = () => go('idea', { idea: b.dataset.id }));
+    if ($('spark')) $('spark').onclick = spark;
+  }
+
+  const SPARKS = [
+    'Welche Aufgabe in deinem Alltag dauert immer länger, als sie sollte?', 'Worüber beschweren sich Kunden oder Kollegen am häufigsten?',
+    'Was würde passieren, wenn ein Prozess nur noch halb so viele Schritte hätte?', 'Welche Information sucht ihr ständig und findet sie nie sofort?',
+    'Was macht eine andere Branche richtig gut, das ihr übernehmen könntet?', 'Welche Regel gilt nur noch, „weil wir das immer so gemacht haben“?',
+    'Was wäre, wenn euer Produkt nichts kosten dürfte – wie würdet ihr es trotzdem finanzieren?', 'Welche Daten fallen ohnehin an, werden aber nicht genutzt?',
+    'Welche Aufgabe könnte ein Kunde selbst erledigen, wenn es einfach genug wäre?', 'Was würde ein neuer Mitarbeiter in der ersten Woche am meisten verwirren?',
+    'Was wäre das Gegenteil eures heutigen Angebots – und hätte das einen Markt?', 'Welches Problem löst ihr heute mit Excel, E-Mail oder Zetteln?',
+    'Wie würde ein Start-up mit 3 Leuten euren Job erledigen?', 'Welche Wartezeit im Ablauf ließe sich komplett vermeiden?',
+    'Wofür würden eure Kunden sofort mehr bezahlen?', 'Was nervt dich persönlich jeden Montag?'
+  ];
+  function spark() {
+    const s = SPARKS[Math.floor(Math.random() * SPARKS.length)];
+    sheet('<h3>✨ Kreativ-Impuls</h3><div class="panel"><div class="kv" style="font-size:17px;font-weight:700">' + esc(s) + '</div></div>' +
+      '<button class="btn" id="use">💡 Daraus eine Idee notieren</button><button class="btn sec" id="again" style="margin-top:8px">🔁 Anderer Impuls</button><button class="btn sec" id="cl" style="margin-top:8px">Schließen</button>', () => {
+      $('use').onclick = () => { closeSheet(); editIdea(null, { problem: s }); }; $('again').onclick = spark; $('cl').onclick = closeSheet;
+    });
+  }
+
+  // ---------- Idee erfassen / bearbeiten ----------
+  function editIdea(i, pre) {
+    const isNew = !i, w = i ? Object.assign({}, i) : Object.assign({ title: '', problem: '', idea: '', audience: '', benefit: '', tags: [], source: '' }, pre || {});
+    sheet('<h3>' + (isNew ? '💡 Neue Idee' : '✏️ Idee bearbeiten') + '</h3>' +
+      '<label class="f"><span>Titel *</span><input id="et" maxlength="90" placeholder="Kurz und griffig" value="' + esc(w.title) + '"></label>' +
+      '<label class="f"><span>Idee / Lösung *</span><textarea id="ei" placeholder="Was ist die Idee? Ein paar Sätze reichen.">' + esc(w.idea) + '</textarea></label>' +
+      '<label class="f"><span>Problem / Anlass</span><textarea id="ep" placeholder="Was ist heute das Problem, woher kommt die Idee?">' + esc(w.problem) + '</textarea></label>' +
+      '<label class="f"><span>Zielgruppe</span><input id="ea" placeholder="Für wen?" value="' + esc(w.audience) + '"></label>' +
+      '<label class="f"><span>Nutzen</span><textarea id="eb" placeholder="Was wird dadurch besser?">' + esc(w.benefit) + '</textarea></label>' +
+      '<div class="row"><label class="f"><span>Tags</span><input id="eg" placeholder="z. B. digital, kunde" value="' + esc((w.tags || []).join(', ')) + '"></label><label class="f"><span>Quelle</span><input id="es" placeholder="Wer / woher?" value="' + esc(w.source) + '"></label></div>' +
+      '<button class="btn" id="sv">Speichern</button>' + (isNew ? '' : '<button class="btn red" id="del" style="margin-top:8px">Idee löschen</button>') + '<button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+      $('cl').onclick = closeSheet;
+      if (isNew) setTimeout(() => $('et').focus(), 150);
+      if ($('del')) $('del').onclick = () => { if (!confirm('„' + i.title + '“ mit allen Konzepten löschen?')) return; D.ideas = D.ideas.filter(x => x.id !== i.id); closeSheet(); go('list'); };
+      $('sv').onclick = () => {
+        const v = { title: $('et').value.trim(), idea: $('ei').value.trim(), problem: $('ep').value.trim(), audience: $('ea').value.trim(), benefit: $('eb').value.trim(),
+          tags: $('eg').value.split(/[,;#]/).map(t => t.trim().toLowerCase()).filter(Boolean).slice(0, 8), source: $('es').value.trim() };
+        if (!v.title) return $('et').focus(); if (!v.idea) return $('ei').focus();
+        if (isNew) { const n = Object.assign({ id: uid(), status: 'new', created: Date.now(), score: {}, notes: '', concepts: [] }, v, { updated: Date.now() }); D.ideas.unshift(n); closeSheet(); go('idea', { idea: n.id }); toast('💡 Idee gespeichert'); }
+        else { Object.assign(i, v, { updated: Date.now() }); save(); closeSheet(); render(); }
+      };
+    });
+  }
+
+  // ---------- Ideen-Detail ----------
+  function viewIdea() {
+    const i = ideaById(D.idea), s = score(i);
+    const sec = (lbl, v) => v ? '<div class="lbl">' + lbl + '</div><div class="kv">' + esc(v) + '</div>' : '';
+    let h = '<div class="panel">' + sec('Idee', i.idea) + sec('Problem / Anlass', i.problem) + sec('Zielgruppe', i.audience) + sec('Nutzen', i.benefit) +
+      '<div class="help" style="margin-top:10px">' + fdate(i.created) + (i.source ? ' · von ' + esc(i.source) : '') + (i.tags.length ? ' · ' + i.tags.map(t => '#' + esc(t)).join(' ') : '') + '</div>' +
+      '<button class="sm" id="edit" style="margin-top:10px;width:100%">✏️ Bearbeiten</button></div>';
+    h += '<div class="panel"><div class="lbl">Status</div><div class="chips" id="st">' + Object.entries(STATUS).map(([k, v]) => '<button data-s="' + k + '" class="' + (i.status === k ? 'on' : '') + '">' + v.ic + ' ' + v.n + '</button>').join('') + '</div></div>';
+    h += '<div class="panel"><div class="lbl">Bewertung <span class="sp"></span><span class="score" style="background:' + scoreCol(s) + ';' + (s == null ? 'color:var(--mut)' : '') + '">' + (s == null ? '–' : s + ' / 100') + '</span></div>' +
+      CRIT.map(c => '<div class="slider"><b>' + c.n + '<small>' + c.d + '</small></b><div class="dots" data-k="' + c.k + '">' + [1, 2, 3, 4, 5].map(n => '<button data-n="' + n + '" class="' + ((i.score || {})[c.k] === n ? 'on' : '') + '">' + n + '</button>').join('') + '</div></div>').join('') +
+      (s == null ? '<div class="help" style="margin-top:6px">Alle fünf Kriterien bewerten, dann erscheint der Score und die Idee im Portfolio.</div>' : '') + '</div>';
+    h += '<div class="panel"><div class="lbl">Konzepte <span class="sp"></span>' + i.concepts.length + '</div>' +
+      (i.concepts.length ? i.concepts.map(c => { const m = methodById(c.method), filled = m.f.filter(f => (c.fields[f[0]] || '').trim()).length;
+        return '<div class="conc" data-c="' + c.id + '"><span style="font-size:22px">' + m.ic + '</span><b>' + m.n + '<small>' + fdate(c.created) + ' · ' + filled + '/' + m.f.length + ' Felder' + (c.via === 'claude' ? ' · ✨ Claude' : c.via === 'paste' ? ' · 📥 KI-Antwort' : '') + '</small></b><span>›</span></div>'; }).join('')
+        : '<div class="help" style="margin-bottom:8px">Mach aus der Idee per Knopfdruck ein strukturiertes Konzept nach einer bewährten Methode.</div>') +
+      '<button class="btn" id="newc" style="margin-top:8px">＋ Konzept erstellen</button></div>';
+    h += '<div class="panel"><div class="lbl">Notizen</div><textarea id="notes" placeholder="Gedanken, Feedback, Links …">' + esc(i.notes) + '</textarea></div>';
+    h += '<button class="btn sec" id="shr">📤 Idee teilen</button>';
+    $('sc').innerHTML = h;
+    $('edit').onclick = () => editIdea(i);
+    $('st').querySelectorAll('button').forEach(b => b.onclick = () => { i.status = b.dataset.s; i.updated = Date.now(); save(); viewIdea(); });
+    $('sc').querySelectorAll('.dots').forEach(d => d.querySelectorAll('button').forEach(b => b.onclick = () => {
+      i.score = i.score || {}; const k = d.dataset.k, n = +b.dataset.n; i.score[k] = i.score[k] === n ? 0 : n; save(); const y = $('sc').scrollTop; viewIdea(); $('sc').scrollTop = y;
+    }));
+    $('sc').querySelectorAll('.conc').forEach(c => c.onclick = () => go('concept', { concept: c.dataset.c }));
+    $('newc').onclick = () => pickMethod(i);
+    $('notes').oninput = e => { i.notes = e.target.value; save(); };
+    $('shr').onclick = () => share(i.title, ideaText(i));
+  }
+  function ideaText(i) {
+    const s = score(i), L = ['💡 ' + i.title, STATUS[i.status].n + (s != null ? ' · Score ' + s + '/100' : ''), ''];
+    [['Idee', i.idea], ['Problem / Anlass', i.problem], ['Zielgruppe', i.audience], ['Nutzen', i.benefit], ['Notizen', i.notes]].forEach(([k, v]) => { if (v) L.push(k + ':', v, ''); });
+    return L.join('\n').trim();
+  }
+
+  function pickMethod(i) {
+    sheet('<h3>Welche Methode?</h3><div class="help" style="margin-bottom:10px">Tipp: Für eine erste Entscheidung passt der <b>Steckbrief</b> oder <b>NABC</b>. Für Geschäftsideen das <b>Lean Canvas</b>, für Nutzerprobleme <b>Design Thinking</b>.</div>' +
+      METHODS.map(m => '<button class="meth" data-m="' + m.id + '"><b>' + m.ic + ' ' + m.n + '</b><span>' + esc(m.d) + '</span></button>').join('') +
+      '<button class="btn sec" id="cl">Abbrechen</button>', () => {
+      $('cl').onclick = closeSheet;
+      $('sheet').querySelectorAll('.meth').forEach(b => b.onclick = () => {
+        const m = methodById(b.dataset.m), fields = {};
+        m.f.forEach(f => { if (f[3] && i[f[3]]) fields[f[0]] = i[f[3]]; });
+        const c = { id: uid(), method: m.id, created: Date.now(), fields, via: 'manual' };
+        i.concepts.unshift(c); if (i.status === 'new' || i.status === 'check') i.status = 'concept';
+        closeSheet(); go('concept', { concept: c.id });
+        toast('Vorlage angelegt – Felder aus der Idee übernommen');
+      });
+    });
+  }
+
+  // ---------- Konzept ----------
+  function viewConcept() {
+    const i = ideaById(D.idea), c = i.concepts.find(x => x.id === D.concept), m = methodById(c.method);
+    let h = '<div class="panel"><div class="lbl">' + m.ic + ' ' + esc(m.n) + ' <span class="sp"></span>' + esc(m.src) + '</div><div class="help">' + esc(m.d) + '</div><div class="help" style="margin-top:6px">Zur Idee: <b>' + esc(i.title) + '</b></div></div>';
+    h += '<div class="bar2">' + (apiKey ? '<button class="btn vio full" id="ai">✨ Mit Claude ausfüllen</button>' : '') +
+      '<button class="sm vio" id="prompt">📋 KI-Prompt kopieren</button><button class="sm vio" id="paste">📥 Antwort einfügen</button></div>';
+    if (!apiKey) h += '<div class="help" style="margin:-4px 0 10px">So geht’s ohne Key: Prompt kopieren → in Claude (App oder claude.ai) einfügen → Antwort komplett kopieren → „Antwort einfügen“. Mit API-Key unter ⚙️ geht es per Knopfdruck.</div>';
+    h += m.f.map(f => '<div class="fld"><div class="t">' + esc(f[1]) + '</div><div class="q">' + esc(f[2]) + '</div><textarea data-f="' + f[0] + '" placeholder="…">' + esc(c.fields[f[0]] || '') + '</textarea></div>').join('');
+    h += '<button class="btn" id="shr">📤 Konzept teilen</button><button class="btn sec" id="cp" style="margin-top:8px">📋 Als Text kopieren</button><button class="btn red" id="del" style="margin-top:8px">Konzept löschen</button>';
+    $('sc').innerHTML = h;
+    $('sc').querySelectorAll('textarea[data-f]').forEach(t => t.oninput = () => { c.fields[t.dataset.f] = t.value; save(); });
+    $('prompt').onclick = () => copy(buildPrompt(i, m, true)).then(ok => ok && toast('📋 Prompt kopiert – jetzt in Claude einfügen'));
+    $('paste').onclick = () => pasteSheet(i, c, m);
+    if ($('ai')) $('ai').onclick = () => runClaude(i, c, m);
+    $('shr').onclick = () => share(m.n + ': ' + i.title, conceptText(i, c, m));
+    $('cp').onclick = () => copy(conceptText(i, c, m));
+    $('del').onclick = () => { if (!confirm('Dieses Konzept löschen?')) return; i.concepts = i.concepts.filter(x => x.id !== c.id); go('idea'); };
+  }
+  function conceptText(i, c, m) {
+    const L = [m.ic + ' ' + m.n + ': ' + i.title, '(' + m.src + ')', ''];
+    m.f.forEach(f => { L.push('## ' + f[1]); L.push((c.fields[f[0]] || '').trim() || '–'); L.push(''); });
+    return L.join('\n').trim();
+  }
+
+  // ---------- KI ----------
+  function ideaBlock(i) {
+    return [['Titel', i.title], ['Idee / Lösung', i.idea], ['Problem / Anlass', i.problem], ['Zielgruppe', i.audience], ['Nutzen', i.benefit], ['Notizen', i.notes]]
+      .filter(x => x[1]).map(([k, v]) => '- ' + k + ': ' + v.replace(/\n+/g, ' ')).join('\n');
+  }
+  const SYSTEM = 'Du bist eine erfahrene Innovationsmanagerin und hilfst, rohe Ideen in klare, ehrliche Konzepte zu verwandeln. Du schreibst auf Deutsch, konkret und knapp, ohne Marketing-Floskeln. Wo Informationen fehlen, triffst du plausible Annahmen und markierst sie mit „(Annahme)“. Du benennst Schwächen offen.';
+  function taskText(i, m) {
+    return 'Erstelle zu der folgenden Idee ein Konzept nach der Methode „' + m.n + '“ (' + m.src + ').\nZur Methode: ' + m.d + '\n\n' +
+      (D.ctx ? 'Kontext (Unternehmen / Bereich): ' + D.ctx + '\n\n' : '') +
+      'Die Idee:\n' + ideaBlock(i) + '\n\n' +
+      'Fülle jedes Feld mit 2–5 prägnanten Sätzen oder Stichpunkten (Stichpunkte mit „• “ beginnen, jeweils neue Zeile). Leitfragen je Feld:\n' +
+      m.f.map(f => '- ' + f[0] + ' („' + f[1] + '“): ' + f[2]).join('\n');
+  }
+  function buildPrompt(i, m) {
+    const ex = '{\n' + m.f.map(f => '  "' + f[0] + '": "…"').join(',\n') + '\n}';
+    return SYSTEM + '\n\n' + taskText(i, m) + '\n\nAntworte ausschließlich mit einem JSON-Objekt in genau diesem Format (keine Erklärung davor oder danach, Zeilenumbrüche im Text als \\n):\n' + ex;
+  }
+  // Antwort tolerant auslesen: JSON (auch in ```-Blöcken) oder Markdown-Überschriften
+  function parseAnswer(txt, m) {
+    const out = {};
+    const a = txt.indexOf('{'), b = txt.lastIndexOf('}');
+    if (a >= 0 && b > a) { try { const o = JSON.parse(txt.slice(a, b + 1)); m.f.forEach(f => { const v = o[f[0]] ?? o[f[1]]; if (v != null) out[f[0]] = Array.isArray(v) ? v.map(x => '• ' + x).join('\n') : String(v).trim(); }); } catch (e) {} }
+    if (Object.keys(out).length) return out;
+    const norm = s => s.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const lines = txt.split(/\r?\n/); let cur = null;
+    for (const ln of lines) {
+      const hm = ln.match(/^\s*(?:#{1,6}\s*|\*\*)(.+?)(?:\*\*)?\s*:?\s*$/);
+      const hit = hm && m.f.find(f => { const n = norm(hm[1]); return n && (n.includes(norm(f[1]).split(' ')[0]) && (n.includes(norm(f[1])) || norm(f[1]).includes(n)) || n === f[0]); });
+      if (hit) { cur = hit[0]; out[cur] = ''; continue; }
+      if (cur) out[cur] += (out[cur] ? '\n' : '') + ln;
+    }
+    Object.keys(out).forEach(k => { out[k] = out[k].trim(); if (!out[k]) delete out[k]; });
+    return out;
+  }
+  function applyFields(c, fields, via) {
+    const n = Object.keys(fields).length;
+    if (!n) return false;
+    Object.assign(c.fields, fields); c.via = via; c.created = c.created || Date.now(); save(); render();
+    toast('✔ ' + n + ' Felder übernommen'); return true;
+  }
+  function pasteSheet(i, c, m) {
+    const filled = m.f.some(f => (c.fields[f[0]] || '').trim());
+    sheet('<h3>📥 KI-Antwort einfügen</h3><div class="help" style="margin-bottom:8px">Füge die komplette Antwort von Claude (oder einer anderen KI) ein. Erkannt wird JSON oder Text mit den Feld-Überschriften.' + (filled ? ' Vorhandene Felder werden überschrieben.' : '') + '</div>' +
+      '<textarea id="pt" style="min-height:200px" placeholder="Antwort hier einfügen …"></textarea>' +
+      '<button class="sm" id="fromcb" style="width:100%;margin:8px 0">📋 Aus Zwischenablage holen</button>' +
+      '<button class="btn" id="ok">Übernehmen</button><button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+      $('cl').onclick = closeSheet;
+      $('fromcb').onclick = async () => { try { $('pt').value = await navigator.clipboard.readText(); } catch (e) { toast('Bitte lange tippen und „Einsetzen“ wählen'); $('pt').focus(); } };
+      $('ok').onclick = () => {
+        const f = parseAnswer($('pt').value, m);
+        if (!Object.keys(f).length) return toast('Nichts erkannt – bitte die komplette Antwort einfügen');
+        closeSheet(); applyFields(c, f, 'paste');
+      };
+    });
+  }
+  let busy = false;
+  async function runClaude(i, c, m) {
+    if (busy) return;
+    // Nur nachfragen, wenn Felder mehr enthalten als die Vorbelegung aus der Idee
+    const touched = m.f.some(f => { const v = (c.fields[f[0]] || '').trim(); return v && !(f[3] && v === (i[f[3]] || '').trim()); });
+    if (touched && !confirm('Bereits ausgefüllte Felder werden ersetzt. Fortfahren?')) return;
+    busy = true; const btn = $('ai'); btn.disabled = true; btn.innerHTML = '<span class="spin">✨</span> Claude denkt nach …';
+    const props = {}; m.f.forEach(f => props[f[0]] = { type: 'string', description: f[1] + ': ' + f[2] });
+    const body = {
+      model: D.model, max_tokens: 16000, system: SYSTEM,
+      output_config: { effort: 'medium', format: { type: 'json_schema', schema: { type: 'object', properties: props, required: m.f.map(f => f[0]), additionalProperties: false } } },
+      messages: [{ role: 'user', content: taskText(i, m) }]
+    };
+    const headers = { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2026-10-21', 'anthropic-dangerous-direct-browser-access': 'true' };
+    // Serverseitiger Fallback bei abgelehnten Anfragen (für Haiku nicht verfügbar)
+    if (D.model !== 'claude-haiku-5-5') { body.fallbacks = 'default'; headers['anthropic-beta'] = 'server-side-fallback-2026-07-01'; }
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers, body: JSON.stringify(body) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(r.status === 401 ? 'API-Key ungültig (401).' : r.status === 429 ? 'Zu viele Anfragen oder Limit erreicht (429).' : r.status === 529 || r.status >= 500 ? 'Claude ist gerade überlastet – bitte gleich nochmal.' : (j.error && j.error.message) || 'Fehler ' + r.status);
+      if (j.stop_reason === 'refusal') throw new Error('Claude hat die Anfrage abgelehnt.');
+      if (j.stop_reason === 'max_tokens') throw new Error('Antwort wurde abgeschnitten – bitte nochmal versuchen.');
+      const txt = (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+      const f = parseAnswer(txt, m);
+      if (!applyFields(c, f, 'claude')) throw new Error('Antwort nicht lesbar.');
+    } catch (e) {
+      toast('⚠️ ' + (e.message === 'Failed to fetch' ? 'Keine Verbindung zu Claude.' : e.message));
+      if ($('ai')) { $('ai').disabled = false; $('ai').textContent = '✨ Mit Claude ausfüllen'; }
+    } finally { busy = false; }
+  }
+
+  // ---------- Portfolio ----------
+  function viewMatrix() {
+    const L = D.ideas.filter(i => score(i) != null && !['drop'].includes(i.status));
+    const W = 340, H = 300, P = 34, X = e => P + 16 + (e - 1) / 4 * (W - P - 42), Y = v => H - P - 16 - (v - 1) / 4 * (H - P - 52);
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '">';
+    const mx = (P + W - 10) / 2, my = (10 + H - P) / 2;
+    svg += '<rect x="' + P + '" y="10" width="' + (mx - P) + '" height="' + (my - 10) + '" fill="rgba(63,224,143,.1)"/><rect x="' + mx + '" y="10" width="' + (W - 10 - mx) + '" height="' + (my - 10) + '" fill="rgba(180,140,255,.1)"/>' +
+      '<rect x="' + P + '" y="' + my + '" width="' + (mx - P) + '" height="' + (H - P - my) + '" fill="rgba(255,255,255,.03)"/><rect x="' + mx + '" y="' + my + '" width="' + (W - 10 - mx) + '" height="' + (H - P - my) + '" fill="rgba(255,93,108,.08)"/>';
+    const tx = (x, y, t, a) => '<text x="' + x + '" y="' + y + '" fill="#a8b58c" font-size="10" font-weight="800" text-anchor="' + (a || 'start') + '">' + t + '</text>';
+    svg += tx(P + 4, 22, '⚡ QUICK WINS') + tx(W - 14, 22, '🚀 GROSSE WÜRFE', 'end') + tx(P + 4, H - P - 6, '🧹 KLEINKRAM') + tx(W - 14, H - P - 6, '🕳️ ZEITFRESSER', 'end');
+    svg += '<line x1="' + P + '" y1="' + (H - P) + '" x2="' + (W - 10) + '" y2="' + (H - P) + '" stroke="#3a4524"/><line x1="' + P + '" y1="10" x2="' + P + '" y2="' + (H - P) + '" stroke="#3a4524"/>';
+    svg += tx((W + P) / 2, H - 10, 'Aufwand →', 'middle') + '<text x="12" y="' + (H - P) / 2 + '" fill="#a8b58c" font-size="10" font-weight="800" text-anchor="middle" transform="rotate(-90 12 ' + (H - P) / 2 + ')">Nutzen →</text>';
+    const seen = {};
+    L.forEach(i => {
+      const k = i.score.effort + ',' + i.score.value, n = seen[k] = (seen[k] || 0) + 1, off = (n - 1) * 9;
+      const x = X(i.score.effort) + (n > 1 ? Math.cos(n * 2.4) * off : 0), y = Y(i.score.value) + (n > 1 ? Math.sin(n * 2.4) * off : 0), r = 6 + score(i) / 14;
+      svg += '<g data-id="' + i.id + '" style="cursor:pointer"><circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="' + scoreCol(score(i)) + '" fill-opacity=".85" stroke="#0f1209" stroke-width="2"/></g>';
+    });
+    svg += '</svg>';
+    let h = '<div class="panel">' + svg + '<div class="help" style="margin-top:6px">Kreisgröße = Score. Tippe auf einen Kreis, um die Idee zu öffnen.</div></div>';
+    if (!L.length) h += '<div class="empty"><div class="e">🎯</div>Noch keine bewerteten Ideen.<br>Bewerte eine Idee mit allen fünf Kriterien, dann erscheint sie hier.</div>';
+    else {
+      const top = L.slice().sort((a, b) => score(b) - score(a)).slice(0, 10);
+      h += '<div class="panel"><div class="lbl">Rangliste</div>' + top.map((i, n) => '<div class="conc" data-id="' + i.id + '"><span style="font-weight:900;color:var(--mut);width:18px">' + (n + 1) + '</span><b>' + esc(i.title) + '<small>' + STATUS[i.status].ic + ' ' + STATUS[i.status].n + ' · Nutzen ' + i.score.value + ' · Aufwand ' + i.score.effort + '</small></b><span class="score" style="background:' + scoreCol(score(i)) + '">' + score(i) + '</span></div>').join('') + '</div>';
+    }
+    $('sc').innerHTML = h;
+    $('sc').querySelectorAll('[data-id]').forEach(g => g.onclick = () => go('idea', { idea: g.dataset.id }));
+  }
+
+  // ---------- Methoden-Übersicht ----------
+  function viewMethods() {
+    let h = '<div class="panel"><div class="help">Ideenmanagement ist wie ein Trichter: oben kommen viele rohe Ideen hinein, unten wenige, gut geprüfte heraus. Die Methoden sind die Siebe dazwischen – jede prüft eine andere Frage. Lies dich ein, dann wähle in einer Idee „＋ Konzept erstellen“.</div></div>';
+    h += '<div class="panel"><div class="lbl">Der Weg einer Idee</div><div class="help">📥 <b>Eingang</b> – festhalten, nicht bewerten<br>🔍 <b>Prüfen</b> – grob bewerten (Score), Steckbrief oder NABC<br>🧪 <b>Konzept</b> – vertiefen: Canvas, Design Thinking, Annahmen testen<br>🚀 <b>Umsetzung</b> – Pre-Mortem, Experimente, Pilot<br>✅ / 🅿️ / ✖️ – bewusst entscheiden, auch Parken ist eine Entscheidung</div></div>';
+    h += METHODS.map(m => '<div class="panel"><div class="lbl">' + m.ic + ' ' + esc(m.n) + '<span class="sp"></span>' + esc(m.src) + '</div><div class="help" style="color:var(--txt);font-size:13px">' + esc(m.d) + '</div><div class="help" style="margin-top:6px">Felder: ' + m.f.map(f => esc(f[1])).join(' · ') + '</div></div>').join('');
+    $('sc').innerHTML = h;
+  }
+
+  // ---------- Einstellungen ----------
+  const MODELS = [['claude-opus-5-5', 'Claude Opus 5.5', 'beste Qualität (Standard)'], ['claude-sonnet-5-5', 'Claude Sonnet 5.5', 'schneller, günstiger'], ['claude-haiku-5-5', 'Claude Haiku 5.5', 'am schnellsten, am günstigsten']];
+  function viewMore() {
+    const masked = apiKey ? apiKey.slice(0, 10) + '…' + apiKey.slice(-4) : '';
+    let h = '<div class="panel"><div class="lbl">Kontext für die KI</div><div class="help" style="margin-bottom:8px">Optional: Unternehmen, Bereich oder Rahmenbedingungen. Wird jedem Prompt vorangestellt.</div><textarea id="ctx" placeholder="z. B. Mittelständischer Maschinenbauer, 300 MA, Fokus Service-Digitalisierung">' + esc(D.ctx) + '</textarea></div>';
+    h += '<div class="panel' + (apiKey ? '' : '') + '"><div class="lbl">Claude-API (optional)</div>' +
+      '<div class="help" style="margin-bottom:8px">Mit eigenem API-Key füllt die App Konzepte per Knopfdruck. Ohne Key nutzt du „KI-Prompt kopieren“. Den Key bekommst du unter platform.claude.com → API Keys.</div>' +
+      (apiKey ? '<div class="kv" style="margin-bottom:8px">🔑 ' + esc(masked) + '</div><button class="btn red" id="rmkey">Key entfernen</button>'
+        : '<label class="f"><span>API-Key</span><input id="key" type="password" autocomplete="off" placeholder="sk-ant-…"></label><button class="btn" id="savekey">Key speichern</button>') +
+      '<div class="lbl" style="margin-top:12px">Modell</div><div class="chips" id="mdl">' + MODELS.map(([id, n, d]) => '<button data-m="' + id + '" class="' + (D.model === id ? 'on' : '') + '">' + n + '</button>').join('') + '</div>' +
+      '<div class="help">' + (MODELS.find(x => x[0] === D.model) || MODELS[0])[2] + '</div></div>';
+    h += '<div class="panel warn"><div class="lbl">🔒 Datenschutz</div><div class="help">Der Key bleibt nur auf diesem Gerät (nicht im Sync, nicht im Backup). Beim Ausfüllen gehen Titel, Idee, Problem, Zielgruppe, Nutzen, Notizen und Kontext an Anthropic. Am besten einen eigenen Key mit Ausgabenlimit anlegen und keine vertraulichen Details eintragen.</div></div>';
+    h += '<div class="panel"><div class="lbl">Daten</div><div class="help" style="margin-bottom:10px">' + D.ideas.length + ' Ideen · ' + D.ideas.reduce((a, i) => a + i.concepts.length, 0) + ' Konzepte. Alles liegt lokal; über ☁️ synchronisieren oder als Datei sichern.</div>' +
+      '<button class="btn sec" id="sync">☁️ Sync &amp; Backup</button><button class="btn sec" id="exp" style="margin-top:8px">📤 Alle Ideen als Text teilen</button></div>';
+    $('sc').innerHTML = h;
+    $('ctx').oninput = e => { D.ctx = e.target.value; save(); };
+    if ($('savekey')) $('savekey').onclick = () => { const k = $('key').value.trim(); if (!/^sk-ant-/.test(k)) return toast('Das sieht nicht wie ein Claude-API-Key aus (sk-ant-…)'); apiKey = k; try { localStorage.setItem(KEYKEY, k); } catch (e) {} toast('🔑 Key gespeichert'); viewMore(); };
+    if ($('rmkey')) $('rmkey').onclick = () => { apiKey = ''; try { localStorage.removeItem(KEYKEY); } catch (e) {} toast('Key entfernt'); viewMore(); };
+    $('mdl').querySelectorAll('button').forEach(b => b.onclick = () => { D.model = b.dataset.m; save(); viewMore(); });
+    $('sync').onclick = () => AppSync.open();
+    $('exp').onclick = () => share('Ideen', D.ideas.map(ideaText).join('\n\n———\n\n') || 'Noch keine Ideen.');
+  }
+
+  // ---------- Start ----------
+  document.querySelectorAll('#nav button').forEach(b => b.onclick = () => go(b.dataset.v));
+  $('back').onclick = () => D.view === 'concept' ? go('idea') : go('list');
+  $('fab').onclick = () => editIdea(null);
+  $('syncb').onclick = () => AppSync.open();
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  render();
+  AppSync.init({ name: 'ideen-werkstatt', label: 'Ideen-Werkstatt',
+    getData: () => ({ ideas: D.ideas, ctx: D.ctx }),
+    setData: d => { D.ideas = d.ideas || []; D.ctx = d.ctx || ''; save.quiet = true; save(); save.quiet = false; render(); },
+    hasData: () => D.ideas.length > 0 });
+  window.__IW = { get D() { return D; }, parseAnswer, buildPrompt, METHODS, setKey: k => { apiKey = k; } };
+})();
+</script>
+</body>
+</html>
