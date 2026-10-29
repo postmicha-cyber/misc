@@ -125,6 +125,19 @@
   .card { cursor: pointer; }
   .acts-row { display: flex; gap: 6px; flex: none; }
   .mob { display: none; }
+  .tag.new { background: var(--g-bg); border-color: var(--g); color: var(--g); } .tag.chg { background: var(--y-bg); border-color: var(--y); color: var(--y); }
+  .save { font-size: 12px; color: var(--mut); white-space: nowrap; } .save[data-k="err"] { color: var(--r); font-weight: 700; } .save[data-k="ok"] { color: var(--g); }
+  .hbtn.search { color: var(--mut); min-width: 0; }
+  kbd { font: 600 11px ui-monospace, Menlo, Consolas, monospace; padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: var(--panel2); color: var(--mut); }
+  .pal { margin-top: 8px; max-height: 50vh; overflow: auto; } .pi { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 9px; cursor: pointer; }
+  .pi.on { background: var(--acc); color: var(--acc-t); } .pi.on small { color: var(--acc-t); opacity: .85; } .pi div { min-width: 0; } .pi b { display: block; font-size: 14px; } .pi small { color: var(--mut); font-size: 12px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .skip { position: absolute; left: -999px; top: 8px; z-index: 99; background: var(--acc); color: var(--acc-t); padding: 8px 12px; border-radius: 8px; } .skip:focus { left: 8px; }
+  details.imp { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; } details.imp summary { font-size: 14px; font-weight: 600; } .imps { display: block; font-size: 12.5px; color: var(--mut); font-weight: 600; margin: 2px 0 0 16px; }
+  .chp { padding: 8px 0 6px; border-top: 1px solid var(--line); } .chp:first-of-type { border-top: 0; } .chh { display: flex; gap: 8px; align-items: center; font-weight: 700; } .chh a { flex: 1; color: var(--txt); }
+  .chp ul { margin: 4px 0 0 18px; font-size: 13.5px; color: var(--mut); }
+  .tl-weclapp .t small, .tl-ich .t small { color: var(--mut); }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
   @media (max-width: 900px) {
     #app { grid-template-columns: 1fr; }
     nav { position: fixed; bottom: 0; left: 0; right: 0; top: auto; height: auto; flex-direction: row; border-right: 0; border-top: 1px solid var(--line); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); z-index: 30; }
@@ -141,11 +154,14 @@
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Zum Inhalt springen</a>
 <div id="app">
   <header>
     <h1>📋 Projekt-Cockpit</h1>
     <button class="badge" id="localBadge" title="Wo liegen meine Daten?">🔒 Nur lokal</button>
+    <span class="save hide-m" id="saveInd" role="status" aria-live="polite"></span>
     <span class="sp"></span>
+    <button class="hbtn search" id="searchBtn" title="Schnellsuche (Strg+K)" aria-label="Schnellsuche">🔍<span class="hide-m"> Suchen <kbd>Strg K</kbd></span></button>
     <button class="hbtn hide-m" id="themeBtn" aria-label="Hell/Dunkel">🌓</button>
     <button class="hbtn" id="backupBtn"><span class="dot" id="backupDot"></span>💾<span class="hide-m"> Backup</span></button>
     <button class="hbtn pri" id="newProjBtn">＋<span class="hide-m"> Projekt</span></button>
@@ -154,11 +170,12 @@
     <button data-v="home"><span>🏠</span><span class="lab">Cockpit</span><span class="bd" id="navBadge" style="display:none"></span></button>
     <button data-v="projects"><span>📁</span><span class="lab">Projekte</span></button>
     <button data-v="estimates"><span>🧮</span><span class="lab">Schätzungen</span></button>
-    <button data-v="tools"><span>🛠</span><span class="lab">Werkzeuge</span></button>
+    <button data-v="changes"><span>🕘</span><span class="lab">Änderungen</span></button>
+    <button data-v="tools" class="hide-m"><span>🛠</span><span class="lab">Werkzeuge</span></button>
     <button data-v="data"><span>💾</span><span class="lab">Daten</span></button>
     <div class="foot" id="navFoot"></div>
   </nav>
-  <main id="main"><div class="note" id="banner"></div><div id="view"></div></main>
+  <main id="main" tabindex="-1"><div class="note" id="banner"></div><div id="view"></div></main>
 </div>
 <div class="ov" id="ov"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 <div id="toast" role="status"><span id="toastT"></span><button id="toastB" style="display:none"></button></div>

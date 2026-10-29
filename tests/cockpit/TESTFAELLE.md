@@ -30,7 +30,7 @@ Neue Funktionen bekommen einen neuen Testfall. Ein gefundener Fehler bekommt zue
 | U30 | Erstimport legt Projekte an | Grundfunktion |
 | U31 | Gleiche Datei zweimal importieren ändert nichts | Kein Datenmüll durch Wiederholung |
 | U32 | **Neuer Export: alle lokalen Angaben bleiben erhalten** (Ampel, nächster Schritt, Name, Notizen, Aufgaben, Risiken, Schätzungen) | Kernanforderung „nichts geht verloren“ |
-| U33 | Änderungen aus weclapp landen im Projektverlauf | Nachvollziehbarkeit |
+| U33 | Änderungen aus weclapp landen strukturiert in der Historie (Feld, vorher, nachher, Import) | Nachvollziehbarkeit |
 | U34 | Projekt fehlt im Export: wird nur markiert, nie gelöscht; taucht es wieder auf, verschwindet die Markierung | Kernanforderung „nichts geht verloren“ |
 | U35 | Eigene Projekte werden vom Import nie verändert | Trennung eigene/importierte Daten |
 | U36 | Doppelte Auftragsnummern im Export werden nur einmal übernommen und gemeldet | Saubere Daten |
@@ -54,6 +54,12 @@ Neue Funktionen bekommen einen neuen Testfall. Ein gefundener Fehler bekommt zue
 | U56 | Bibliothek merkt Aufgaben und Stories automatisch; bewusst gespeicherte werden nicht überschrieben | Wiederverwendung ohne Klick |
 | U57 | Neue Felder (Aktuelles-Entwurf, weclapp-Adresse) überstehen Backup und Reparatur | Abwärtskompatibilität |
 | U60 | Übernahme aus Projekt-Radar und PM-Rechner, mehrfach ohne Doppelte | Umstieg |
+| U80 | Automatisch erzeugter Projektname folgt der Kommission aus weclapp, ein selbst vergebener Name bleibt | Import übernimmt Umbenennungen korrekt |
+| U81 | In weclapp abgeschlossene Projekte: erkannt, als Hinweis gezeigt, nur auf ausdrücklichen Wunsch auf „Fertig“ gesetzt | Abschlüsse gehen nicht unter |
+| U82 | „Aktuelles“: die Historie zeigt nur die neuen Einträge | Lesbare Änderungshistorie |
+| U83 | Leerer Wert, Zahl als Text, Auftragsnummer mit Leerzeichen/anderer Schreibweise | Keine Doppelten, keine Scheinänderungen |
+| U84 | Import-Liste und Markierung „geändert/neu im letzten Import“ überstehen Backup und Reparatur | Änderungshistorie dauerhaft |
+| U85 | Eigene Änderungen: innerhalb von 10 Minuten zusammengefasst, zurückgenommene Änderung hinterlässt nichts | Historie ohne Rauschen |
 | U70 | Interne Versionen: Takt und Begrenzung | Speicherplatz, Wiederherstellbarkeit |
 
 ## Browser-Tests (`e2e.test.js`, echte Abläufe in Chromium)
@@ -78,6 +84,12 @@ Neue Funktionen bekommen einen neuen Testfall. Ein gefundener Fehler bekommt zue
 | E16 | Schätzungen-Übersicht: Öffnen, Export als Kundenvariante (ohne O/M/P, mit Puffer und Gesamt = 85 %), Löschen mit Rückgängig |
 | E17 | Aufgaben: Vorschlagsliste übernimmt Werte, neue Aufgaben landen automatisch in der Bibliothek, Tab öffnet Story-Auswahl mit erster Story |
 | E18 | „Aktuelles“ fortschreiben: Präfix automatisch, Entwurf übersteht Neuladen, ganzes Feld in die Zwischenablage, Link in weclapp |
+| E19 | Zweiter Import öffnet „Änderungen“ mit Feld-Diffs je Projekt; der Projekt-Verlauf zeigt weclapp- und eigene Änderungen, filterbar |
+| E20 | In weclapp abgeschlossenes Projekt: Vorschau bietet „Fertig setzen“ an, Status und Historie stimmen |
+| E21 | Schnellsuche (Strg+K, /), Tastenkürzel N, ?, G P; nach dem Schließen bleibt kein Fokus im unsichtbaren Dialog |
+| E22 | Browser-Zurück/Vorwärts zwischen Ansichten |
+| E23 | Markierung „neu/geändert“ nach Import mit Tooltip, Filter „Letzter Import“, Speicherstatus |
+| E24 | Dialoge: Tab bleibt im Dialog, Esc schließt und gibt den Fokus zurück; Löschen ohne Rückfrage, aber mit Rückgängig |
 
 ## Manuelle Prüfung vor dem Einsatz mit echten Daten (einmalig, ca. 10 Minuten)
 

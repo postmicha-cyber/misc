@@ -53,7 +53,6 @@
     $('view').querySelectorAll('[data-ed]').forEach(el => el.onclick = () => deleteEstimate(find(el.dataset.ed), () => A.estimatesView()));
   };
   async function deleteEstimate(es, after) {
-    if (!confirm('Schätzung „' + es.title + '“ löschen?')) return;
     await A.snapshot('vor Löschen', 'Vor Löschen: Schätzung ' + es.title);
     const i = S().estimates.indexOf(es); S().estimates.splice(i, 1); A.commit(); after();
     A.toast('Schätzung gelöscht', 'Rückgängig', () => { S().estimates.splice(i, 0, es); A.commit(); A.render(); });
@@ -465,6 +464,7 @@
       (t.missing.length ? '<div class="note y">Nicht gefundene Spalten: ' + esc(t.missing.join(', ')) + '</div>' : '') + (plan.dupes.length ? '<div class="note y">Doppelte Auftragsnummern im Export (nur erste übernommen): ' + esc(plan.dupes.join(', ')) + '</div>' : '') +
       (plan.creates.length ? '<details><summary>Neu (' + plan.creates.length + ')</summary><div class="list">' + plan.creates.map(r => '<div class="it"><div class="t">' + esc(C.wcName(r)) + '<small>' + esc(r.nr) + ' · ' + esc(r.phase) + '</small></div></div>').join('') + '</div></details>' : '') +
       (ch.length ? '<details><summary>Geändert (' + ch.length + ')</summary><div class="list">' + ch.map(u => '<div class="it"><div class="t">' + nm(u.pid) + '<small>' + u.changes.map(c => esc(C.WC_LABEL[c.k]) + (c.k === 'akt' ? ' aktualisiert' : ': ' + esc(String(c.from) || '–') + ' → ' + esc(String(c.to) || '–'))).join(' · ') + '</small></div></div>').join('') + '</div></details>' : '') +
+      (plan.done.length ? '<div class="note g">✅ <b>' + plan.done.length + ' Projekt(e) sind in weclapp abgeschlossen</b>, hier aber noch offen: ' + plan.done.map(nm).join(', ') + '<label class="pick" style="border:0;padding-bottom:0"><input type="checkbox" id="imClose" checked><div>Hier ebenfalls auf „Fertig“ setzen</div></label></div>' : '') +
       (plan.missing.length ? '<details><summary>Nicht mehr im Export (' + plan.missing.length + ') – bleiben erhalten</summary><div class="list">' + plan.missing.map(id => '<div class="it"><div class="t">' + nm(id) + '</div></div>').join('') + '</div></details>' : '') +
       '<details><summary>Spaltenzuordnung prüfen</summary><div class="help">Zeile ' + (t.hi + 1) + ' ist die Kopfzeile.</div>' + C.FIELDS.map(fd => '<div class="row" style="margin-bottom:4px"><span style="flex:1;font-size:13px">' + esc(fd.l) + '</span><select data-col="' + fd.k + '" style="flex:1"><option value="">– keine –</option>' + t.header.map((h, i) => '<option value="' + i + '"' + (t.cols[fd.k] === i ? ' selected' : '') + '>' + esc(h || '(leer)') + '</option>').join('') + '</select></div>').join('') + '</details>' +
       '<div class="acts"><button class="btn sec" id="imC">Abbrechen</button><button class="btn" id="imOk">Übernehmen</button></div>', () => {
@@ -473,12 +473,14 @@
       $('imOk').onclick = async () => {
         $('imOk').disabled = true;
         await A.snapshot('vor Import', 'Vor Import: ' + file);
-        const res = C.applyImport(S(), plan, { file, today: today() });
+        const res = C.applyImport(S(), plan, { file, today: today(), closeDone: !!($('imClose') && $('imClose').checked) });
         C.FIELDS.forEach(fd => { if (t.cols[fd.k] !== undefined) S().meta.colMap[fd.k] = C.normH(t.header[t.cols[fd.k]]); });
         if (!S().me) { const cnt = {}; rows.forEach(r => { if (r.pl) cnt[r.pl] = (cnt[r.pl] || 0) + 1; }); const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0]; if (top) S().me = top[0]; }
-        A.commit(); await A.flush(); A.closeSheet(); A.go('projects', { show: 'active' });
+        A.commit(); await A.flush(); A.closeSheet();
+        // Erstimport: Projektliste; spätere Importe: direkt sehen, was sich geändert hat
+        if (res.updated || res.missing || res.closed) A.go('changes', { chImp: res.id, chf: 'all' }); else A.go('projects', { show: 'active' });
         const snaps = await ST.snapshots(), before = snaps.find(x => x.kind === 'vor Import');
-        const msg = '📥 ' + res.created + ' neu, ' + res.updated + ' geändert, ' + res.missing + ' nicht mehr im Export';
+        const msg = '📥 ' + res.created + ' neu, ' + res.updated + ' geändert, ' + res.missing + ' nicht mehr im Export' + (res.closed ? ', ' + res.closed + ' abgeschlossen' : '');
         if (before) A.toast(msg, 'Rückgängig', async () => { await A.replaceState(before.data, 'Rückgängig: Import'); A.toast('Import rückgängig gemacht'); }); else A.toast(msg);
       };
     });
@@ -493,4 +495,89 @@
     await A.replaceState(state, 'Übernahme aus bisherigen Apps');
     A.toast('🔁 Übernommen: ' + rep.projects + ' Projekte, ' + rep.estimates + ' Schätzungen, ' + rep.lib + ' Bibliothekseinträge');
   };
+})();
+
+/* Projekt-Cockpit: Änderungen, Schnellsuche, Tastenkürzel */
+(() => {
+  'use strict';
+  const A = window.App, C = A.C, $ = A.$, esc = A.esc, S = () => A.S(), UI = A.UI;
+  const rel = iso => { const m = Math.round((Date.now() - Date.parse(iso)) / 60000); return isNaN(m) ? '' : m < 1 ? 'gerade eben' : m < 60 ? 'vor ' + m + ' Min.' : m < 1440 ? 'vor ' + Math.round(m / 60) + ' Std.' : m < 2880 ? 'gestern' : 'vor ' + Math.round(m / 1440) + ' Tagen'; };
+  A.rel = rel;
+
+  // ================= Änderungen =================
+  A.changesView = () => {
+    const f = UI.chf || 'all', q = C.normTxt(UI.chq || ''), P = S().projects.filter(p => !q || C.normTxt(p.name + ' ' + p.nr + ' ' + p.kunde).includes(q));
+    const imports = S().meta.imports.slice().reverse(), byImp = {};
+    P.forEach(p => p.hist.forEach(e => { if (e.src === 'weclapp' && e.imp) (byImp[e.imp] = byImp[e.imp] || new Map()).set(p, (byImp[e.imp].get(p) || []).concat([e])); }));
+    const mine = []; P.forEach(p => p.hist.forEach(e => { if (e.src === 'ich') mine.push({ p, e }); })); mine.sort((a, b) => b.e.at.localeCompare(a.e.at));
+    const projLink = p => '<a href="#" data-open="' + p.id + '">' + esc(p.name) + '</a>';
+    let h = '<h2>Änderungen<span class="sp"></span></h2><div class="panel"><div class="row" style="margin-bottom:8px"><label class="f" style="flex:2"><span>Projekt suchen</span><input id="chQ" value="' + esc(UI.chq || '') + '" placeholder="Name, Auftragsnummer, Kunde …"></label></div>' +
+      '<div class="chips">' + [['all', 'Alle'], ['weclapp', '🔗 weclapp-Importe'], ['ich', '✏️ Meine Änderungen']].map(([k, n]) => '<button data-chf="' + k + '" class="' + (f === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div></div>';
+    if (f !== 'ich') {
+      h += '<div class="panel"><h3>🔗 weclapp-Importe<span class="sp"></span><span class="cnt">' + imports.length + '</span></h3>' + (imports.length ? imports.map((im, i) => {
+        const M = byImp[im.id] || new Map(), open = UI.chImp ? UI.chImp === im.id : i === 0;
+        const body = [...M.entries()].map(([p, E]) => { const created = E.some(e => e.k === '_created'); return '<div class="chp"><div class="chh">' + (created ? '<span class="tag new">🆕 neu</span> ' : '') + projLink(p) + A.people(p) + '</div>' + (created ? '' : '<ul>' + E.map(e => '<li>' + esc(C.histText(e)) + '</li>').join('') + '</ul>') + '</div>'; }).join('');
+        return '<details class="imp"' + (open ? ' open' : '') + ' data-imp="' + im.id + '"><summary><b>' + A.fdt(im.at) + '</b> <span class="muted">(' + rel(im.at) + ')</span> · ' + esc(im.file || 'Import') + '<span class="imps">' + [im.created ? '🆕 ' + im.created + ' neu' : '', im.updated ? '✎ ' + im.updated + ' geändert' : '', im.missing ? '⚠ ' + im.missing + ' fehlen' : '', im.closed ? '✅ ' + im.closed + ' abgeschlossen' : '', !im.created && !im.updated && !im.missing ? 'keine Änderungen' : ''].filter(Boolean).join(' · ') + '</span></summary>' + (body || '<div class="help">' + (q ? 'Keine Treffer für die Suche.' : 'Keine Änderungen an Projekten.') + '</div>') + '</details>';
+      }).join('') : '<div class="help">Noch kein weclapp-Import mit Änderungshistorie.</div>') + '</div>';
+    }
+    if (f !== 'weclapp') {
+      h += '<div class="panel"><h3>✏️ Meine Änderungen<span class="sp"></span><span class="cnt">' + mine.length + '</span></h3><div class="help">Status, nächster Schritt, Termin, Priorität und Name. Mehrere Änderungen innerhalb von 10 Minuten werden zusammengefasst.</div><div class="list">' +
+        (mine.length ? mine.slice(0, 200).map(x => '<div class="it"><div class="t">' + esc(C.histText(x.e)) + '<small>' + projLink(x.p) + ' · ' + A.fdt(x.e.at) + '</small></div></div>').join('') : '<div class="help">Noch keine.</div>') + '</div></div>';
+    }
+    $('view').innerHTML = h;
+    const qi = $('chQ'); qi.oninput = () => { UI.chq = qi.value; const pos = qi.selectionStart; A.changesView(); const n = $('chQ'); n.focus(); n.setSelectionRange(pos, pos); };
+    $('view').querySelectorAll('[data-chf]').forEach(b => b.onclick = () => { UI.chf = b.dataset.chf; A.changesView(); });
+    $('view').querySelectorAll('[data-open]').forEach(a => a.onclick = e => { e.preventDefault(); A.go('project', { pid: a.dataset.open, ptab: 'log' }); });
+    $('view').querySelectorAll('details.imp').forEach(d => d.ontoggle = () => { if (d.open) UI.chImp = d.dataset.imp; });
+  };
+
+  // ================= Schnellsuche (Strg/⌘ + K) =================
+  function paletteItems() {
+    const I = [];
+    S().projects.forEach(p => I.push({ ic: p.archived ? '🗄' : C.STATUS[p.status].ic, t: p.name, sub: [p.nr, p.wc && p.wc.pl, p.wc && p.wc.cons, p.kunde].filter(Boolean).join(' · '), run: () => A.go('project', { pid: p.id, ptab: 'over' }), w: C.isActive(p) ? 2 : 1 }));
+    S().estimates.forEach(e => I.push({ ic: '🧮', t: e.title, sub: 'Schätzung · ' + ((A.byId(e.pid) || {}).name || 'ohne Projekt'), run: () => A.go('estimate', { eid: e.id, back: { view: 'estimates' } }), w: 1 }));
+    [['＋', 'Neues Projekt', () => A.newProjectSheet()], ['🧮', 'Neue Schätzung', () => A.newEstimate('')], ['📥', 'weclapp-Export importieren', () => $('fileImport').click()], ['💾', 'Backup erstellen', () => A.doBackup()],
+      ['🏠', 'Cockpit', () => A.go('home')], ['📁', 'Projekte', () => A.go('projects')], ['🕘', 'Änderungen', () => A.go('changes')], ['🛠', 'Werkzeuge', () => A.go('tools')], ['💾', 'Daten & Einstellungen', () => A.go('data')], ['⌨️', 'Tastenkürzel', () => help()]]
+      .forEach(([ic, t, run]) => I.push({ ic, t, sub: 'Aktion', run, w: 0 }));
+    return I;
+  }
+  function palette() {
+    let sel = 0, list = [];
+    A.sheet('<h4 class="sr">Schnellsuche</h4><input id="pal" placeholder="Projekt, Auftragsnummer, Person, Schätzung oder Aktion …" autocomplete="off" aria-label="Schnellsuche" role="combobox" aria-controls="palL" aria-expanded="true"><div id="palL" class="pal" role="listbox"></div><div class="help" style="margin:8px 0 0">↑ ↓ wählen · Enter öffnen · Esc schließen</div>', () => {
+      const all = paletteItems();
+      const draw = () => {
+        const words = C.normTxt($('pal').value).split(' ').filter(Boolean);
+        list = all.filter(x => { const hay = C.normTxt(x.t + ' ' + x.sub); return words.every(w => hay.includes(w)); })
+          .sort((a, b) => (words.length ? (C.normTxt(b.t).startsWith(words[0]) - C.normTxt(a.t).startsWith(words[0])) : 0) || b.w - a.w).slice(0, 12);
+        sel = Math.min(sel, Math.max(0, list.length - 1));
+        $('palL').innerHTML = list.length ? list.map((x, i) => '<div class="pi' + (i === sel ? ' on' : '') + '" role="option" aria-selected="' + (i === sel) + '" data-i="' + i + '"><span>' + x.ic + '</span><div><b>' + esc(x.t) + '</b><small>' + esc(x.sub) + '</small></div></div>').join('') : '<div class="help" style="padding:10px">Nichts gefunden.</div>';
+        $('palL').querySelectorAll('.pi').forEach(el => { el.onclick = () => run(+el.dataset.i); el.onmousemove = () => { if (sel !== +el.dataset.i) { sel = +el.dataset.i; draw(); } }; });
+      };
+      const run = i => { const x = list[i]; if (!x) return; A.closeSheet(); x.run(); };
+      $('pal').oninput = () => { sel = 0; draw(); };
+      $('pal').onkeydown = e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(list.length - 1, sel + 1); draw(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); draw(); }
+        else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
+      };
+      draw(); $('pal').focus();
+    });
+  }
+  A.palette = palette;
+  function help() {
+    A.sheet('<h4>⌨️ Tastenkürzel</h4><table class="t"><tr><td><kbd>Strg</kbd> + <kbd>K</kbd> oder <kbd>/</kbd></td><td>Schnellsuche: Projekte, Schätzungen, Aktionen</td></tr><tr><td><kbd>N</kbd></td><td>Neues Projekt</td></tr><tr><td><kbd>G</kbd> dann <kbd>C</kbd> / <kbd>P</kbd> / <kbd>S</kbd> / <kbd>A</kbd></td><td>Gehe zu Cockpit / Projekte / Schätzungen / Änderungen</td></tr><tr><td><kbd>Esc</kbd></td><td>Dialog schließen</td></tr><tr><td><kbd>?</kbd></td><td>Diese Hilfe</td></tr><tr><td>Browser-Zurück</td><td>Vorherige Ansicht</td></tr></table><div class="acts"><button class="btn" id="hX">OK</button></div>', () => { $('hX').onclick = A.closeSheet; });
+  }
+  A.help = help;
+  let gPending = 0;
+  document.addEventListener('keydown', e => {
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable, open = $('ov').classList.contains('on');
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); return palette(); }
+    if (typing || open || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === '/') { e.preventDefault(); return palette(); }
+    if (e.key === '?') { e.preventDefault(); return help(); }
+    if (Date.now() - gPending < 1200) { const v = { c: 'home', p: 'projects', s: 'estimates', a: 'changes' }[e.key.toLowerCase()]; gPending = 0; if (v) { e.preventDefault(); return A.go(v); } }
+    if (e.key.toLowerCase() === 'g') { gPending = Date.now(); return; }
+    if (e.key.toLowerCase() === 'n') { e.preventDefault(); return A.newProjectSheet(); }
+  });
+  $('searchBtn').onclick = palette;
 })();

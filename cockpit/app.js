@@ -19,13 +19,16 @@
   const tabId = C.uid(), bc = 'BroadcastChannel' in window ? new BroadcastChannel('projektCockpit') : null;
 
   // Jede Änderung läuft hierüber: zählen, verzögert speichern, gelegentlich interne Version anlegen
-  function commit() { S.meta.changes = (S.meta.changes || 0) + 1; dirty = true; clearTimeout(saveT); saveT = setTimeout(flush, 400); headerState(); }
+  function commit() { S.meta.changes = (S.meta.changes || 0) + 1; dirty = true; saveState('pending'); clearTimeout(saveT); saveT = setTimeout(flush, 400); headerState(); }
+  // Speicherstatus wie in Google Docs: „Speichert …“ / „Gespeichert“ / Fehler
+  function saveState(k) { const el = $('saveInd'); if (!el) return; el.dataset.k = k; el.textContent = { pending: '● Änderung', saving: '↻ Speichert …', ok: '✓ Gespeichert', err: '⚠ Nicht gespeichert' }[k] || ''; }
   async function flush() {
     clearTimeout(saveT); if (!dirty) return true;
-    dirty = false;
+    dirty = false; saveState('saving');
     const ok = await ST.save(S);
     if (!ok) { savingFail = true; banner('r', '⚠️ <b>Speichern fehlgeschlagen.</b> Der Browser verweigert den Speicher (voll oder privat?). Bitte sofort ein <b>Backup</b> herunterladen.'); }
     else if (savingFail) { savingFail = false; banner(); }
+    saveState(ok ? 'ok' : 'err');
     if (ok && bc) bc.postMessage({ type: 'saved', tab: tabId, at: S.meta.savedAt });
     if (ok && Date.now() - lastAuto > 30 * 60000) { lastAuto = Date.now(); ST.addSnapshot('auto', 'Automatisch', S, C.pruneSnapshots); }
     headerState();
@@ -52,8 +55,29 @@
     if (label) { b.style.display = ''; b.textContent = label; b.onclick = () => { $('toast').classList.remove('on'); fn(); }; } else b.style.display = 'none';
     $('toast').classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('on'), label ? 9000 : 2800);
   }
-  function sheet(html, wire) { $('sheet').innerHTML = html; $('ov').classList.add('on'); $('sheet').scrollTop = 0; wire && wire(); const f = $('sheet').querySelector('[autofocus]'); if (f) setTimeout(() => f.focus(), 60); }
-  function closeSheet() { $('ov').classList.remove('on'); }
+  let lastFocus = null;
+  function sheet(html, wire) {
+    if (!$('ov').classList.contains('on')) lastFocus = document.activeElement;
+    $('sheet').innerHTML = html; $('ov').classList.add('on'); $('sheet').scrollTop = 0; wire && wire();
+    const h = $('sheet').querySelector('h4'); if (h) { h.id = 'sheetTitle'; $('sheet').setAttribute('aria-labelledby', 'sheetTitle'); }
+    // sofort fokussieren, sonst gehen schnell getippte Zeichen verloren
+    const f = $('sheet').querySelector('[autofocus]') || $('sheet').querySelector('input, select, textarea, button'); if (f) f.focus();
+  }
+  function closeSheet() {
+    if (!$('ov').classList.contains('on')) return;
+    $('ov').classList.remove('on');
+    // Fokus nie im unsichtbaren Dialog lassen: zurück zum Auslöser, sonst auf den Inhalt
+    if ($('sheet').contains(document.activeElement)) document.activeElement.blur();
+    const back = lastFocus && document.contains(lastFocus) && lastFocus !== document.body ? lastFocus : $('main');
+    try { back.focus({ preventScroll: true }); } catch (e) {}
+  }
+  // Tab bleibt im offenen Dialog
+  $('sheet').addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    const F = [...$('sheet').querySelectorAll('a[href], button:not([disabled]), input, select, textarea, summary')].filter(x => x.offsetParent !== null);
+    if (!F.length) return; const a = F[0], z = F[F.length - 1];
+    if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
+  });
   $('ov').onclick = e => { if (e.target === $('ov')) closeSheet(); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('ov').classList.contains('on')) closeSheet(); });
   async function copyText(t, msg) { try { await navigator.clipboard.writeText(t); toast(msg || '📋 Kopiert'); } catch (e) { sheet('<h4>Kopieren</h4><textarea id="cpT" rows="6">' + esc(t) + '</textarea><div class="acts"><button class="btn" id="cpX">Schließen</button></div>', () => { $('cpT').select(); $('cpX').onclick = closeSheet; }); } }
@@ -76,13 +100,23 @@
   const statusTag = p => '<span class="tag">' + C.STATUS[p.status].ic + ' ' + C.STATUS[p.status].n + '</span>';
 
   // ---------- Navigation ----------
-  function go(view, o) { Object.assign(UI, { view }, o || {}); saveUI(); render(); window.scrollTo(0, 0); }
+  const NAV_KEYS = ['view', 'pid', 'ptab', 'eid', 'back'];
+  function go(view, o, fromHistory) {
+    Object.assign(UI, { view }, o || {}); saveUI();
+    // Browser-Zurück/Vorwärts unterstützen
+    if (!fromHistory) { const st = {}; NAV_KEYS.forEach(k => st[k] = UI[k]); try { history.pushState(st, ''); } catch (e) {} }
+    render(); window.scrollTo(0, 0);
+  }
+  window.addEventListener('popstate', e => { if (e.state && e.state.view) { closeSheet(); go(e.state.view, e.state, true); } });
   App.go = go;
   document.querySelectorAll('#nav button').forEach(b => b.onclick = () => go(b.dataset.v, { pid: null, eid: null }));
+  const TITLES = { home: 'Cockpit', projects: 'Projekte', estimates: 'Schätzungen', estimate: 'Schätzung', tools: 'Werkzeuge', data: 'Daten', changes: 'Änderungen' };
   function render() {
+    const pp = UI.view === 'project' && byId(UI.pid);
+    document.title = (pp ? pp.name : TITLES[UI.view] || 'Cockpit') + ' – Projekt-Cockpit';
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === UI.view || (UI.view === 'project' && b.dataset.v === 'projects') || (UI.view === 'estimate' && b.dataset.v === 'estimates')));
     headerState();
-    const V = { home, projects, project, estimates: () => App.estimatesView(), estimate: () => App.estimateEditor(), tools: () => App.toolsView(), data: () => App.dataView() };
+    const V = { home, projects, project, estimates: () => App.estimatesView(), estimate: () => App.estimateEditor(), tools: () => App.toolsView(), data: () => App.dataView(), changes: () => App.changesView() };
     try { (V[UI.view] || home)(); } catch (e) { console.error(e); $('view').innerHTML = '<div class="note r">Diese Ansicht konnte nicht angezeigt werden: ' + esc(e.message) + '<br><button class="btn sec" onclick="App.go(\'home\')">Zum Cockpit</button></div>'; }
   }
   App.render = render;
@@ -166,9 +200,9 @@
     $('view').querySelectorAll('[data-ip]').forEach(b => b.onclick = () => { const i = S.ideas.find(x => x.id === b.dataset.ip); newProjectSheet({ name: i.t }, () => { S.ideas = S.ideas.filter(x => x !== i); }); });
   }
   function nextDone(p) {
-    const old = p.next; log(p, '✔ ' + old); p.next = ''; touch(p); render();
+    const old = p.next; log(p, '✔ ' + old); track(p, 'next', old, ''); p.next = ''; touch(p); render();
     sheet('<h4>Nächster Schritt für „' + esc(p.name) + '“?</h4><input id="nxIn" autofocus placeholder="Was passiert als Nächstes?"><div class="acts"><button class="btn sec" id="nxL">Später</button><button class="btn" id="nxOk">Speichern</button></div>', () => {
-      $('nxL').onclick = closeSheet; const ok = () => { p.next = $('nxIn').value.trim(); touch(p); closeSheet(); render(); };
+      $('nxL').onclick = closeSheet; const ok = () => { const v = $('nxIn').value.trim(); track(p, 'next', p.next, v); p.next = v; touch(p); closeSheet(); render(); };
       $('nxOk').onclick = ok; $('nxIn').onkeydown = e => { if (e.key === 'Enter') ok(); };
     });
   }
@@ -185,7 +219,7 @@
         $('rvS').querySelectorAll('button').forEach(b => b.onclick = () => { st = b.dataset.k; $('rvS').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
         $('rvX').onclick = () => { closeSheet(); render(); };
         $('rvO').onclick = () => { closeSheet(); go('project', { pid: p.id, ptab: 'over' }); };
-        $('rvOk').onclick = () => { if (st !== p.status) { log(p, 'Status: ' + C.STATUS[st].n + ' (Review)'); p.status = st; } p.next = $('rvN').value.trim(); touch(p); i++; step(); };
+        $('rvOk').onclick = () => { if (st !== p.status) { track(p, 'status', p.status, st); p.status = st; } const v = $('rvN').value.trim(); track(p, 'next', p.next, v); p.next = v; touch(p); i++; step(); };
       });
     };
     step();
@@ -193,6 +227,8 @@
 
   // ---------- Projekte ----------
   const log = (p, t) => p.log.push({ d: today(), t, src: '' });
+  const track = (p, k, from, to) => C.recordChange(p, k, from, to);
+  App.track = track;
   const touch = p => { p.updated = today(); commit(); };
   App.log = log; App.touch = touch;
   function newProjectSheet(pre, after) {
@@ -211,13 +247,14 @@
   }
   App.newProjectSheet = newProjectSheet;
   function projects() {
-    const q = C.normTxt(UI.q), uniq = k => [...new Set(S.projects.map(p => p.wc && p.wc[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')), pls = uniq('pl'), conss = uniq('cons');
+    const li = S.meta.lastImport && S.meta.lastImport.id, q = C.normTxt(UI.q), uniq = k => [...new Set(S.projects.map(p => p.wc && p.wc[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')), pls = uniq('pl'), conss = uniq('cons');
     let L = S.projects.filter(p => {
       if (UI.show === 'active' && !C.isActive(p)) return false;
       if (UI.show === 'paused' && (p.status !== 'p' || p.archived)) return false;
       if (UI.show === 'done' && (p.status !== 'd' || p.archived)) return false;
       if (UI.show === 'archived' && !p.archived) return false;
       if (UI.show === 'missing' && !(p.wc && p.wc.missingSince)) return false;
+      if (UI.show === 'changed' && !(li && p.wc && (p.wc.imp === li || p.wc.newImp === li))) return false;
       if (UI.pl === '__me' ? !(S.me && p.wc && p.wc.pl === S.me) : UI.pl && !(p.wc && p.wc.pl === UI.pl)) return false;
       if (UI.cons === '__me' ? !(S.me && p.wc && p.wc.cons === S.me) : UI.cons && !(p.wc && p.wc.cons === UI.cons)) return false;
       if (UI.src === 'wc' && !p.wc) return false; if (UI.src === 'own' && p.wc) return false;
@@ -226,14 +263,14 @@
     });
     const sorts = { sev: (a, b) => sevOrd[projSev(a)] - sevOrd[projSev(b)] || a.prio - b.prio || a.name.localeCompare(b.name), name: (a, b) => a.name.localeCompare(b.name), due: (a, b) => (a.due || '9999').localeCompare(b.due || '9999'), upd: (a, b) => b.updated.localeCompare(a.updated) };
     L.sort((a, b) => (b.pinned - a.pinned) || (sorts[UI.sort] || sorts.sev)(a, b));
-    const cnt = k => S.projects.filter(p => k === 'missing' ? p.wc && p.wc.missingSince : k === 'archived' ? p.archived : !p.archived && (k === 'active' ? C.isActive(p) : k === 'paused' ? p.status === 'p' : k === 'done' ? p.status === 'd' : true)).length;
+    const cnt = k => S.projects.filter(p => k === 'changed' ? li && p.wc && (p.wc.imp === li || p.wc.newImp === li) : k === 'missing' ? p.wc && p.wc.missingSince : k === 'archived' ? p.archived : !p.archived && (k === 'active' ? C.isActive(p) : k === 'paused' ? p.status === 'p' : k === 'done' ? p.status === 'd' : true)).length;
     let h = '<h2>Projekte<span class="sp"></span><button class="sm" id="impBtn">📥 weclapp-Import</button></h2>' +
       '<div class="panel"><div class="row" style="margin-bottom:8px"><label class="f" style="flex:2"><span>Suche</span><input id="pq" value="' + esc(UI.q) + '" placeholder="Name, Kunde, Auftragsnr., Notizen …"></label>' +
       '<label class="f"><span>Projektleiter</span><select id="ppl"><option value="">Alle</option>' + (S.me ? '<option value="__me"' + (UI.pl === '__me' ? ' selected' : '') + '>Meine (' + esc(S.me) + ')</option>' : '') + pls.map(n => '<option' + (UI.pl === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></label>' +
       '<label class="f"><span>Consultant</span><select id="pcons"><option value="">Alle</option>' + (S.me ? '<option value="__me"' + (UI.cons === '__me' ? ' selected' : '') + '>Ich (' + esc(S.me) + ')</option>' : '') + conss.map(n => '<option' + (UI.cons === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></label>' +
       '<label class="f"><span>Quelle</span><select id="psrc"><option value="">Alle</option><option value="wc"' + (UI.src === 'wc' ? ' selected' : '') + '>aus weclapp</option><option value="own"' + (UI.src === 'own' ? ' selected' : '') + '>eigene</option></select></label>' +
       '<label class="f"><span>Sortierung</span><select id="psort">' + [['sev', 'Ampel'], ['name', 'Name'], ['due', 'Termin'], ['upd', 'Zuletzt geändert']].map(([k, n]) => '<option value="' + k + '"' + (UI.sort === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label></div>' +
-      '<div class="chips">' + [['active', 'Aktiv'], ['paused', 'Pausiert'], ['done', 'Fertig'], ['missing', 'Nicht mehr in weclapp'], ['archived', 'Archiv'], ['all', 'Alle']].map(([k, n]) => '<button data-sh="' + k + '" class="' + (UI.show === k ? 'on' : '') + '">' + n + ' ' + cnt(k) + '</button>').join('') + '</div></div>';
+      '<div class="chips">' + [['active', 'Aktiv'], ['paused', 'Pausiert'], ['done', 'Fertig'], ['changed', '✎ Letzter Import'], ['missing', 'Nicht mehr in weclapp'], ['archived', 'Archiv'], ['all', 'Alle']].map(([k, n]) => '<button data-sh="' + k + '" class="' + (UI.show === k ? 'on' : '') + '">' + n + ' ' + cnt(k) + '</button>').join('') + '</div></div>';
     h += L.length ? '<div class="grid">' + L.map(card).join('') + '</div>' : '<div class="empty"><div class="e">📁</div>Keine Projekte in dieser Ansicht.</div>';
     $('view').innerHTML = h;
     const qi = $('pq'); qi.oninput = () => { UI.q = qi.value; saveUI(); const p = qi.selectionStart; projects(); const n = $('pq'); n.focus(); n.setSelectionRange(p, p); };
@@ -247,13 +284,15 @@
   }
   function card(p) {
     const fl = projFlags(p).filter(f => f.s !== 'n'), sv = projSev(p), w = p.wc, pr = C.progress(p), b = C.budget(p);
-    return '<div class="card ' + sv + '" data-id="' + p.id + '" role="button" tabindex="0"><div class="h"><b>' + (p.pinned ? '📌 ' : '') + esc(p.name) + '</b>' + people(p) + '</div>' +
+    const li = S.meta.lastImport && S.meta.lastImport.id, mark = li && w ? (w.newImp === li ? '<span class="tag new">🆕 neu</span>' : w.imp === li ? '<span class="tag chg" title="' + esc(lastChanges(p, li)) + '">✎ geändert</span>' : '') : '';
+    return '<div class="card ' + sv + '" data-id="' + p.id + '" role="button" tabindex="0" aria-label="' + esc(p.name) + '"><div class="h"><b>' + (p.pinned ? '📌 ' : '') + esc(p.name) + '</b>' + mark + people(p) + '</div>' +
       '<div class="sub">' + [statusTag(p), p.nr ? esc(p.nr) : '', w && w.phase ? esc(w.phase) : '', p.due ? '🏁 ' + C.fmtD(p.due) : '', wcLink(p)].filter(Boolean).join(' · ') + '</div>' +
       (p.next ? '<div class="nx">➜ ' + esc(p.next) + '</div>' : C.isActive(p) ? '<div class="nx none">Kein nächster Schritt</div>' : '') +
       (b ? budgetLine(b) : pr != null ? '<div class="meter" title="Aufgaben ' + pr + ' %"><i style="width:' + pr + '%"></i></div>' : '') +
       (fl.length ? '<div class="fl">' + fl.slice(0, 3).map(f => '<span class="tag ' + f.s + '">' + esc(f.t) + '</span>').join('') + (fl.length > 3 ? '<span class="tag">+' + (fl.length - 3) + '</span>' : '') + '</div>' : '') + '</div>';
   }
   App.card = card;
+  const lastChanges = (p, imp) => p.hist.filter(e => e.imp === imp && e.k !== '_created').map(C.histText).join('\n');
   // Karten sind divs (damit der weclapp-Link darin gültig ist): Klick und Enter öffnen das Projekt
   function wireCards(root) {
     root.querySelectorAll('.card[data-id]').forEach(c => {
@@ -266,7 +305,7 @@
   // ---------- Projekt-Detail ----------
   function project() {
     const p = byId(UI.pid); if (!p) return go('projects');
-    const T = [['over', 'Überblick'], ['tasks', 'Aufgaben (' + p.tasks.filter(t => !t.done).length + ')'], ['est', 'Schätzungen (' + S.estimates.filter(e => e.pid === p.id).length + ')'], ['risks', 'Risiken (' + p.risks.length + ')'], ['log', 'Notizen & Verlauf']];
+    const T = [['over', 'Überblick'], ['tasks', 'Aufgaben (' + p.tasks.filter(t => !t.done).length + ')'], ['est', 'Schätzungen (' + S.estimates.filter(e => e.pid === p.id).length + ')'], ['risks', 'Risiken (' + p.risks.length + ')'], ['log', 'Verlauf & Notizen']];
     $('view').innerHTML = '<div class="bar"><button class="sm" id="pBack">‹ Projekte</button></div><h2>' + esc(p.name) + ' ' + statusTag(p) + people(p) + '<span class="sp"></span>' + (wcLink(p) ? wcLink(p).replace('class="wl"', 'class="sm"') : '') + '<button class="sm" id="pPin">' + (p.pinned ? '📌 Angeheftet' : '📌 Anheften') + '</button></h2>' +
       '<div class="tabs">' + T.map(([k, n]) => '<button data-pt="' + k + '" class="' + (UI.ptab === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div><div id="pBody"></div>';
     $('pBack').onclick = () => go('projects');
@@ -280,6 +319,7 @@
       '<div class="f" style="margin-bottom:10px"><span>Status</span><div class="chips" id="oS">' + Object.entries(C.STATUS).map(([k, v]) => '<button data-k="' + k + '" class="' + (p.status === k ? 'on' : '') + '">' + v.ic + ' ' + v.n + '</button>').join('') + '</div></div>' +
       '<div class="row"><label class="f"><span>Priorität</span><select id="oP">' + [[1, '★★★ Hoch'], [2, '★★ Mittel'], [3, '★ Niedrig']].map(([k, n]) => '<option value="' + k + '"' + (p.prio === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label><label class="f"><span>Mein Termin</span><input type="date" id="oD" value="' + esc(p.due) + '"></label></div>' +
       '<label class="f"><span>➜ Nächster Schritt</span><input id="oX" value="' + esc(p.next) + '" placeholder="Was ist der nächste konkrete Schritt?"></label></div>' +
+      (w && p.status !== 'd' && fl.some(f => /In weclapp abgeschlossen/.test(f.t)) ? '<div class="note g">✅ In weclapp ist dieses Projekt abgeschlossen. <button class="sm pri" id="oClose">Hier auch abschließen</button></div>' : '') +
       (fl.length ? '<div class="panel"><h3>Hinweise</h3>' + fl.map(f => '<div class="note ' + (f.s === 'n' ? '' : f.s) + '" style="margin-bottom:6px;padding:7px 10px">' + esc(f.t) + '</div>').join('') + '</div>' : '<div class="note g">✅ Keine Auffälligkeiten.</div>') + '</div><div>';
     if (w) {
       const ap = w.plan > 0 && w.istab != null ? w.istab / w.plan * 100 : null, gp = w.plan > 0 && w.ist != null ? w.ist / w.plan * 100 : null;
@@ -298,10 +338,10 @@
     } else h += '<div class="panel"><h3>🔗 weclapp</h3><div class="help">Eigenes Projekt, nicht aus weclapp. Beim Import wird es nie verändert.</div></div>';
     h += '<div class="panel"><h3>Verwalten</h3><div class="bar" style="margin:0"><button class="sm" id="oArc">' + (p.archived ? '📤 Aus Archiv holen' : '🗄 Archivieren') + '</button><button class="sm" id="oEst">🧮 Neue Schätzung</button><button class="sm" id="oDel" style="color:var(--r)">🗑 Löschen</button></div></div></div></div>';
     $('pBody').innerHTML = h;
-    const bind = (id, k, num) => $(id).onchange = $(id).oninput = e => { p[k] = num ? +e.target.value : e.target.value; touch(p); };
+    const bind = (id, k, num) => $(id).onchange = $(id).oninput = e => { const v = num ? +e.target.value : e.target.value; if (k !== 'kunde') track(p, k, p[k], v); p[k] = v; touch(p); };
     bind('oN', 'name'); bind('oK', 'kunde'); bind('oP', 'prio', true); bind('oD', 'due'); bind('oX', 'next');
     $('oN').onblur = () => { if (!p.name.trim()) { p.name = p.nr || 'Ohne Namen'; touch(p); } project(); };
-    $('oS').querySelectorAll('button').forEach(b => b.onclick = () => { if (p.status === b.dataset.k) return; log(p, 'Status: ' + C.STATUS[b.dataset.k].n); p.status = b.dataset.k; touch(p); project(); if (p.status === 'd') toast('🎉 Projekt abgeschlossen'); });
+    $('oS').querySelectorAll('button').forEach(b => b.onclick = () => { if (p.status === b.dataset.k) return; track(p, 'status', p.status, b.dataset.k); p.status = b.dataset.k; touch(p); project(); if (p.status === 'd') toast('🎉 Projekt abgeschlossen'); });
     if ($('akIn')) {
       const pv = () => { $('akPv').textContent = C.aktCompose(w.akt, $('akIn').value, today()) || '(leer)'; };
       $('akIn').oninput = () => { p.aktNew = $('akIn').value; commit(); pv(); }; pv();
@@ -310,10 +350,10 @@
       $('akCpNew').onclick = () => { const t = $('akIn').value.trim(); if (!t) return $('akIn').focus(); const line = C.aktPrefix(w.akt, today()) + t.replace(/\s*\n\s*/g, ' '); copyText(line, '📋 „' + line + '“ kopiert'); noted(t); };
       $('akDone').onclick = () => { const t = $('akIn').value.trim(); if (t) noted(t); p.aktNew = ''; touch(p); project(); toast('✓ Eintrag erledigt'); };
     }
+    if ($('oClose')) $('oClose').onclick = () => { track(p, 'status', p.status, 'd'); p.status = 'd'; touch(p); project(); toast('🎉 Projekt abgeschlossen'); };
     $('oArc').onclick = () => { p.archived = !p.archived; log(p, p.archived ? 'Archiviert' : 'Aus Archiv geholt'); touch(p); project(); };
     $('oEst').onclick = () => App.newEstimate(p.id);
     $('oDel').onclick = async () => {
-      if (!confirm('Projekt „' + p.name + '“ löschen? Zugeordnete Schätzungen bleiben erhalten (ohne Projekt).')) return;
       await App.snapshot('vor Löschen', 'Vor Löschen: ' + p.name);
       const idx = S.projects.indexOf(p), est = S.estimates.filter(e => e.pid === p.id);
       S.projects.splice(idx, 1); est.forEach(e => e.pid = ''); commit(); go('projects');
@@ -353,11 +393,24 @@
     $('rAdd').onclick = () => { const n = $('rN').value.trim(); if (!n) return $('rN').focus(); p.risks.push({ id: C.uid(), n, w, a, m: $('rM').value.trim() }); touch(p); project(); };
     $('pBody').querySelectorAll('[data-rx]').forEach(b => b.onclick = () => { p.risks = p.risks.filter(r => r.id !== b.dataset.rx); touch(p); project(); });
   }
+  // Zeitleiste: strukturierte Änderungen (weclapp und eigene) plus Journal-Einträge, neueste zuerst
+  function timeline(p) {
+    const H = p.hist.map(e => ({ at: e.at, d: e.at.slice(0, 10), src: e.src, txt: C.histText(e), kind: 'hist' }));
+    const L = p.log.filter(l => !(l.src === 'weclapp' && /^weclapp: /.test(l.t))).map((l, i) => ({ at: l.d + 'T00:00:00.' + String(i).padStart(3, '0') + 'Z', d: l.d, src: l.src === 'weclapp' ? 'weclapp' : 'note', txt: l.t, kind: 'log' }));
+    const old = p.log.filter(l => l.src === 'weclapp' && /^weclapp: /.test(l.t)).map(l => ({ at: l.d + 'T00:00:00Z', d: l.d, src: 'weclapp', txt: l.t.replace(/^weclapp: /, ''), kind: 'log' }));
+    return H.concat(L, old).sort((a, b) => b.at.localeCompare(a.at));
+  }
+  App.timeline = timeline;
   function pLog(p) {
-    $('pBody').innerHTML = '<div class="cols"><div class="panel"><h3>Notizen</h3><textarea id="lgN" rows="10" placeholder="Kontext, Entscheidungen, Ansprechpartner, Links …">' + esc(p.notes) + '</textarea></div>' +
-      '<div class="panel"><h3>Verlauf</h3><div class="row"><input id="lgIn" placeholder="Kurzes Update festhalten (Enter)"></div><div class="list">' + p.log.slice().reverse().slice(0, 60).map(l => '<div class="it"><div class="t">' + esc(l.t) + '<small>' + C.fmtD(l.d) + (l.src === 'weclapp' ? ' · weclapp-Import' : '') + '</small></div></div>').join('') + '</div></div></div>';
+    const f = UI.tlf || 'all', T = timeline(p).filter(x => f === 'all' || x.src === f);
+    const ic = { weclapp: '🔗', ich: '✏️', note: '📝' };
+    $('pBody').innerHTML = '<div class="cols"><div class="panel"><h3>Verlauf<span class="sp"></span></h3><div class="row"><input id="lgIn" placeholder="Kurze Notiz ins Journal (Enter)"></div>' +
+      '<div class="chips" id="tlf" style="margin-bottom:8px">' + [['all', 'Alle'], ['weclapp', '🔗 weclapp'], ['ich', '✏️ Meine Änderungen'], ['note', '📝 Journal']].map(([k, n]) => '<button data-f="' + k + '" class="' + (f === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div>' +
+      '<div class="list" id="tlList">' + (T.length ? T.slice(0, 150).map(x => '<div class="it tl-' + x.src + '"><span aria-hidden="true">' + ic[x.src] + '</span><div class="t">' + esc(x.txt) + '<small>' + C.fmtD(x.d) + (x.kind === 'hist' && x.at.length > 12 ? ', ' + new Date(x.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '') + ' · ' + ({ weclapp: 'weclapp', ich: 'ich', note: 'Journal' })[x.src] + '</small></div></div>').join('') : '<div class="help">Noch keine Einträge.</div>') + '</div></div>' +
+      '<div class="panel"><h3>Notizen</h3><textarea id="lgN" rows="12" placeholder="Kontext, Entscheidungen, Ansprechpartner, Links …">' + esc(p.notes) + '</textarea></div></div>';
     $('lgN').oninput = e => { p.notes = e.target.value; touch(p); };
     $('lgIn').onkeydown = e => { if (e.key === 'Enter' && e.target.value.trim()) { log(p, e.target.value.trim()); touch(p); project(); $('lgIn').focus(); } };
+    $('tlf').querySelectorAll('button').forEach(b => b.onclick = () => { UI.tlf = b.dataset.f; saveUI(); pLog(p); });
   }
 
   // ---------- Start ----------

@@ -298,3 +298,72 @@ test('E18 Aktuelles fortschreiben: Präfix automatisch, Entwurf bleibt gespeiche
   assert.equal(await p.locator('h2 a.sm').getAttribute('href'), 'https://tcgprocess.weclapp.com/app/search?s=1001');
   assert.deepEqual(t.errors, []); await t.close();
 });
+
+// ---------- Erweiterung 3: Änderungshistorie und Bedienung ----------
+test('E19 Zweiter Import zeigt „Änderungen“ mit Feld-Diffs; Projekt-Verlauf enthält weclapp- und eigene Änderungen', { skip }, async () => {
+  const t = await open(), p = t.page;
+  await importFixture(p, 'weclapp-1.csv');
+  const pid = (await state(p)).projects.find(x => x.nr === '1001').id;
+  await p.evaluate(id => App.go('project', { pid: id, ptab: 'over' }), pid);
+  await p.click('#oS button[data-k="y"]'); await p.fill('#oX', 'Abnahme planen');
+  await importFixture(p, 'weclapp-2.csv');
+  assert.equal(await p.evaluate(() => App.UI.view), 'changes');
+  const txt = await p.textContent('#view');
+  assert.match(txt, /Phase: Test & Abnahme → Rollout/); assert.match(txt, /Budget \(h\): 200 → 240/); assert.match(txt, /1 neu/); assert.match(txt, /Abnahme planen/);
+  await p.evaluate(id => App.go('project', { pid: id, ptab: 'log' }), pid);
+  const tl = await p.textContent('#tlList');
+  assert.match(tl, /Phase: Test & Abnahme → Rollout/); assert.match(tl, /Status: Läuft → Achtung/); assert.match(tl, /Nächster Schritt: – → Abnahme planen/);
+  await p.click('#tlf button[data-f="ich"]'); assert.doesNotMatch(await p.textContent('#tlList'), /Phase:/);
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E20 In weclapp abgeschlossenes Projekt: Vorschau bietet „Fertig setzen“ an', { skip }, async () => {
+  const t = await open(), p = t.page;
+  await importFixture(p, 'weclapp-1.csv');
+  await p.setInputFiles('#fileImport', path.join(FIX, 'weclapp-3.csv')); await p.waitForSelector('#imClose');
+  assert.match(await p.textContent('.sheet'), /in weclapp abgeschlossen/);
+  await p.click('#imOk'); await p.waitForFunction(() => !document.getElementById('ov').classList.contains('on'));
+  const q = (await state(p)).projects.find(x => x.nr === '1001');
+  assert.equal(q.status, 'd'); assert.ok(q.hist.some(e => e.k === 'status' && e.to === 'd'));
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E21 Schnellsuche (Strg+K, /) und Tastenkürzel (N, ?, G P)', { skip }, async () => {
+  const t = await open(), p = t.page; await importFixture(p, 'weclapp-1.csv');
+  await p.keyboard.press('Control+k'); await p.waitForSelector('#pal');
+  await p.keyboard.type('küsten'); await p.keyboard.press('Enter');
+  await p.waitForFunction(() => App.UI.view === 'project'); assert.match(await p.textContent('h2'), /Küstenwerk/);
+  await p.evaluate(() => document.activeElement && document.activeElement.blur());
+  await p.keyboard.press('/'); await p.waitForSelector('#pal'); await p.keyboard.type('backup'); assert.match(await p.textContent('#palL'), /Backup erstellen/); await p.keyboard.press('Escape');
+  assert.equal(await p.evaluate(() => document.getElementById('sheet').contains(document.activeElement)), false);
+  await p.keyboard.press('g'); await p.keyboard.press('p'); await p.waitForFunction(() => App.UI.view === 'projects');
+  await p.keyboard.press('Shift+?'); await p.waitForSelector('#hX'); await p.keyboard.press('Escape');
+  await p.keyboard.press('n'); await p.waitForSelector('#npN');
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E22 Browser-Zurück führt zur vorherigen Ansicht', { skip }, async () => {
+  const t = await open(), p = t.page; await importFixture(p, 'weclapp-1.csv');
+  await p.click('#nav button[data-v="projects"]'); await p.locator('.card').first().click(); await p.waitForFunction(() => App.UI.view === 'project');
+  await p.goBack(); await p.waitForFunction(() => App.UI.view === 'projects');
+  await p.goForward(); await p.waitForFunction(() => App.UI.view === 'project');
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E23 Markierung „geändert/neu“ nach Import, Filter „Letzter Import“, Speicherstatus', { skip }, async () => {
+  const t = await open(), p = t.page; await importFixture(p, 'weclapp-1.csv'); await importFixture(p, 'weclapp-2.csv');
+  await p.click('#nav button[data-v="projects"]'); await p.click('[data-sh="changed"]');
+  assert.equal(await p.locator('.card').count(), 2);
+  assert.equal(await p.locator('.card .tag.chg').count(), 1); assert.equal(await p.locator('.card .tag.new').count(), 1);
+  assert.match(await p.locator('.card .tag.chg').getAttribute('title'), /Budget \(h\): 200 → 240/);
+  await p.waitForFunction(() => /Gespeichert/.test(document.getElementById('saveInd').textContent));
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E24 Dialoge: Tab bleibt im Dialog, Esc schließt und gibt den Fokus zurück; Löschen ohne Rückfrage, aber mit Rückgängig', { skip }, async () => {
+  const t = await open(), p = t.page;
+  await p.focus('#newProjBtn'); await p.keyboard.press('Enter'); await p.waitForSelector('#npN');
+  for (let i = 0; i < 12; i++) await p.keyboard.press('Tab');
+  assert.ok(await p.evaluate(() => document.getElementById('sheet').contains(document.activeElement)));
+  await p.keyboard.press('Escape'); assert.equal(await p.evaluate(() => document.activeElement.id), 'newProjBtn');
+  await p.click('#newProjBtn'); await p.fill('#npN', 'Weg damit'); await p.click('#npOk');
+  let dialogs = 0; p.on('dialog', () => dialogs++);
+  await p.click('#oDel'); await p.waitForFunction(() => App.S().projects.length === 0); assert.equal(dialogs, 0);
+  await p.click('#toastB'); await p.waitForFunction(() => App.S().projects.length === 1);
+  assert.deepEqual(t.errors, []); await t.close();
+});
