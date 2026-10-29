@@ -15,7 +15,7 @@
   html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
   body { position: fixed; inset: 0; height: 100dvh; color: var(--txt); background: radial-gradient(circle at 50% 0, #1b2749, var(--bg) 60%);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; }
-  button, input, select { font-family: inherit; color: inherit; border: 0; }
+  button, input, select, textarea { font-family: inherit; color: inherit; border: 0; }
   button { cursor: pointer; }
   #app { position: absolute; inset: 0; display: flex; flex-direction: column;
     padding: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); }
@@ -27,10 +27,12 @@
   .tabs button.on { background: var(--acc); color: #fff; }
   .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; min-height: 0; padding-bottom: 12px; }
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
-  .lbl { font-size: 11px; font-weight: 900; letter-spacing: 1.2px; color: var(--mut); text-transform: uppercase; margin-bottom: 8px; }
+  .lbl { font-size: 11px; font-weight: 900; letter-spacing: 1.2px; color: var(--mut); text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .lbl .sp { flex: 1; } .lbl .cnt { color: var(--acc); letter-spacing: 0; }
   .help { font-size: 12px; color: var(--mut); line-height: 1.45; margin-bottom: 8px; }
-  input, select { width: 100%; padding: 11px 8px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); font-size: 16px; min-width: 0; }
-  input:focus, select:focus { outline: 1px solid var(--acc); }
+  input, select, textarea { width: 100%; padding: 11px 8px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); font-size: 16px; min-width: 0; }
+  textarea { resize: vertical; min-height: 44px; line-height: 1.4; field-sizing: content; max-height: 40vh; }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--acc); }
   .f { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
   .f span { font-size: 10px; font-weight: 800; letter-spacing: .8px; color: var(--mut); text-transform: uppercase; }
   .row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-end; }
@@ -56,6 +58,59 @@
   .seg { display: flex; gap: 4px; } .seg button { flex: 1; padding: 9px 0; border-radius: 9px; background: var(--card2); font-size: 13px; font-weight: 800; color: var(--mut); }
   .seg button.on { background: var(--acc); color: #fff; }
 
+  /* ---- Schätzungen ---- */
+  .btn { width: 100%; padding: 13px; border-radius: 13px; font-size: 15px; font-weight: 900; background: linear-gradient(135deg, #5b6cff, #8a5cff); color: #fff; }
+  .btn.sec { background: var(--card2); border: 1px solid var(--line); }
+  .btn.red { background: rgba(255,93,115,.14); border: 1px solid var(--bad); color: var(--bad); }
+  .btn:active, .sm:active { transform: scale(.98); }
+  .sm { padding: 8px 11px; border-radius: 10px; font-size: 13px; font-weight: 800; background: var(--card2); border: 1px solid var(--line); white-space: nowrap; }
+  .sm.go { background: var(--acc); border-color: var(--acc); color: #fff; }
+  .bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .bar .sm { flex: 1; }
+  .est { display: block; width: 100%; text-align: left; background: var(--card2); border: 1px solid var(--line); border-radius: 14px; padding: 11px 12px; margin-bottom: 8px; }
+  .est .h { display: flex; gap: 8px; align-items: baseline; } .est .h b { flex: 1; font-size: 15px; min-width: 0; }
+  .est .v { font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .est small { display: block; color: var(--mut); font-size: 12px; margin-top: 3px; }
+  .pill { font-size: 10.5px; font-weight: 900; padding: 2px 7px; border-radius: 8px; border: 1px solid var(--line); white-space: nowrap; letter-spacing: .3px; }
+  .proj { font-size: 13px; font-weight: 900; margin: 14px 0 8px; display: flex; gap: 8px; align-items: center; color: var(--mut); }
+  .proj:first-child { margin-top: 0; }
+  .task { border: 1px solid var(--line); border-radius: 13px; padding: 10px; margin-bottom: 8px; background: rgba(0,0,0,.12); }
+  .task .tg { display: grid; grid-template-columns: 1fr 1fr 1fr 64px; gap: 6px; align-items: end; }
+  .task .ev { text-align: center; font-weight: 900; font-variant-numeric: tabular-nums; padding-bottom: 10px; font-size: 15px; }
+  .task .ev small { display: block; font-size: 9px; color: var(--mut); letter-spacing: .8px; }
+  .task .acts { display: flex; gap: 6px; margin-left: auto; }
+  .task .acts button { background: rgba(255,255,255,.07); border-radius: 9px; width: 34px; height: 34px; color: var(--mut); font-size: 14px; }
+  .task .sug { font-size: 12px; margin-top: 6px; padding: 7px 9px; border-radius: 10px; background: rgba(76,240,160,.08); border: 1px solid rgba(76,240,160,.35); display: flex; gap: 8px; align-items: center; }
+  .task .sug span { flex: 1; } .task .sug button { font-size: 12px; font-weight: 900; color: var(--good); background: none; }
+  .story { border-left: 3px solid var(--acc); padding: 8px 10px; margin-bottom: 8px; background: rgba(108,123,255,.08); border-radius: 0 12px 12px 0; display: flex; gap: 8px; }
+  .story .t { flex: 1; font-size: 14px; line-height: 1.4; } .story .t small { display: block; color: var(--mut); font-size: 11.5px; margin-top: 4px; }
+  .story .id { font-weight: 900; color: var(--acc); font-size: 12px; }
+  .xr { display: grid; grid-template-columns: 26px 1fr 74px 70px 30px; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .xr input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--acc); }
+  .xr .amt { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--mut); }
+  .xr .x { height: 34px; flex-basis: 30px; }
+  .sumt { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  .sumt td { padding: 6px 4px; border-bottom: 1px solid var(--line); } .sumt td:last-child { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sumt tr.tot td { font-weight: 900; font-size: 14px; border-bottom: 0; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chips button { padding: 7px 11px; border-radius: 11px; background: var(--card2); border: 1px solid var(--line); font-size: 13px; font-weight: 800; }
+  .chips button.on { background: var(--acc); border-color: var(--acc); color: #fff; }
+  .pick { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .pick input { width: 20px; height: 20px; flex: none; accent-color: var(--acc); margin-top: 2px; }
+  .pick div { flex: 1; min-width: 0; } .pick small { display: block; color: var(--mut); font-size: 12px; margin-top: 2px; }
+  .pick .v { font-weight: 900; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ov { position: absolute; inset: 0; z-index: 50; background: rgba(4,8,20,.78); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); display: none; align-items: flex-end; justify-content: center; }
+  .ov.on { display: flex; }
+  .sheet { width: 100%; max-width: 640px; max-height: 92%; overflow-y: auto; touch-action: pan-y; background: #141c31; border: 1px solid var(--line); border-bottom: 0; border-radius: 22px 22px 0 0; padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); animation: up .25s; }
+  @keyframes up { from { transform: translateY(40px); opacity: 0; } }
+  .sheet h3 { font-size: 18px; font-weight: 900; margin-bottom: 10px; }
+  .preview { font-size: 15px; line-height: 1.45; padding: 10px 12px; border-radius: 12px; background: rgba(108,123,255,.12); border: 1px solid rgba(108,123,255,.4); margin-bottom: 10px; }
+  #toast { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); background: #000e; border: 1px solid var(--acc); border-radius: 12px; padding: 9px 14px; font-size: 13px; font-weight: 800; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 70; max-width: 90%; text-align: center; }
+  #toast.on { opacity: 1; }
+  .empty { text-align: center; padding: 26px 10px; color: var(--mut); font-size: 14px; line-height: 1.5; }
+  .empty .e { font-size: 46px; }
+  .back { background: none; color: var(--acc); font-weight: 900; font-size: 14px; padding: 2px 0 10px; }
+
   /* ---- Breite Bildschirme (iPad, Notebook) ---- */
   @media (min-width: 760px) {
     #app { max-width: 1240px; width: 100%; margin: 0 auto; padding-left: calc(24px + env(safe-area-inset-left)); padding-right: calc(24px + env(safe-area-inset-right)); }
@@ -63,7 +118,13 @@
     .tabs { max-width: 640px; } .tabs button { font-size: 14px; padding: 11px 2px; }
     #sc { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 14px; align-content: start; align-items: start; padding-bottom: 18px; }
     #sc > * { margin: 0 !important; min-width: 0; }
+    #sc > .wide { grid-column: 1 / -1; }
+    #sc.ed { grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr); }
+    #sc.ed > .side { grid-column: 2; grid-row: 2 / span 6; position: sticky; top: 0; }
+    #sc.ed > .main { grid-column: 1; }
+    .task .tg { grid-template-columns: 1fr 1fr 1fr 80px; }
     .heat { max-width: 420px; margin: 0 auto; }
+    .ov { align-items: center; } .sheet { border-radius: 22px; border-bottom: 1px solid var(--line); }
   }
 </style>
 </head>
@@ -71,65 +132,515 @@
 <div id="app">
   <div class="top"><a class="ibtn" href="index.html" aria-label="Zurück">←</a><h1 style="flex:1">🧮 PM-Rechner</h1><button class="ibtn" id="syncb" aria-label="Sync und Backup">☁️</button><button class="ibtn" id="reset" aria-label="Zurücksetzen">↺</button></div>
   <div class="tabs" id="tabs">
-    <button data-t="pert">PERT</button><button data-t="cap">Kapazität</button><button data-t="fc">Prognose</button><button data-t="risk">Risiken</button>
+    <button data-t="est">Schätzung</button><button data-t="cap">Kapazität</button><button data-t="fc">Prognose</button><button data-t="risk">Risiken</button>
   </div>
   <div class="scroll" id="sc"></div>
 </div>
+<div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
 <script src="sync.js"></script>
 <script>
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
   const KEY = 'pmRechner.v1';
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const EXTRAS = () => [
+    { id: uid(), n: 'Projektmanagement', type: 'pct', v: 10, on: true }, { id: uid(), n: 'Kommunikation & Abstimmung', type: 'pct', v: 5, on: true },
+    { id: uid(), n: 'Test & Qualitätssicherung', type: 'pct', v: 10, on: false }, { id: uid(), n: 'Dokumentation', type: 'pct', v: 5, on: false },
+    { id: uid(), n: 'Einarbeitung / Setup', type: 'fix', v: 0, on: false }
+  ];
   const DEF = () => ({
-    tab: 'pert',
-    pert: { unit: 'Tage', tasks: [{ n: 'Aufgabe A', o: 3, m: 5, p: 10 }, { n: 'Aufgabe B', o: 2, m: 4, p: 8 }] },
+    tab: 'est',
+    est: { projects: [], estimates: [], lib: { tasks: [], stories: [] }, view: 'list', cur: null, q: '' },
     cap: { days: 10, focus: 70, members: [{ n: 'Anna', av: 100, off: 0 }, { n: 'Ben', av: 100, off: 2 }, { n: 'Cem', av: 80, off: 0 }, { n: 'Dana', av: 100, off: 0 }], refVel: '', refPt: '' },
     fc: { backlog: 120, velos: [22, 25, 19, 27], weeks: 2, start: new Date().toISOString().slice(0, 10), growth: 0 },
     risk: { list: [{ n: 'Schlüsselperson fällt aus', w: 2, a: 5 }, { n: 'Schnittstelle verspätet sich', w: 4, a: 3 }] }
   });
   let st = DEF();
   try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) st = Object.assign(DEF(), s); } catch (e) {}
+  // Alte PERT-Liste (Version 1) als erste gespeicherte Schätzung übernehmen
+  function migrate() {
+    if (st.tab === 'pert') st.tab = 'est';
+    const P = st.pert; delete st.pert;
+    st.est = Object.assign(DEF().est, st.est || {});
+    if (P && P.tasks && P.tasks.length && !(P.tasks.length === 2 && P.tasks[0].n === 'Aufgabe A' && P.tasks[1].n === 'Aufgabe B')) {
+      st.est.estimates.push(newEstimate({ title: 'Bisherige PERT-Schätzung', unit: P.unit || 'Tage',
+        tasks: P.tasks.map(t => ({ id: uid(), n: t.n, d: '', sid: '', o: t.o, m: t.m, p: t.p })), extras: EXTRAS().map(x => Object.assign(x, { on: false })) }));
+    }
+  }
   const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} if (window.AppSync && !persist.quiet) AppSync.changed(); };
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const n = v => { const x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? x : 0; };
   const f1 = x => (Math.round(x * 10) / 10).toLocaleString('de-DE');
   const f0 = x => Math.round(x).toLocaleString('de-DE');
   const fd = d => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const today = () => new Date().toISOString().slice(0, 10);
+  const fds = s => s ? new Date(s + 'T12:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
   const sc = $('sc');
+  let toastT;
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2600); }
+  function sheet(html, wire) { $('sheet').innerHTML = html; $('ov').classList.add('on'); $('sheet').scrollTop = 0; wire && wire(); $('ov').onclick = e => { if (e.target === $('ov')) closeSheet(); }; }
+  function closeSheet() { $('ov').classList.remove('on'); }
 
-  function tabs() { document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.t === st.tab); b.onclick = () => { st.tab = b.dataset.t; persist(); tabs(); view(); }; }); }
-  function view() { sc.scrollTop = 0; ({ pert: pertView, cap: capView, fc: fcView, risk: riskView })[st.tab](); }
-
-  // ================= PERT =================
-  function pertView() {
-    const P = st.pert;
-    sc.innerHTML = '<div class="panel"><div class="lbl">Dreipunkt-Schätzung (PERT)</div><div class="help">Pro Aufgabe: <b>optimistisch</b> (alles läuft), <b>wahrscheinlich</b> (normal), <b>pessimistisch</b> (vieles geht schief). Erwartungswert = (O + 4·M + P) ÷ 6.</div>' +
-      '<div class="row"><div class="f"><span>Einheit</span><select id="un">' + ['Tage', 'Stunden', 'Story Points', 'Wochen'].map(u => '<option' + (u === P.unit ? ' selected' : '') + '>' + u + '</option>').join('') + '</select></div></div><div id="rows"></div>' +
-      '<button class="add" id="addT">+ Aufgabe</button></div><div class="panel"><div class="lbl">Ergebnis</div><div class="res" id="out"></div><div id="nt"></div></div>';
-    $('un').onchange = e => { P.unit = e.target.value; persist(); pertCalc(); };
-    $('addT').onclick = () => { P.tasks.push({ n: 'Aufgabe ' + String.fromCharCode(65 + P.tasks.length % 26), o: 1, m: 2, p: 4 }); persist(); pertRows(); pertCalc(); };
-    pertRows(); pertCalc();
+  function tabs() {
+    document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.t === st.tab); b.onclick = () => { st.tab = b.dataset.t; persist(); tabs(); view(); }; });
+    $('reset').style.visibility = st.tab === 'est' ? 'hidden' : 'visible';
   }
-  function pertRows() {
-    const P = st.pert, rows = $('rows'); rows.innerHTML = '';
-    P.tasks.forEach((t, i) => {
-      const d = document.createElement('div'); d.innerHTML = '<div class="row"><div class="f" style="flex:2"><span>Name</span><input value="' + esc(t.n) + '" data-k="n"></div><button class="x" aria-label="Löschen">✕</button></div>' +
-        '<div class="row"><div class="f"><span>Optimistisch</span><input inputmode="decimal" value="' + t.o + '" data-k="o"></div><div class="f"><span>Wahrsch.</span><input inputmode="decimal" value="' + t.m + '" data-k="m"></div><div class="f"><span>Pessimistisch</span><input inputmode="decimal" value="' + t.p + '" data-k="p"></div></div>';
-      d.querySelectorAll('input').forEach(inp => inp.oninput = () => { t[inp.dataset.k] = inp.dataset.k === 'n' ? inp.value : inp.value; persist(); pertCalc(); });
-      d.querySelector('.x').onclick = () => { P.tasks.splice(i, 1); persist(); pertRows(); pertCalc(); };
-      rows.appendChild(d); if (i < P.tasks.length - 1) rows.appendChild(Object.assign(document.createElement('div'), { style: 'height:1px;background:var(--line);margin:6px 0 10px' }));
+  function view() { sc.scrollTop = 0; sc.className = 'scroll'; ({ est: estView, cap: capView, fc: fcView, risk: riskView })[st.tab](); }
+
+  // ================= Schätzungen =================
+  const E = () => st.est;
+  const UNITS = ['Stunden', 'Tage', 'Wochen', 'Story Points'];
+  const HOURS = { Stunden: 1, Tage: 8, Wochen: 40 };
+  const STATUS = { draft: { n: 'Entwurf', c: '#8e9cc7' }, agreed: { n: 'Abgestimmt', c: '#ffb340' }, offered: { n: 'Angeboten', c: '#6c7bff' }, ordered: { n: 'Beauftragt', c: '#4cf0a0' }, rejected: { n: 'Abgelehnt', c: '#ff5d73' } };
+  const PRIO = { must: 'Must', should: 'Should', could: 'Could', wont: 'Won’t' };
+  function newEstimate(o) {
+    return Object.assign({ id: uid(), pid: '', title: 'Neue Schätzung', status: 'draft', date: today(), source: '', unit: 'Tage', idea: '', stories: [], tasks: [], extras: EXTRAS(), tpl: false, created: Date.now(), updated: Date.now() }, o || {});
+  }
+  const cur = () => E().estimates.find(x => x.id === E().cur);
+  const projName = pid => { const p = E().projects.find(x => x.id === pid); return p ? p.name : 'Ohne Projekt'; };
+  const conv = (v, from, to) => (from === to || !HOURS[from] || !HOURS[to]) ? n(v) : Math.round(n(v) * HOURS[from] / HOURS[to] * 100) / 100;
+  const storyText = s => 'Als ' + (s.role || '…') + ' möchte ich ' + (s.want || '…') + (s.benefit ? ', damit ' + s.benefit : '') + '.';
+  const storyNo = (es, sid) => { const i = es.stories.findIndex(s => s.id === sid); return i < 0 ? '' : 'US' + (i + 1); };
+
+  // PERT je Aufgabe: Erwartungswert (O + 4M + P) / 6, Varianz ((P − O) / 6)²
+  const tE = t => (n(t.o) + 4 * n(t.m) + n(t.p)) / 6;
+  const tV = t => Math.pow((n(t.p) - n(t.o)) / 6, 2);
+  function calc(es) {
+    const base = es.tasks.reduce((a, t) => a + tE(t), 0), varc = es.tasks.reduce((a, t) => a + tV(t), 0);
+    const ex = es.extras.filter(x => x.on).map(x => ({ x, amt: x.type === 'pct' ? base * n(x.v) / 100 : n(x.v) }));
+    const pct = es.extras.filter(x => x.on && x.type === 'pct').reduce((a, x) => a + n(x.v), 0) / 100;
+    const total = base + ex.reduce((a, e) => a + e.amt, 0), sd = Math.sqrt(varc) * (1 + pct);
+    const bad = es.tasks.filter(t => !(n(t.o) <= n(t.m) && n(t.m) <= n(t.p)));
+    return { base, sdBase: Math.sqrt(varc), ex, total, sd, p85: total + 1.04 * sd, r68: [Math.max(0, total - sd), total + sd], r95: [Math.max(0, total - 2 * sd), total + 2 * sd], bad };
+  }
+
+  function estView() {
+    const v = E().view;
+    if (v === 'edit' && cur()) return editView();
+    if (v === 'lib') return libView();
+    E().view = 'list'; listView();
+  }
+  function go(view, id) { E().view = view; if (id !== undefined) E().cur = id; persist(); sc.scrollTop = 0; view === 'edit' ? editView() : view === 'lib' ? libView() : listView(); }
+
+  // ---------- Übersicht ----------
+  function listView() {
+    sc.className = 'scroll';
+    const q = (E().q || '').toLowerCase();
+    const match = es => !q || [es.title, es.source, es.idea, projName(es.pid), ...es.tasks.map(t => t.n + ' ' + t.d), ...es.stories.map(storyText)].join(' ').toLowerCase().includes(q);
+    const list = E().estimates.filter(match).sort((a, b) => b.updated - a.updated);
+    const groups = {};
+    list.forEach(es => (groups[es.pid] = groups[es.pid] || []).push(es));
+    const order = E().projects.map(p => p.id).filter(id => groups[id]).concat(groups[''] ? [''] : []).concat(Object.keys(groups).filter(id => id && !E().projects.some(p => p.id === id)));
+    let h = '<div class="panel wide"><div class="bar"><button class="sm go" id="newE">＋ Neue Schätzung</button><button class="sm" id="lib">📚 Bibliothek</button><button class="sm" id="projs">🗂 Projekte</button></div>' +
+      '<input id="q" placeholder="🔎 Schätzungen, Aufgaben, Stories durchsuchen …" value="' + esc(E().q) + '"></div>';
+    if (!E().estimates.length) h += '<div class="panel wide"><div class="empty"><div class="e">🧮</div>Noch keine Schätzung gespeichert.<br>Lege eine an: erst die Lösungsidee, dann Anforderungen und Aufgaben, dazu allgemeine Aufwände. Alles wird automatisch gespeichert und lässt sich exportieren.</div></div>';
+    else if (!list.length) h += '<div class="panel wide"><div class="empty">Nichts gefunden.</div></div>';
+    order.forEach(pid => {
+      h += '<div class="panel"><div class="proj">📁 ' + esc(projName(pid)) + '<span class="sp" style="flex:1"></span>' + groups[pid].length + '</div>' +
+        groups[pid].map(es => { const r = calc(es), s = STATUS[es.status] || STATUS.draft;
+          return '<button class="est" data-id="' + es.id + '"><div class="h"><b>' + (es.tpl ? '📌 ' : '') + esc(es.title) + '</b><span class="v">' + f1(r.total) + ' ' + esc(short(es.unit)) + '</span></div>' +
+            '<small><span class="pill" style="border-color:' + s.c + ';color:' + s.c + '">' + s.n + '</span> ' + fds(es.date) + ' · ' + es.tasks.length + ' Aufgaben' + (es.stories.length ? ' · ' + es.stories.length + ' Stories' : '') + ' · 85 %: ' + f1(r.p85) + '</small></button>'; }).join('') + '</div>';
+    });
+    sc.innerHTML = h;
+    const qi = $('q'); qi.oninput = () => { E().q = qi.value; const p = qi.selectionStart; persist(); listView(); const n2 = $('q'); n2.focus(); n2.setSelectionRange(p, p); };
+    $('newE').onclick = newSheet; $('lib').onclick = () => go('lib'); $('projs').onclick = projSheet;
+    sc.querySelectorAll('.est').forEach(b => b.onclick = () => go('edit', b.dataset.id));
+  }
+  const short = u => ({ Stunden: 'h', Tage: 'PT', Wochen: 'Wo', 'Story Points': 'SP' })[u] || u;
+
+  function projOptions(sel) { return '<option value="">Ohne Projekt</option>' + E().projects.map(p => '<option value="' + p.id + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '<option value="__new">＋ Neues Projekt …</option>'; }
+  function wireProjSelect(selId, onNew) {
+    $(selId).onchange = e => { if (e.target.value !== '__new') return; const name = (prompt('Name des neuen Projekts:') || '').trim(); if (!name) { e.target.value = ''; return; } const p = { id: uid(), name }; E().projects.push(p); persist(); e.target.innerHTML = projOptions(p.id); onNew && onNew(p.id); };
+  }
+  function newSheet() {
+    const tpls = E().estimates.filter(x => x.tpl);
+    sheet('<h3>＋ Neue Schätzung</h3><div class="row"><div class="f"><span>Titel</span><input id="nt" placeholder="z. B. Anbindung Lieferantenportal"></div></div>' +
+      '<div class="row"><div class="f"><span>Projekt</span><select id="np">' + projOptions('') + '</select></div><div class="f"><span>Einheit</span><select id="nu">' + UNITS.map(u => '<option' + (u === 'Tage' ? ' selected' : '') + '>' + u + '</option>').join('') + '</select></div></div>' +
+      '<div class="row"><div class="f"><span>Anfrage von / Quelle</span><input id="ns" placeholder="z. B. Mail von Frau Meier, 28.10."></div></div>' +
+      (tpls.length ? '<div class="f" style="margin-bottom:8px"><span>Starten mit</span><select id="nb"><option value="">Leer</option>' + tpls.map(t => '<option value="' + t.id + '">Vorlage: ' + esc(t.title) + '</option>').join('') + '</select></div>' : '') +
+      '<button class="btn" id="ok">Anlegen</button><button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+      wireProjSelect('np'); $('cl').onclick = closeSheet; setTimeout(() => $('nt').focus(), 150);
+      $('ok').onclick = () => {
+        const base = $('nb') && $('nb').value ? E().estimates.find(x => x.id === $('nb').value) : null;
+        const es = base ? cloneEstimate(base) : newEstimate();
+        Object.assign(es, { title: $('nt').value.trim() || (base ? base.title : 'Neue Schätzung'), pid: $('np').value === '__new' ? '' : $('np').value, source: $('ns').value.trim(), date: today(), status: 'draft', tpl: false });
+        if (!base) es.unit = $('nu').value; else if ($('nu').value !== es.unit) convertEstimate(es, $('nu').value);
+        E().estimates.push(es); closeSheet(); go('edit', es.id);
+      };
     });
   }
-  function pertCalc() {
-    const P = st.pert; let E = 0, V = 0, warn = false;
-    P.tasks.forEach(t => { const o = n(t.o), m = n(t.m), p = n(t.p); if (!(o <= m && m <= p)) warn = true; E += (o + 4 * m + p) / 6; V += Math.pow((p - o) / 6, 2); });
-    const sd = Math.sqrt(V), u = P.unit;
-    $('out').innerHTML = '<div class="r hl w"><b>' + f1(E) + ' ' + u + '</b><span>Erwartungswert</span></div>' +
-      '<div class="r"><b>± ' + f1(sd) + '</b><span>Standardabweichung</span></div><div class="r"><b>' + f1(E + 1.04 * sd) + '</b><span>mit 85 % Sicherheit</span></div>' +
-      '<div class="r"><b>' + f1(Math.max(0, E - sd)) + ' – ' + f1(E + sd) + '</b><span>Bereich 68 %</span></div><div class="r"><b>' + f1(Math.max(0, E - 2 * sd)) + ' – ' + f1(E + 2 * sd) + '</b><span>Bereich 95 %</span></div>';
-    $('nt').innerHTML = warn ? '<div class="note warn">⚠️ Bei mindestens einer Aufgabe gilt nicht O ≤ M ≤ P. Prüfe die Werte.</div>' :
-      '<div class="note">💡 Gegenüber „nur wahrscheinlich“ (' + f1(P.tasks.reduce((a, t) => a + n(t.m), 0)) + ' ' + u + ') zeigt PERT das typische Risiko nach oben. Für Zusagen an Kunden nimm den 85-%-Wert.</div>';
+  function cloneEstimate(src) {
+    const c = JSON.parse(JSON.stringify(src)), map = {};
+    c.id = uid(); c.created = c.updated = Date.now();
+    c.stories.forEach(s => { const o = s.id; s.id = uid(); map[o] = s.id; });
+    c.tasks.forEach(t => { t.id = uid(); t.sid = map[t.sid] || ''; });
+    c.extras.forEach(x => x.id = uid());
+    return c;
+  }
+  function convertEstimate(es, to) {
+    es.tasks.forEach(t => { t.o = conv(t.o, es.unit, to); t.m = conv(t.m, es.unit, to); t.p = conv(t.p, es.unit, to); });
+    es.extras.forEach(x => { if (x.type === 'fix') x.v = conv(x.v, es.unit, to); });
+    es.unit = to;
+  }
+  function projSheet() {
+    const P = E().projects;
+    sheet('<h3>🗂 Projekte</h3>' + (P.length ? P.map(p => '<div class="row"><div class="f"><input data-id="' + p.id + '" value="' + esc(p.name) + '"></div><button class="x" data-del="' + p.id + '">✕</button></div>').join('') : '<div class="help">Noch keine Projekte.</div>') +
+      '<div class="row"><div class="f"><input id="pn" placeholder="Neues Projekt"></div><button class="sm go" id="pa" style="height:42px">＋</button></div><button class="btn sec" id="cl">Fertig</button>', () => {
+      $('cl').onclick = () => { closeSheet(); listView(); };
+      $('sheet').querySelectorAll('input[data-id]').forEach(i => i.oninput = () => { P.find(p => p.id === i.dataset.id).name = i.value; persist(); });
+      $('sheet').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+        const cnt = E().estimates.filter(x => x.pid === b.dataset.del).length;
+        if (!confirm(cnt ? 'Projekt löschen? Die ' + cnt + ' Schätzung(en) bleiben erhalten und landen unter „Ohne Projekt“.' : 'Projekt löschen?')) return;
+        E().estimates.forEach(x => { if (x.pid === b.dataset.del) x.pid = ''; }); E().projects = P.filter(p => p.id !== b.dataset.del); persist(); projSheet();
+      });
+      $('pa').onclick = () => { const v = $('pn').value.trim(); if (!v) return $('pn').focus(); P.push({ id: uid(), name: v }); persist(); projSheet(); };
+    });
+  }
+
+  // ---------- Editor ----------
+  function touch(es) { es.updated = Date.now(); persist(); }
+  function editView() {
+    const es = cur(); sc.className = 'scroll ed';
+    const s = STATUS[es.status] || STATUS.draft;
+    sc.innerHTML =
+      '<div class="wide"><button class="back" id="bk">‹ Alle Schätzungen</button></div>' +
+      '<div class="panel main"><div class="lbl">Schätzung<span class="sp"></span><span class="pill" style="border-color:' + s.c + ';color:' + s.c + '">' + s.n + '</span></div>' +
+        '<div class="row"><div class="f"><span>Titel</span><input id="et" value="' + esc(es.title) + '"></div></div>' +
+        '<div class="row"><div class="f"><span>Projekt</span><select id="ep">' + projOptions(es.pid) + '</select></div><div class="f"><span>Status</span><select id="es">' + Object.entries(STATUS).map(([k, v]) => '<option value="' + k + '"' + (k === es.status ? ' selected' : '') + '>' + v.n + '</option>').join('') + '</select></div></div>' +
+        '<div class="row"><div class="f"><span>Anfrage von / Quelle</span><input id="eq" value="' + esc(es.source) + '" placeholder="z. B. Mail von Frau Meier"></div><div class="f" style="flex:.7"><span>Stand</span><input type="date" id="ed" value="' + esc(es.date) + '"></div></div>' +
+        '<div class="row" style="margin-bottom:0"><div class="f"><span>Einheit</span><select id="eu">' + UNITS.map(u => '<option' + (u === es.unit ? ' selected' : '') + '>' + u + '</option>').join('') + '</select></div></div></div>' +
+      '<div class="panel main"><div class="lbl">💡 Lösungsidee / grobes Design</div><div class="help">Was ist die Anforderung, wie wollen wir sie grob lösen? Annahmen und Abgrenzungen gleich mit notieren.</div><textarea id="ei" rows="3" placeholder="z. B. Export der Bestellungen per REST-API, nächtlicher Abgleich, kein Echtzeit-Sync (Annahme)">' + esc(es.idea) + '</textarea></div>' +
+      '<div class="panel main" id="stP"></div>' +
+      '<div class="panel main" id="tkP"></div>' +
+      '<div class="panel main" id="exP"></div>' +
+      '<div class="panel side" id="outP"></div>' +
+      '<div class="panel main"><div class="lbl">Weiteres</div><div class="bar"><button class="sm" id="dup">⧉ Duplizieren</button><button class="sm" id="tpl">' + (es.tpl ? '📌 Vorlage: an' : '📌 Als Vorlage') + '</button></div><button class="btn red" id="del">Schätzung löschen</button></div>';
+    $('bk').onclick = () => go('list');
+    const bind = (id, k, rerender) => $(id).oninput = $(id).onchange = e => { if (e.target.value === '__new') return; es[k] = e.target.value; touch(es); if (rerender) editView(); else renderOut(); };
+    bind('et', 'title'); bind('eq', 'source'); bind('ed', 'date'); bind('ei', 'idea'); bind('es', 'status', true);
+    wireProjSelect('ep', pid => { es.pid = pid; touch(es); });
+    $('ep').addEventListener('change', e => { if (e.target.value !== '__new') { es.pid = e.target.value; touch(es); } });
+    $('eu').onchange = e => {
+      const to = e.target.value, convertible = HOURS[es.unit] && HOURS[to];
+      if (es.tasks.length && convertible && confirm('Werte von ' + es.unit + ' in ' + to + ' umrechnen (1 Tag = 8 h, 1 Woche = 5 Tage)?')) convertEstimate(es, to); else es.unit = to;
+      touch(es); editView();
+    };
+    $('dup').onclick = () => { const c = cloneEstimate(es); c.title += ' (Kopie)'; c.tpl = false; c.status = 'draft'; c.date = today(); E().estimates.push(c); go('edit', c.id); toast('Kopie angelegt'); };
+    $('tpl').onclick = () => { es.tpl = !es.tpl; touch(es); editView(); toast(es.tpl ? '📌 Steht jetzt bei „Neue Schätzung“ als Vorlage bereit' : 'Keine Vorlage mehr'); };
+    $('del').onclick = () => { if (!confirm('„' + es.title + '“ löschen?')) return; E().estimates = E().estimates.filter(x => x.id !== es.id); go('list'); };
+    renderStories(); renderTasks(); renderExtras(); renderOut();
+  }
+
+  // ---------- User Stories ----------
+  function renderStories() {
+    const es = cur();
+    $('stP').innerHTML = '<div class="lbl">📝 Anforderungen (User Stories)<span class="sp"></span><span class="cnt">' + es.stories.length + '</span></div>' +
+      (es.stories.length ? '' : '<div class="help">Optional, aber hilfreich: Was soll für wen erreicht werden? Aufgaben lassen sich dann einer Story zuordnen.</div>') +
+      es.stories.map((s, i) => { const sub = calcStory(es, s.id);
+        return '<div class="story"><div class="t"><span class="id">US' + (i + 1) + ' · ' + PRIO[s.prio || 'must'] + '</span><br>' + esc(storyText(s)) +
+          (s.ac && s.ac.length ? '<small>✔ ' + s.ac.map(esc).join('<br>✔ ') + '</small>' : '') + '<small>' + sub.cnt + ' Aufgaben · ' + f1(sub.e) + ' ' + esc(short(es.unit)) + '</small></div>' +
+          '<div style="display:flex;flex-direction:column;gap:6px"><button class="sm" data-ed="' + s.id + '">✏️</button><button class="sm" data-at="' + s.id + '" title="Aufgabe zu dieser Story">＋</button></div></div>'; }).join('') +
+      '<div class="bar" style="margin:4px 0 0"><button class="add" id="addS" style="flex:1">＋ User Story</button></div>';
+    $('addS').onclick = () => storySheet(null);
+    $('stP').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => storySheet(es.stories.find(s => s.id === b.dataset.ed)));
+    $('stP').querySelectorAll('[data-at]').forEach(b => b.onclick = () => addTask({ sid: b.dataset.at }, true));
+  }
+  const calcStory = (es, sid) => { const L = es.tasks.filter(t => t.sid === sid); return { cnt: L.length, e: L.reduce((a, t) => a + tE(t), 0) }; };
+  const ROLES = ['Kunde', 'Sachbearbeiter:in', 'Projektleiter:in', 'Administrator:in', 'Vertrieb', 'Management'];
+  function storySheet(s) {
+    const es = cur(), isNew = !s, w = s ? JSON.parse(JSON.stringify(s)) : { id: uid(), role: '', want: '', benefit: '', ac: [], prio: 'must' };
+    const lastRoles = [...new Set(E().estimates.flatMap(x => x.stories.map(y => y.role)).concat(E().lib.stories.map(y => y.role)).filter(Boolean))].slice(-6);
+    const roles = [...new Set(lastRoles.concat(ROLES))].slice(0, 8);
+    sheet('<h3>' + (isNew ? '📝 Neue User Story' : '✏️ User Story') + '</h3>' +
+      '<div class="help">Vorlage: <b>Als</b> [Rolle] <b>möchte ich</b> [Ziel], <b>damit</b> [Nutzen]. Gute Stories sind klein, unabhängig, testbar und beschreiben das <i>Was</i>, nicht das <i>Wie</i>.</div>' +
+      '<div class="f" style="margin-bottom:8px"><span>Als …</span><input id="sr" value="' + esc(w.role) + '" placeholder="Rolle, z. B. Sachbearbeiter:in im Einkauf"></div><div class="chips" id="rc">' + roles.map(r => '<button>' + esc(r) + '</button>').join('') + '</div>' +
+      '<div class="f" style="margin-bottom:8px"><span>möchte ich …</span><textarea id="sw" placeholder="Ziel, z. B. offene Bestellungen gefiltert nach Lieferant sehen">' + esc(w.want) + '</textarea></div>' +
+      '<div class="f" style="margin-bottom:8px"><span>damit …</span><textarea id="sb" placeholder="Nutzen, z. B. ich Rückfragen schneller beantworten kann">' + esc(w.benefit) + '</textarea></div>' +
+      '<div class="preview" id="pv"></div>' +
+      '<div class="f" style="margin-bottom:6px"><span>Akzeptanzkriterien (eins pro Zeile)</span><textarea id="sa" rows="3" placeholder="Wann ist die Story fertig?">' + esc((w.ac || []).join('\n')) + '</textarea></div>' +
+      '<div class="chips"><button id="gwt">＋ Gegeben … wenn … dann …</button><button id="ac2">＋ Fehlerfall</button></div>' +
+      '<div class="f" style="margin-bottom:10px"><span>Priorität (MoSCoW)</span><div class="seg" id="sp">' + Object.entries(PRIO).map(([k, v]) => '<button data-p="' + k + '" class="' + (w.prio === k ? 'on' : '') + '">' + v + '</button>').join('') + '</div></div>' +
+      '<label class="pick" style="border:0"><input type="checkbox" id="slib"' + (isNew ? '' : '') + '><div>Auch in der Bibliothek speichern<small>zur Wiederverwendung in anderen Schätzungen</small></div></label>' +
+      '<button class="btn" id="ok">Speichern</button>' + (isNew ? '' : '<button class="btn red" id="rm" style="margin-top:8px">Story löschen</button>') + '<button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+      const read = () => { w.role = $('sr').value.trim(); w.want = $('sw').value.trim(); w.benefit = $('sb').value.trim(); w.ac = $('sa').value.split('\n').map(x => x.trim()).filter(Boolean); };
+      const pv = () => { read(); $('pv').textContent = storyText(w); };
+      ['sr', 'sw', 'sb'].forEach(id => $(id).oninput = pv); pv();
+      $('rc').querySelectorAll('button').forEach(b => b.onclick = () => { $('sr').value = b.textContent; pv(); });
+      const addLine = t => { const a = $('sa'); a.value = (a.value.trim() ? a.value.trim() + '\n' : '') + t; a.focus(); };
+      $('gwt').onclick = () => addLine('Gegeben …, wenn …, dann …');
+      $('ac2').onclick = () => addLine('Wenn … fehlschlägt, dann sehe ich eine verständliche Meldung');
+      $('sp').querySelectorAll('button').forEach(b => b.onclick = () => { w.prio = b.dataset.p; $('sp').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+      $('cl').onclick = closeSheet;
+      if ($('rm')) $('rm').onclick = () => { if (!confirm('Story löschen? Zugeordnete Aufgaben bleiben erhalten.')) return; es.stories = es.stories.filter(x => x.id !== w.id); es.tasks.forEach(t => { if (t.sid === w.id) t.sid = ''; }); touch(es); closeSheet(); editView(); };
+      $('ok').onclick = () => {
+        read(); if (!w.want) return $('sw').focus();
+        if (isNew) es.stories.push(w); else Object.assign(s, w);
+        if ($('slib').checked) libAddStory(w);
+        touch(es); closeSheet(); renderStories(); renderTasks(); toast('📝 Story gespeichert');
+      };
+    });
+  }
+
+  // ---------- Aufgaben ----------
+  function addTask(o, focus) {
+    const es = cur(); es.tasks.push(Object.assign({ id: uid(), n: '', d: '', sid: '', o: '', m: '', p: '' }, o)); touch(es); renderTasks(); renderStories(); renderOut();
+    if (focus) { const L = $('tkP').querySelectorAll('input[data-k="n"]'); const el = L[L.length - 1]; el.focus(); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  }
+  function renderTasks() {
+    const es = cur(), u = short(es.unit);
+    $('tkP').innerHTML = '<div class="lbl">🔧 Aufgaben<span class="sp"></span><span class="cnt">' + es.tasks.length + '</span></div>' +
+      '<div class="help">Je Aufgabe: <b>O</b> optimistisch (alles läuft), <b>M</b> wahrscheinlich, <b>P</b> pessimistisch (vieles geht schief). Erwartungswert = (O + 4·M + P) ÷ 6. Beim Tippen schlägt die App ähnliche frühere Aufgaben vor.</div>' +
+      es.tasks.map((t, i) => '<div class="task" data-id="' + t.id + '"><div class="row" style="margin-bottom:6px"><div class="f"><span>' + (i + 1) + '. Aufgabe</span><input data-k="n" value="' + esc(t.n) + '" placeholder="z. B. Schnittstelle zum ERP anbinden"></div></div>' +
+        '<div class="row" style="margin-bottom:6px"><div class="f"><span>Beschreibung</span><textarea data-k="d" rows="1" placeholder="Was genau ist zu tun? Annahmen?">' + esc(t.d) + '</textarea></div></div>' +
+        '<div class="tg"><div class="f"><span>O</span><input inputmode="decimal" data-k="o" value="' + esc(t.o) + '"></div><div class="f"><span>M</span><input inputmode="decimal" data-k="m" value="' + esc(t.m) + '"></div><div class="f"><span>P</span><input inputmode="decimal" data-k="p" value="' + esc(t.p) + '"></div><div class="ev" data-ev><b>' + f1(tE(t)) + '</b><small>' + esc(u) + ' erw.</small></div></div>' +
+        '<div class="row" style="margin:8px 0 0;align-items:center">' + (es.stories.length ? '<select data-k="sid" style="flex:1;padding:8px;font-size:14px"><option value="">Keine Story</option>' + es.stories.map((s, j) => '<option value="' + s.id + '"' + (s.id === t.sid ? ' selected' : '') + '>US' + (j + 1) + ': ' + esc((s.want || '').slice(0, 40)) + '</option>').join('') + '</select>' : '<span style="flex:1"></span>') +
+        '<div class="acts"><button data-a="up" aria-label="Nach oben">↑</button><button data-a="lib" aria-label="In Bibliothek">⭐</button><button data-a="cp" aria-label="Duplizieren">⧉</button><button data-a="rm" aria-label="Löschen">✕</button></div></div><div data-sug></div></div>').join('') +
+      '<div class="bar" style="margin:4px 0 0"><button class="add" id="addT" style="flex:1.2">＋ Aufgabe</button><button class="add" id="reuse" style="flex:1">📚 Wiederverwenden</button></div>';
+    $('addT').onclick = () => addTask({}, true);
+    $('reuse').onclick = reuseSheet;
+    $('tkP').querySelectorAll('.task').forEach(box => {
+      const t = es.tasks.find(x => x.id === box.dataset.id);
+      box.querySelectorAll('[data-k]').forEach(inp => inp.oninput = inp.onchange = () => {
+        t[inp.dataset.k] = inp.value; touch(es);
+        if ('omp'.includes(inp.dataset.k)) box.querySelector('[data-ev] b').textContent = f1(tE(t));
+        if (inp.dataset.k === 'n') suggest(box, t);
+        if (inp.dataset.k === 'sid') renderStories();
+        renderOut();
+      });
+      box.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
+        const i = es.tasks.indexOf(t), a = b.dataset.a;
+        if (a === 'rm') { if ((t.n || t.d) && !confirm('Aufgabe „' + (t.n || 'ohne Namen') + '“ löschen?')) return; es.tasks.splice(i, 1); }
+        if (a === 'up' && i > 0) { es.tasks.splice(i, 1); es.tasks.splice(i - 1, 0, t); }
+        if (a === 'cp') es.tasks.splice(i + 1, 0, Object.assign({}, t, { id: uid(), n: t.n + ' (Kopie)' }));
+        if (a === 'lib') { if (!t.n) return toast('Erst einen Namen eintragen'); libAddTask(t, es.unit); return toast('⭐ „' + t.n + '“ in der Bibliothek gespeichert'); }
+        touch(es); renderTasks(); renderStories(); renderOut();
+      });
+    });
+  }
+  // Ähnliche Aufgaben aus Bibliothek und früheren Schätzungen finden
+  function known() {
+    const es = cur(), L = E().lib.tasks.map(t => ({ t, unit: t.unit, from: 'Bibliothek' }));
+    E().estimates.forEach(x => { if (x.id !== es.id) x.tasks.forEach(t => { if (t.n) L.push({ t, unit: x.unit, from: x.title }); }); });
+    return L;
+  }
+  const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9äöüß ]/g, ' ').replace(/\s+/g, ' ').trim();
+  function bestMatch(name) {
+    const q = norm(name); if (q.length < 3) return null;
+    const words = q.split(' ').filter(w => w.length > 2);
+    let best = null, bs = 0;
+    known().forEach(k => {
+      const kn = norm(k.t.n); if (!kn || kn === q && k.from === 'Bibliothek' && false) return;
+      let s = kn.includes(q) ? 3 : 0; words.forEach(w => { if (kn.includes(w)) s += 1; });
+      if (k.from === 'Bibliothek') s += .5;
+      if (s > bs) { bs = s; best = k; }
+    });
+    return bs >= 2 ? best : null;
+  }
+  let sugT;
+  function suggest(box, t) {
+    clearTimeout(sugT);
+    sugT = setTimeout(() => {
+      const host = box.querySelector('[data-sug]'), es = cur(), k = bestMatch(t.n);
+      if (!k || (n(t.o) || n(t.m) || n(t.p)) && n(t.m) === conv(k.t.m, k.unit, es.unit)) { host.innerHTML = ''; return; }
+      const v = [k.t.o, k.t.m, k.t.p].map(x => f1(conv(x, k.unit, es.unit))).join(' / ');
+      host.innerHTML = '<div class="sug"><span>💡 Früher: <b>' + esc(k.t.n) + '</b> · ' + v + ' ' + esc(short(es.unit)) + '<br><small style="color:var(--mut)">aus ' + esc(k.from) + '</small></span><button>Übernehmen</button></div>';
+      host.querySelector('button').onclick = () => {
+        t.o = conv(k.t.o, k.unit, es.unit); t.m = conv(k.t.m, k.unit, es.unit); t.p = conv(k.t.p, k.unit, es.unit); if (!t.d && k.t.d) t.d = k.t.d;
+        touch(es); renderTasks(); renderStories(); renderOut(); toast('Werte übernommen');
+      };
+    }, 300);
+  }
+
+  // ---------- Allgemeine Aufwände ----------
+  function renderExtras() {
+    const es = cur(), r = calc(es), u = short(es.unit);
+    $('exP').innerHTML = '<div class="lbl">🧩 Allgemeine Aufwände<span class="sp"></span></div>' +
+      '<div class="help">Zuschläge für Arbeit, die keiner einzelnen Aufgabe gehört. Prozentwerte beziehen sich auf die Summe der Aufgaben.</div>' +
+      es.extras.map(x => { const amt = x.on ? (x.type === 'pct' ? r.base * n(x.v) / 100 : n(x.v)) : 0;
+        return '<div class="xr" data-id="' + x.id + '"><input type="checkbox" data-k="on"' + (x.on ? ' checked' : '') + '><input data-k="n" value="' + esc(x.n) + '" style="padding:8px;font-size:14px">' +
+          '<div style="display:flex;gap:3px"><input data-k="v" inputmode="decimal" value="' + esc(x.v) + '" style="padding:8px 4px;font-size:14px;text-align:right"><select data-k="type" style="padding:8px 2px;font-size:13px;width:44px;flex:none"><option value="pct"' + (x.type === 'pct' ? ' selected' : '') + '>%</option><option value="fix"' + (x.type === 'fix' ? ' selected' : '') + '>' + esc(u) + '</option></select></div>' +
+          '<span class="amt" data-amt>' + (x.on ? '+' + f1(amt) : '–') + '</span><button class="x" data-rm>✕</button></div>'; }).join('') +
+      '<button class="add" id="addX" style="margin-top:4px">＋ Aufwand</button>';
+    $('addX').onclick = () => { es.extras.push({ id: uid(), n: 'Sonstiges', type: 'fix', v: 1, on: true }); touch(es); renderExtras(); renderOut(); };
+    $('exP').querySelectorAll('.xr').forEach(row => {
+      const x = es.extras.find(y => y.id === row.dataset.id);
+      row.querySelectorAll('[data-k]').forEach(inp => inp.oninput = inp.onchange = () => {
+        const k = inp.dataset.k; x[k] = k === 'on' ? inp.checked : inp.value; touch(es);
+        if (k === 'on' || k === 'type') renderExtras(); else updExtraAmounts(); renderOut();
+      });
+      row.querySelector('[data-rm]').onclick = () => { es.extras = es.extras.filter(y => y !== x); touch(es); renderExtras(); renderOut(); };
+    });
+  }
+  function updExtraAmounts() {
+    const es = cur(), r = calc(es); if (!$('exP')) return;
+    $('exP').querySelectorAll('.xr').forEach(row => { const x = es.extras.find(y => y.id === row.dataset.id); row.querySelector('[data-amt]').textContent = x.on ? '+' + f1(x.type === 'pct' ? r.base * n(x.v) / 100 : n(x.v)) : '–'; });
+  }
+
+  // ---------- Ergebnis & Export ----------
+  function renderOut() {
+    const es = cur(), r = calc(es), u = es.unit;
+    updExtraAmounts();
+    $('outP').innerHTML = '<div class="lbl">Ergebnis</div><div class="res">' +
+      '<div class="r hl w"><b>' + f1(r.total) + ' ' + esc(u) + '</b><span>Gesamt (Erwartungswert)</span></div>' +
+      '<div class="r"><b>' + f1(r.p85) + '</b><span>mit 85 % Sicherheit</span></div><div class="r"><b>± ' + f1(r.sd) + '</b><span>Standardabweichung</span></div>' +
+      '<div class="r"><b>' + f1(r.r68[0]) + ' – ' + f1(r.r68[1]) + '</b><span>Bereich 68 %</span></div><div class="r"><b>' + f1(r.r95[0]) + ' – ' + f1(r.r95[1]) + '</b><span>Bereich 95 %</span></div></div>' +
+      '<table class="sumt"><tr><td>Aufgaben (' + es.tasks.length + ')</td><td>' + f1(r.base) + '</td></tr>' + r.ex.map(e => '<tr><td>' + esc(e.x.n) + (e.x.type === 'pct' ? ' (' + f1(n(e.x.v)) + ' %)' : '') + '</td><td>+' + f1(e.amt) + '</td></tr>').join('') +
+      '<tr class="tot"><td>Gesamt</td><td>' + f1(r.total) + ' ' + esc(short(u)) + '</td></tr></table>' +
+      (r.bad.length ? '<div class="note warn">⚠️ Bei ' + r.bad.length + ' Aufgabe(n) gilt nicht O ≤ M ≤ P: ' + r.bad.map(t => esc(t.n || 'ohne Namen')).join(', ') + '</div>' : '<div class="note">💡 Für Zusagen den 85-%-Wert nehmen, intern mit dem Erwartungswert planen.</div>') +
+      '<div class="lbl" style="margin-top:12px">Export</div><div class="bar" style="margin-bottom:0"><button class="sm go" id="xMail">📋 Für E-Mail kopieren</button><button class="sm" id="xXls">📊 Excel</button><button class="sm" id="xPrint">🖨 Drucken / PDF</button><button class="sm" id="xShare">📤 Teilen</button></div>';
+    $('xMail').onclick = () => copyRich(reportHTML(es), reportText(es));
+    $('xXls').onclick = () => exportXlsx(es);
+    $('xPrint').onclick = () => printReport(es);
+    $('xShare').onclick = async () => { const t = reportText(es); if (navigator.share) { try { await navigator.share({ title: es.title, text: t }); } catch (e) {} } else copyRich(reportHTML(es), t); };
+  }
+  function reportText(es) {
+    const r = calc(es), u = es.unit, L = [];
+    L.push('Schätzung: ' + es.title, 'Projekt: ' + projName(es.pid) + ' · Stand: ' + fds(es.date) + ' · Status: ' + (STATUS[es.status] || STATUS.draft).n + (es.source ? ' · Quelle: ' + es.source : ''), '');
+    L.push('Ergebnis: ' + f1(r.total) + ' ' + u + ' (Erwartungswert), mit 85 % Sicherheit ' + f1(r.p85) + ' ' + u + ', Bereich 68 %: ' + f1(r.r68[0]) + '–' + f1(r.r68[1]) + ' ' + u, '');
+    if (es.idea) L.push('Lösungsidee:', es.idea, '');
+    if (es.stories.length) { L.push('Anforderungen:'); es.stories.forEach((s, i) => { L.push('US' + (i + 1) + ' [' + PRIO[s.prio || 'must'] + '] ' + storyText(s)); (s.ac || []).forEach(a => L.push('   ✔ ' + a)); }); L.push(''); }
+    L.push('Aufgaben (O / M / P → erwartet, in ' + u + '):');
+    es.tasks.forEach((t, i) => { L.push((i + 1) + '. ' + (t.n || 'ohne Namen') + (t.sid ? ' (' + storyNo(es, t.sid) + ')' : '') + ': ' + f1(n(t.o)) + ' / ' + f1(n(t.m)) + ' / ' + f1(n(t.p)) + ' → ' + f1(tE(t))); if (t.d) L.push('   ' + t.d.replace(/\n/g, '\n   ')); });
+    L.push('Summe Aufgaben: ' + f1(r.base) + ' ' + u);
+    r.ex.forEach(e => L.push('+ ' + e.x.n + (e.x.type === 'pct' ? ' (' + f1(n(e.x.v)) + ' %)' : '') + ': ' + f1(e.amt) + ' ' + u));
+    L.push('Gesamt: ' + f1(r.total) + ' ' + u + ' · ± ' + f1(r.sd) + ' · 85 %: ' + f1(r.p85) + ' ' + u);
+    L.push('', 'Methode: Dreipunktschätzung (PERT), Erwartungswert = (O + 4·M + P) / 6.');
+    return L.join('\n');
+  }
+  function reportHTML(es) {
+    const r = calc(es), u = esc(es.unit), td = 'style="border:1px solid #c8cfe0;padding:5px 8px;vertical-align:top"', tdr = 'style="border:1px solid #c8cfe0;padding:5px 8px;text-align:right;white-space:nowrap;vertical-align:top"', th = 'style="border:1px solid #c8cfe0;padding:5px 8px;background:#eef1fb;text-align:left"';
+    let h = '<div style="font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:14px;color:#1b2033">';
+    h += '<h2 style="font-size:18px;margin:0 0 4px">Schätzung: ' + esc(es.title) + '</h2><div style="color:#5a6380;margin-bottom:10px">Projekt: ' + esc(projName(es.pid)) + ' · Stand: ' + fds(es.date) + ' · Status: ' + (STATUS[es.status] || STATUS.draft).n + (es.source ? ' · Quelle: ' + esc(es.source) : '') + '</div>';
+    h += '<table style="border-collapse:collapse;margin-bottom:12px"><tr><td ' + th + '>Gesamt (Erwartungswert)</td><td ' + tdr + '><b>' + f1(r.total) + ' ' + u + '</b></td></tr><tr><td ' + td + '>Mit 85 % Sicherheit</td><td ' + tdr + '>' + f1(r.p85) + ' ' + u + '</td></tr><tr><td ' + td + '>Bereich 68 %</td><td ' + tdr + '>' + f1(r.r68[0]) + ' – ' + f1(r.r68[1]) + ' ' + u + '</td></tr><tr><td ' + td + '>Bereich 95 %</td><td ' + tdr + '>' + f1(r.r95[0]) + ' – ' + f1(r.r95[1]) + ' ' + u + '</td></tr></table>';
+    if (es.idea) h += '<h3 style="font-size:15px;margin:12px 0 4px">Lösungsidee</h3><div style="white-space:pre-wrap">' + esc(es.idea) + '</div>';
+    if (es.stories.length) {
+      h += '<h3 style="font-size:15px;margin:12px 0 4px">Anforderungen</h3><table style="border-collapse:collapse"><tr><th ' + th + '>Nr.</th><th ' + th + '>User Story</th><th ' + th + '>Akzeptanzkriterien</th><th ' + th + '>Prio</th></tr>' +
+        es.stories.map((s, i) => '<tr><td ' + td + '>US' + (i + 1) + '</td><td ' + td + '>' + esc(storyText(s)) + '</td><td ' + td + '>' + (s.ac || []).map(esc).join('<br>') + '</td><td ' + td + '>' + PRIO[s.prio || 'must'] + '</td></tr>').join('') + '</table>';
+    }
+    h += '<h3 style="font-size:15px;margin:12px 0 4px">Aufgaben</h3><table style="border-collapse:collapse"><tr><th ' + th + '>Nr.</th><th ' + th + '>Aufgabe</th><th ' + th + '>Beschreibung</th><th ' + th + '>Story</th><th ' + th + '>O</th><th ' + th + '>M</th><th ' + th + '>P</th><th ' + th + '>Erwartet (' + u + ')</th></tr>' +
+      es.tasks.map((t, i) => '<tr><td ' + td + '>' + (i + 1) + '</td><td ' + td + '>' + esc(t.n) + '</td><td ' + td + '><span style="white-space:pre-wrap">' + esc(t.d) + '</span></td><td ' + td + '>' + storyNo(es, t.sid) + '</td><td ' + tdr + '>' + f1(n(t.o)) + '</td><td ' + tdr + '>' + f1(n(t.m)) + '</td><td ' + tdr + '>' + f1(n(t.p)) + '</td><td ' + tdr + '>' + f1(tE(t)) + '</td></tr>').join('') +
+      '<tr><td ' + td + ' colspan="7"><b>Summe Aufgaben</b></td><td ' + tdr + '><b>' + f1(r.base) + '</b></td></tr>' +
+      r.ex.map(e => '<tr><td ' + td + ' colspan="7">+ ' + esc(e.x.n) + (e.x.type === 'pct' ? ' (' + f1(n(e.x.v)) + ' %)' : '') + '</td><td ' + tdr + '>' + f1(e.amt) + '</td></tr>').join('') +
+      '<tr><td ' + th + ' colspan="7"><b>Gesamt</b></td><td ' + tdr + '><b>' + f1(r.total) + '</b></td></tr></table>';
+    h += '<div style="color:#5a6380;font-size:12px;margin-top:8px">Dreipunktschätzung (PERT): Erwartungswert = (O + 4·M + P) ÷ 6; O = optimistisch, M = wahrscheinlich, P = pessimistisch.</div></div>';
+    return h;
+  }
+  async function copyRich(html, text) {
+    try {
+      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]);
+        return toast('📋 Kopiert – in Outlook oder Teams einfach einfügen');
+      }
+    } catch (e) {}
+    // Rückfallebene: formatierten Inhalt markieren und kopieren
+    const d = document.createElement('div'); d.contentEditable = 'true'; d.innerHTML = html; Object.assign(d.style, { position: 'fixed', left: '-9999px', top: '0', background: '#fff' }); document.body.appendChild(d);
+    const rg = document.createRange(); rg.selectNodeContents(d); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg);
+    let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} sel.removeAllRanges(); d.remove();
+    if (ok) return toast('📋 Kopiert – in Outlook oder Teams einfach einfügen');
+    try { await navigator.clipboard.writeText(text); toast('📋 Als Text kopiert'); } catch (e) { toast('Kopieren nicht möglich'); }
+  }
+  function loadXlsx() {
+    return window.XLSX ? Promise.resolve() : new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'xlsx.mini.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  }
+  async function exportXlsx(es) {
+    try { await loadXlsx(); } catch (e) { return toast('Excel-Modul konnte nicht geladen werden'); }
+    const r = calc(es), u = es.unit;
+    const A = [['Schätzung', es.title], ['Projekt', projName(es.pid)], ['Stand', fds(es.date)], ['Status', (STATUS[es.status] || STATUS.draft).n], ['Quelle', es.source], ['Einheit', u], [],
+      ['Nr.', 'Aufgabe', 'Beschreibung', 'Story', 'Optimistisch', 'Wahrscheinlich', 'Pessimistisch', 'Erwartet', 'Std.-Abw.']];
+    es.tasks.forEach((t, i) => A.push([i + 1, t.n, t.d, storyNo(es, t.sid), n(t.o), n(t.m), n(t.p), Math.round(tE(t) * 100) / 100, Math.round(Math.sqrt(tV(t)) * 100) / 100]));
+    A.push([], ['', 'Summe Aufgaben', '', '', '', '', '', Math.round(r.base * 100) / 100]);
+    r.ex.forEach(e => A.push(['', e.x.n + (e.x.type === 'pct' ? ' (' + n(e.x.v) + ' %)' : ''), '', '', '', '', '', Math.round(e.amt * 100) / 100]));
+    A.push(['', 'Gesamt (Erwartungswert)', '', '', '', '', '', Math.round(r.total * 100) / 100], ['', 'Mit 85 % Sicherheit', '', '', '', '', '', Math.round(r.p85 * 100) / 100], ['', 'Standardabweichung', '', '', '', '', '', Math.round(r.sd * 100) / 100]);
+    const wb = XLSX.utils.book_new(), ws = XLSX.utils.aoa_to_sheet(A);
+    ws['!cols'] = [{ wch: 5 }, { wch: 34 }, { wch: 50 }, { wch: 7 }, { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 10 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Aufgaben');
+    if (es.stories.length) {
+      const S = [['Nr.', 'Rolle', 'Ziel', 'Nutzen', 'User Story', 'Akzeptanzkriterien', 'Priorität', 'Aufgaben', 'Erwartet (' + u + ')']];
+      es.stories.forEach((s, i) => { const c = calcStory(es, s.id); S.push(['US' + (i + 1), s.role, s.want, s.benefit, storyText(s), (s.ac || []).join('\n'), PRIO[s.prio || 'must'], c.cnt, Math.round(c.e * 100) / 100]); });
+      const ws2 = XLSX.utils.aoa_to_sheet(S); ws2['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 34 }, { wch: 30 }, { wch: 60 }, { wch: 40 }, { wch: 9 }, { wch: 9 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb, ws2, 'Anforderungen');
+    }
+    if (es.idea) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Lösungsidee'], [es.idea]]), 'Lösungsidee');
+    const name = ('Schaetzung-' + es.title).replace(/[^\wäöüÄÖÜß-]+/g, '-').slice(0, 60) + '.xlsx';
+    XLSX.writeFile(wb, name); toast('📊 ' + name);
+  }
+  function printReport(es) {
+    const w = window.open('', '_blank');
+    if (!w) return toast('Pop-up blockiert – bitte erlauben');
+    w.document.write('<!doctype html><html lang="de"><head><meta charset="utf-8"><title>' + esc(es.title) + '</title><style>body{margin:24px;background:#fff}@media print{body{margin:0}}</style></head><body>' + reportHTML(es) + '<script>setTimeout(()=>print(),300)<\/script></body></html>');
+    w.document.close();
+  }
+
+  // ---------- Bibliothek & Wiederverwendung ----------
+  function libAddTask(t, unit) {
+    const L = E().lib.tasks, ex = L.find(x => norm(x.n) === norm(t.n));
+    const item = { n: t.n, d: t.d, o: n(t.o), m: n(t.m), p: n(t.p), unit, used: (ex ? ex.used : 0) };
+    if (ex) Object.assign(ex, item); else L.push(Object.assign({ id: uid() }, item));
+    persist();
+  }
+  function libAddStory(s) {
+    const L = E().lib.stories, key = norm(s.role + ' ' + s.want), ex = L.find(x => norm(x.role + ' ' + x.want) === key);
+    const item = { role: s.role, want: s.want, benefit: s.benefit, ac: (s.ac || []).slice(), prio: s.prio };
+    if (ex) Object.assign(ex, item); else L.push(Object.assign({ id: uid() }, item));
+    persist();
+  }
+  function libView() {
+    sc.className = 'scroll';
+    const T = E().lib.tasks, S = E().lib.stories;
+    let h = '<div class="wide"><button class="back" id="bk">‹ Alle Schätzungen</button></div>' +
+      '<div class="panel"><div class="lbl">⭐ Aufgaben-Bibliothek<span class="sp"></span><span class="cnt">' + T.length + '</span></div>' +
+      (T.length ? T.slice().sort((a, b) => a.n.localeCompare(b.n)).map(t => '<div class="pick"><div><b>' + esc(t.n) + '</b>' + (t.d ? '<small>' + esc(t.d) + '</small>' : '') + '</div><span class="v">' + [t.o, t.m, t.p].map(f1).join(' / ') + ' ' + esc(short(t.unit)) + '</span><button class="x" data-rt="' + t.id + '" style="height:32px">✕</button></div>').join('')
+        : '<div class="help">Noch leer. In einer Schätzung bei einer Aufgabe auf ⭐ tippen, um sie hier abzulegen. Unabhängig davon schlägt die App beim Tippen auch Aufgaben aus allen früheren Schätzungen vor.</div>') + '</div>' +
+      '<div class="panel"><div class="lbl">📝 Story-Bibliothek<span class="sp"></span><span class="cnt">' + S.length + '</span></div>' +
+      (S.length ? S.map(s => '<div class="pick"><div>' + esc(storyText(s)) + (s.ac && s.ac.length ? '<small>✔ ' + s.ac.map(esc).join(' · ') + '</small>' : '') + '</div><button class="x" data-rs="' + s.id + '" style="height:32px">✕</button></div>').join('')
+        : '<div class="help">Noch leer. Beim Speichern einer Story „Auch in der Bibliothek speichern“ anhaken.</div>') + '</div>';
+    sc.innerHTML = h;
+    $('bk').onclick = () => go('list');
+    sc.querySelectorAll('[data-rt]').forEach(b => b.onclick = () => { E().lib.tasks = T.filter(t => t.id !== b.dataset.rt); persist(); libView(); });
+    sc.querySelectorAll('[data-rs]').forEach(b => b.onclick = () => { E().lib.stories = S.filter(s => s.id !== b.dataset.rs); persist(); libView(); });
+  }
+  function reuseSheet() {
+    const es = cur(); let mode = 'lib', srcId = '', q = '';
+    const others = E().estimates.filter(x => x.id !== es.id).sort((a, b) => b.updated - a.updated);
+    const draw = () => {
+      let items = [];
+      if (mode === 'lib') {
+        E().lib.stories.forEach(s => items.push({ kind: 's', s, txt: storyText(s), sub: (s.ac || []).join(' · ') }));
+        E().lib.tasks.forEach(t => items.push({ kind: 't', t, unit: t.unit, txt: t.n, sub: t.d }));
+      } else if (srcId) {
+        const src = E().estimates.find(x => x.id === srcId);
+        src.stories.forEach((s, i) => items.push({ kind: 's', s, txt: 'US' + (i + 1) + ': ' + storyText(s), sub: (s.ac || []).join(' · ') }));
+        src.tasks.forEach(t => items.push({ kind: 't', t, unit: src.unit, txt: t.n || 'ohne Namen', sub: (t.sid ? storyNo(src, t.sid) + ' · ' : '') + (t.d || '') }));
+      }
+      const qq = norm(q); if (qq) items = items.filter(it => norm(it.txt + ' ' + it.sub).includes(qq));
+      $('rl').innerHTML = items.length ? items.map((it, i) => '<label class="pick"><input type="checkbox" data-i="' + i + '"><div>' + (it.kind === 's' ? '📝 ' : '🔧 ') + esc(it.txt) + (it.sub ? '<small>' + esc(it.sub) + '</small>' : '') + '</div>' +
+        (it.kind === 't' ? '<span class="v">' + f1(conv(tE(it.t), it.unit, es.unit)) + ' ' + esc(short(es.unit)) + '</span>' : '') + '</label>').join('')
+        : '<div class="help" style="padding:10px 0">' + (mode === 'lib' ? 'Die Bibliothek ist noch leer.' : srcId ? 'Keine Einträge.' : 'Wähle oben eine Schätzung.') + '</div>';
+      $('rl').items = items;
+    };
+    sheet('<h3>📚 Wiederverwenden</h3><div class="seg" id="md" style="margin-bottom:10px"><button data-m="lib" class="on">⭐ Bibliothek</button><button data-m="old">🗂 Frühere Schätzung</button></div>' +
+      '<div id="srcW" style="display:none;margin-bottom:8px"><select id="src"><option value="">Schätzung wählen …</option>' + others.map(x => '<option value="' + x.id + '">' + esc(projName(x.pid) + ' › ' + x.title) + '</option>').join('') + '</select></div>' +
+      '<input id="rq" placeholder="🔎 Filtern …" style="margin-bottom:6px"><div class="bar" style="margin:0 0 4px"><button class="sm" id="all">Alle auswählen</button></div><div id="rl"></div>' +
+      '<div class="help" style="margin-top:8px">Werte werden bei Bedarf in ' + esc(es.unit) + ' umgerechnet. Stories und ihre Aufgaben bleiben verknüpft, wenn du beides übernimmst.</div>' +
+      '<button class="btn" id="ok">Übernehmen</button><button class="btn sec" id="cl" style="margin-top:8px">Abbrechen</button>', () => {
+      $('md').querySelectorAll('button').forEach(b => b.onclick = () => { mode = b.dataset.m; $('md').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); $('srcW').style.display = mode === 'old' ? '' : 'none'; draw(); });
+      $('src').onchange = e => { srcId = e.target.value; draw(); };
+      $('rq').oninput = e => { q = e.target.value; draw(); };
+      $('all').onclick = () => $('rl').querySelectorAll('input').forEach(c => c.checked = true);
+      $('cl').onclick = closeSheet;
+      $('ok').onclick = () => {
+        const items = $('rl').items || [], chosen = [...$('rl').querySelectorAll('input:checked')].map(c => items[+c.dataset.i]);
+        if (!chosen.length) return toast('Nichts ausgewählt');
+        const map = {}; let ns = 0, nt = 0;
+        chosen.filter(it => it.kind === 's').forEach(it => { const c = { id: uid(), role: it.s.role, want: it.s.want, benefit: it.s.benefit, ac: (it.s.ac || []).slice(), prio: it.s.prio || 'must' }; if (it.s.id) map[it.s.id] = c.id; es.stories.push(c); ns++; });
+        chosen.filter(it => it.kind === 't').forEach(it => { es.tasks.push({ id: uid(), n: it.t.n, d: it.t.d || '', sid: mode === 'old' ? (map[it.t.sid] || '') : '', o: conv(it.t.o, it.unit, es.unit), m: conv(it.t.m, it.unit, es.unit), p: conv(it.t.p, it.unit, es.unit) }); nt++; });
+        E().lib.tasks.forEach(t => { if (chosen.some(it => it.t === t)) t.used = (t.used || 0) + 1; });
+        touch(es); closeSheet(); editView(); toast('Übernommen: ' + nt + ' Aufgaben, ' + ns + ' Stories');
+      };
+      draw();
+    });
   }
 
   // ================= Kapazität =================
@@ -253,15 +764,16 @@
     rl.insertAdjacentHTML('beforeend', '<div class="note ' + (crit ? 'bad' : 'good') + '">' + (crit ? '🚨 ' + crit + ' kritische(s) Risiko (Score ≥ 15). Plane Gegenmaßnahmen, Verantwortliche und einen Notfallplan.' : '✅ Keine kritischen Risiken. Beobachte trotzdem die Einträge über 8.') + '</div>');
   }
 
-  $('reset').onclick = () => { if (confirm('Alle Eingaben dieses Tabs zurücksetzen?')) { const d = DEF(); st[st.tab] = d[st.tab]; persist(); view(); } };
+  $('reset').onclick = () => { if (st.tab === 'est') return; if (confirm('Alle Eingaben dieses Tabs zurücksetzen?')) { const d = DEF(); st[st.tab] = d[st.tab]; persist(); view(); } };
   document.addEventListener('gesturestart', e => e.preventDefault());
-  tabs(); view();
+  migrate(); tabs(); view();
   $('syncb').onclick = () => AppSync.open();
   AppSync.init({ name: 'pm-rechner', label: 'PM-Rechner',
-    getData: () => { const c = JSON.parse(JSON.stringify(st)); delete c.tab; return c; },
-    setData: d => { const tab = st.tab; st = Object.assign(DEF(), d, { tab }); persist.quiet = true; persist(); persist.quiet = false; view(); },
+    // Ansichtszustand (offene Schätzung, Suche) bleibt pro Gerät
+    getData: () => { const c = JSON.parse(JSON.stringify(st)); delete c.tab; delete c.est.view; delete c.est.cur; delete c.est.q; return c; },
+    setData: d => { const tab = st.tab, ui = { view: st.est.view, cur: st.est.cur, q: st.est.q }; st = Object.assign(DEF(), d, { tab }); migrate(); Object.assign(st.est, ui); persist.quiet = true; persist(); persist.quiet = false; view(); },
     hasData: () => localStorage.getItem(KEY) !== null });
-  window.__PM = { get st() { return st; }, pertCalc, sprintsNeeded };
+  window.__PM = { get st() { return st; }, calc, reportText, reportHTML, bestMatch, sprintsNeeded };
 })();
 </script>
 </body>
