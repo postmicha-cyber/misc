@@ -1,0 +1,21 @@
+name: Projekt-Cockpit Tests
+on:
+  push:
+    paths: ['cockpit/**', 'tests/**', 'xlsx.mini.min.js', 'package.json', '.github/workflows/cockpit-tests.yml']
+  pull_request:
+    paths: ['cockpit/**', 'tests/**', 'xlsx.mini.min.js', 'package.json', '.github/workflows/cockpit-tests.yml']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Unit-Tests
+        run: npm run test:unit
+      - name: Playwright installieren
+        run: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
+      - name: Browser-Tests
+        run: npm run test:e2e

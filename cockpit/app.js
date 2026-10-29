@@ -1,0 +1,332 @@
+/* Projekt-Cockpit: Oberfläche (Teil 1: Grundgerüst, Cockpit, Projekte). Teil 2 steckt in app2.js. */
+(() => {
+  'use strict';
+  const C = window.Core, ST = window.Store, $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const f1 = x => (Math.round(C.num(x) * 10) / 10).toLocaleString('de-DE');
+  const f0 = x => Math.round(C.num(x)).toLocaleString('de-DE');
+  const today = () => C.isoDate();
+  const fdt = ts => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–';
+  const UI_KEY = 'projektCockpit.ui';
+  const App = window.App = { C, $, esc, f1, f0, today, fdt };
+
+  // ---------- Zustand ----------
+  let S = C.empty();
+  const UI = Object.assign({ view: 'home', pid: null, ptab: 'over', eid: null, back: null, q: '', show: 'active', pl: '', src: '', sort: 'sev', theme: '' }, (() => { try { return JSON.parse(localStorage.getItem(UI_KEY) || '{}'); } catch (e) { return {}; } })());
+  App.S = () => S; App.UI = UI;
+  const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} };
+  let saveT = null, dirty = false, lastAuto = 0, savingFail = false;
+  const tabId = C.uid(), bc = 'BroadcastChannel' in window ? new BroadcastChannel('projektCockpit') : null;
+
+  // Jede Änderung läuft hierüber: zählen, verzögert speichern, gelegentlich interne Version anlegen
+  function commit() { S.meta.changes = (S.meta.changes || 0) + 1; dirty = true; clearTimeout(saveT); saveT = setTimeout(flush, 400); headerState(); }
+  async function flush() {
+    clearTimeout(saveT); if (!dirty) return true;
+    dirty = false;
+    const ok = await ST.save(S);
+    if (!ok) { savingFail = true; banner('r', '⚠️ <b>Speichern fehlgeschlagen.</b> Der Browser verweigert den Speicher (voll oder privat?). Bitte sofort ein <b>Backup</b> herunterladen.'); }
+    else if (savingFail) { savingFail = false; banner(); }
+    if (ok && bc) bc.postMessage({ type: 'saved', tab: tabId, at: S.meta.savedAt });
+    if (ok && Date.now() - lastAuto > 30 * 60000) { lastAuto = Date.now(); ST.addSnapshot('auto', 'Automatisch', S, C.pruneSnapshots); }
+    headerState();
+    return ok;
+  }
+  App.commit = commit; App.flush = flush;
+  App.snapshot = (kind, label) => ST.addSnapshot(kind, label, S, C.pruneSnapshots);
+  App.replaceState = async (next, label) => { await App.snapshot('vor ' + label, 'Vor: ' + label); S = C.normalize(next); dirty = true; await flush(); render(); };
+  window.addEventListener('pagehide', () => { if (dirty) flush(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && dirty) flush(); });
+  if (bc) bc.onmessage = async e => {
+    if (!e.data || e.data.type !== 'saved' || e.data.tab === tabId) return;
+    if (dirty) { banner('y', '⚠️ In einem anderen Tab wurde ebenfalls gespeichert. Bitte nur in <b>einem</b> Tab arbeiten, sonst überschreiben sich Änderungen. <button class="sm" onclick="location.reload()">Neu laden</button>'); return; }
+    const r = await ST.load(); if (r.state) { S = C.normalize(r.state); render(); toast('🔄 Stand aus anderem Tab übernommen'); }
+  };
+  window.addEventListener('unhandledrejection', e => banner('r', '⚠️ Ein Fehler ist aufgetreten: ' + esc(e.reason && e.reason.message || e.reason) + '. Deine Daten sind gespeichert.'));
+  window.addEventListener('error', e => banner('r', '⚠️ Ein Fehler ist aufgetreten: ' + esc(e.message) + '. Deine Daten sind gespeichert. <button class="sm" onclick="location.reload()">Neu laden</button>'));
+
+  // ---------- Hilfen ----------
+  function banner(kind, html) { const b = $('banner'); if (!html) { b.className = 'note'; b.innerHTML = ''; return; } b.className = 'note on ' + kind; b.innerHTML = html; }
+  let toastT;
+  function toast(t, label, fn) {
+    $('toastT').textContent = t; const b = $('toastB');
+    if (label) { b.style.display = ''; b.textContent = label; b.onclick = () => { $('toast').classList.remove('on'); fn(); }; } else b.style.display = 'none';
+    $('toast').classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('on'), label ? 9000 : 2800);
+  }
+  function sheet(html, wire) { $('sheet').innerHTML = html; $('ov').classList.add('on'); $('sheet').scrollTop = 0; wire && wire(); const f = $('sheet').querySelector('[autofocus]'); if (f) setTimeout(() => f.focus(), 60); }
+  function closeSheet() { $('ov').classList.remove('on'); }
+  $('ov').onclick = e => { if (e.target === $('ov')) closeSheet(); };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('ov').classList.contains('on')) closeSheet(); });
+  async function copyText(t, msg) { try { await navigator.clipboard.writeText(t); toast(msg || '📋 Kopiert'); } catch (e) { sheet('<h4>Kopieren</h4><textarea id="cpT" rows="6">' + esc(t) + '</textarea><div class="acts"><button class="btn" id="cpX">Schließen</button></div>', () => { $('cpT').select(); $('cpX').onclick = closeSheet; }); } }
+  Object.assign(App, { banner, toast, sheet, closeSheet, copyText });
+  const byId = id => S.projects.find(p => p.id === id);
+  App.byId = byId;
+  const projFlags = p => C.flags(p, S.settings, today());
+  const sevOrd = { r: 0, y: 1, g: 2 };
+  const projSev = p => p.archived ? 'a' : (p.status === 'p' || p.status === 'd') ? p.status : C.severity(projFlags(p));
+  App.projSev = projSev;
+  const statusTag = p => '<span class="tag">' + C.STATUS[p.status].ic + ' ' + C.STATUS[p.status].n + '</span>';
+
+  // ---------- Navigation ----------
+  function go(view, o) { Object.assign(UI, { view }, o || {}); saveUI(); render(); window.scrollTo(0, 0); }
+  App.go = go;
+  document.querySelectorAll('#nav button').forEach(b => b.onclick = () => go(b.dataset.v, { pid: null, eid: null }));
+  function render() {
+    document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === UI.view || (UI.view === 'project' && b.dataset.v === 'projects') || (UI.view === 'estimate' && b.dataset.v === 'estimates')));
+    headerState();
+    const V = { home, projects, project, estimates: () => App.estimatesView(), estimate: () => App.estimateEditor(), tools: () => App.toolsView(), data: () => App.dataView() };
+    try { (V[UI.view] || home)(); } catch (e) { console.error(e); $('view').innerHTML = '<div class="note r">Diese Ansicht konnte nicht angezeigt werden: ' + esc(e.message) + '<br><button class="btn sec" onclick="App.go(\'home\')">Zum Cockpit</button></div>'; }
+  }
+  App.render = render;
+  function headerState() {
+    const lb = S.meta.lastBackup, age = lb ? C.daysBetween(lb.slice(0, 10), today()) : null, has = S.projects.length > 0;
+    const col = !has ? 'var(--n)' : lb == null || lb === '' ? 'var(--r)' : age >= S.settings.backupDays ? 'var(--y)' : S.meta.changes > 0 ? 'var(--y)' : 'var(--g)';
+    $('backupDot').style.background = col;
+    $('backupBtn').title = lb ? 'Letztes Backup: ' + fdt(lb) + (S.meta.changes ? ' · seitdem ' + S.meta.changes + ' Änderungen' : '') : 'Noch kein Backup erstellt';
+    const red = S.projects.filter(p => C.isActive(p) && projSev(p) === 'r').length, nb = $('navBadge');
+    nb.style.display = red ? '' : 'none'; nb.textContent = red;
+    $('navFoot').innerHTML = '🔒 Daten nur in diesem Browser<br>' + (ST.status.lastSave ? 'Gespeichert ' + new Date(ST.status.lastSave).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : 'Noch nicht gespeichert') + (lb ? '<br>Backup: ' + fdt(lb) : '<br><b style="color:var(--r)">Noch kein Backup</b>');
+  }
+  App.headerState = headerState;
+  $('newProjBtn').onclick = () => newProjectSheet();
+  $('backupBtn').onclick = () => App.doBackup();
+  $('localBadge').onclick = () => App.storageInfo();
+  const applyTheme = () => { const t = UI.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.theme = t; };
+  $('themeBtn').onclick = () => { UI.theme = (document.documentElement.dataset.theme === 'dark') ? 'light' : 'dark'; saveUI(); applyTheme(); };
+  applyTheme();
+
+  // ---------- Cockpit ----------
+  function home() {
+    const act = S.projects.filter(C.isActive), F = C.focusItems(S, today());
+    const sev = act.map(p => ({ p, f: projFlags(p), s: projSev(p) }));
+    const red = sev.filter(x => x.s === 'r'), yel = sev.filter(x => x.s === 'y');
+    const openEst = S.estimates.filter(e => e.status === 'draft' || e.status === 'offered').length;
+    let h = '<h2>Guten ' + (new Date().getHours() < 11 ? 'Morgen' : new Date().getHours() < 18 ? 'Tag' : 'Abend') + (S.me ? ', ' + esc(S.me.split(' ')[0]) : '') + '<span class="sp"></span><button class="sm" id="rvBtn">🔁 Wochenreview</button></h2>';
+    if (!S.projects.length) return firstRun();
+    const lb = S.meta.lastBackup, age = lb ? C.daysBetween(lb.slice(0, 10), today()) : null;
+    if (!lb || age >= S.settings.backupDays) h += '<div class="note y">💾 ' + (lb ? 'Letztes Backup vor ' + age + ' Tagen.' : 'Du hast noch kein Backup erstellt.') + ' Ein Klick sichert alles als Datei. <button class="sm pri" id="bkNow">Backup jetzt</button></div>';
+    if (act.length > S.settings.wip) h += '<div class="note y">⚠️ <b>' + act.length + ' aktive Projekte</b> bei einem Limit von ' + S.settings.wip + '. Pausiere oder schließe etwas ab, sonst leidet der Fokus.</div>';
+    h += '<div class="kpis"><div class="kpi"><b>' + act.length + '</b><span>aktive Projekte</span></div><div class="kpi"><b style="color:var(--r)">' + red.length + '</b><span>rot</span></div><div class="kpi"><b style="color:var(--y)">' + yel.length + '</b><span>gelb</span></div>' +
+      '<div class="kpi"><b style="color:' + (F.od.length ? 'var(--r)' : 'inherit') + '">' + F.od.length + '</b><span>überfällige Aufgaben</span></div><div class="kpi"><b>' + F.wk.length + '</b><span>fällig in 7 Tagen</span></div><div class="kpi"><b>' + openEst + '</b><span>offene Schätzungen</span></div></div>';
+    const att = red.concat(yel).sort((a, b) => sevOrd[a.s] - sevOrd[b.s] || a.p.prio - b.p.prio).slice(0, 12);
+    h += '<div class="cols"><div><div class="panel"><h3>🔥 Braucht Aufmerksamkeit<span class="sp"></span><span class="cnt">' + (red.length + yel.length) + '</span></h3>' +
+      (att.length ? att.map(x => '<div class="list"><div class="it" data-open="' + x.p.id + '" style="cursor:pointer"><span class="tag ' + x.s + '">' + (x.s === 'r' ? 'Rot' : 'Gelb') + '</span><div class="t"><b>' + esc(x.p.name) + '</b><small>' + x.f.filter(f => f.s !== 'n').slice(0, 3).map(f => esc(f.t)).join(' · ') + '</small></div></div></div>').join('')
+        : '<div class="note g">✅ Keine Auffälligkeiten. Alles läuft ruhig.</div>') + '</div>' +
+      '<div class="panel"><h3>➜ Nächste Schritte<span class="sp"></span><span class="cnt">' + F.nx.length + '</span></h3><div class="list">' +
+      (F.nx.length ? F.nx.slice(0, 15).map(x => '<div class="it"><button class="ck" data-nx="' + x.p.id + '" title="Erledigt">' + '</button><div class="t" data-open="' + x.p.id + '" style="cursor:pointer">' + esc(x.p.next) + '<small>' + esc(x.p.name) + '</small></div></div>').join('') : '<div class="help">Keine nächsten Schritte festgelegt.</div>') + '</div></div></div>' +
+      '<div><div class="panel"><h3>⏰ Fällige Aufgaben</h3><div class="list">' +
+      (F.od.length + F.wk.length ? F.od.concat(F.wk).slice(0, 20).map(x => '<div class="it"><button class="ck" data-ck="' + x.p.id + '|' + x.t.id + '"></button><div class="t">' + esc(x.t.t) + '<small style="color:' + (x.d < 0 ? 'var(--r)' : 'inherit') + '">' + esc(x.p.name) + ' · ' + (x.d < 0 ? 'seit ' + (-x.d) + ' T überfällig' : x.d === 0 ? 'heute' : 'in ' + x.d + ' T') + '</small></div></div>').join('') : '<div class="help">Nichts fällig in den nächsten 7 Tagen.</div>') + '</div></div>' +
+      ideasPanel() + '</div></div>';
+    $('view').innerHTML = h;
+    wireIdeas();
+    if ($('bkNow')) $('bkNow').onclick = () => App.doBackup();
+    $('rvBtn').onclick = review;
+    $('view').querySelectorAll('[data-open]').forEach(el => el.onclick = () => go('project', { pid: el.dataset.open, ptab: 'over' }));
+    $('view').querySelectorAll('[data-ck]').forEach(b => b.onclick = () => { const [pid, tid] = b.dataset.ck.split('|'), p = byId(pid), t = p.tasks.find(x => x.id === tid); t.done = true; log(p, '✔ ' + t.t); touch(p); render(); toast('✔ Erledigt', 'Rückgängig', () => { t.done = false; touch(p); render(); }); });
+    $('view').querySelectorAll('[data-nx]').forEach(b => b.onclick = () => nextDone(byId(b.dataset.nx)));
+  }
+  function firstRun() {
+    const legacy = App.legacyAvailable();
+    $('view').innerHTML = '<div class="panel" style="max-width:720px"><div class="empty" style="padding:16px 0"><div class="e">📋</div></div><h3>Willkommen im Projekt-Cockpit</h3>' +
+      '<p class="help" style="font-size:14px">Deine kleine Projektmanagement-Suite: Projekte mit Ampel und nächstem Schritt, Aufgaben, Risiken, Schätzungen (PERT, User Stories) und der Import deiner weclapp-Projektliste. <b>Alle Daten bleiben ausschließlich in diesem Browser.</b> Über 💾 sicherst du sie jederzeit als Datei.</p>' +
+      '<div class="bar"><button class="btn" id="fr1">📥 weclapp-Export importieren</button><button class="btn sec" id="fr2">＋ Projekt von Hand anlegen</button>' + (legacy ? '<button class="btn sec" id="fr3">🔁 Aus Projekt-Radar / PM-Rechner übernehmen</button>' : '') + '<button class="btn sec" id="fr4">📂 Backup einspielen</button></div></div>';
+    $('fr1').onclick = () => $('fileImport').click(); $('fr2').onclick = () => newProjectSheet(); $('fr4').onclick = () => $('fileRestore').click();
+    if ($('fr3')) $('fr3').onclick = () => App.migrateLegacy();
+  }
+  function ideasPanel() {
+    return '<div class="panel"><h3>💡 Ideen-Parkplatz<span class="sp"></span><span class="cnt">' + S.ideas.length + '</span></h3><div class="row" style="margin-bottom:6px"><input id="ideaIn" placeholder="Später vielleicht … (Enter)"></div><div class="list">' +
+      S.ideas.map(i => '<div class="it"><div class="t">' + esc(i.t) + '</div><button class="sm" data-ip="' + i.id + '">→ Projekt</button><button class="x" data-ix="' + i.id + '" aria-label="Löschen">✕</button></div>').join('') + '</div></div>';
+  }
+  function wireIdeas() {
+    const inp = $('ideaIn'); if (!inp) return;
+    inp.onkeydown = e => { if (e.key === 'Enter' && inp.value.trim()) { S.ideas.unshift({ id: C.uid(), t: inp.value.trim() }); commit(); render(); $('ideaIn').focus(); } };
+    $('view').querySelectorAll('[data-ix]').forEach(b => b.onclick = () => { S.ideas = S.ideas.filter(i => i.id !== b.dataset.ix); commit(); render(); });
+    $('view').querySelectorAll('[data-ip]').forEach(b => b.onclick = () => { const i = S.ideas.find(x => x.id === b.dataset.ip); newProjectSheet({ name: i.t }, () => { S.ideas = S.ideas.filter(x => x !== i); }); });
+  }
+  function nextDone(p) {
+    const old = p.next; log(p, '✔ ' + old); p.next = ''; touch(p); render();
+    sheet('<h4>Nächster Schritt für „' + esc(p.name) + '“?</h4><input id="nxIn" autofocus placeholder="Was passiert als Nächstes?"><div class="acts"><button class="btn sec" id="nxL">Später</button><button class="btn" id="nxOk">Speichern</button></div>', () => {
+      $('nxL').onclick = closeSheet; const ok = () => { p.next = $('nxIn').value.trim(); touch(p); closeSheet(); render(); };
+      $('nxOk').onclick = ok; $('nxIn').onkeydown = e => { if (e.key === 'Enter') ok(); };
+    });
+  }
+  function review() {
+    const list = S.projects.filter(C.isActive).sort((a, b) => a.updated.localeCompare(b.updated)); let i = 0;
+    if (!list.length) return toast('Keine aktiven Projekte');
+    const step = () => {
+      if (i >= list.length) { S.meta.lastReview = today(); commit(); closeSheet(); render(); return toast('✅ Review abgeschlossen'); }
+      const p = list[i], fl = projFlags(p); let st = p.status;
+      sheet('<div class="help">Review ' + (i + 1) + ' von ' + list.length + '</div><h4>' + esc(p.name) + '</h4>' + (fl.length ? '<div class="help">' + fl.map(f => esc(f.t)).join(' · ') + '</div>' : '') +
+        '<div class="chips" id="rvS" style="margin-bottom:10px">' + Object.entries(C.STATUS).map(([k, v]) => '<button data-k="' + k + '" class="' + (k === st ? 'on' : '') + '">' + v.ic + ' ' + v.n + '</button>').join('') + '</div>' +
+        '<label class="f"><span>Nächster Schritt</span><input id="rvN" value="' + esc(p.next) + '" autofocus></label>' +
+        '<div class="acts"><button class="btn sec" id="rvX">Beenden</button><button class="btn sec" id="rvO">Projekt öffnen</button><button class="btn" id="rvOk">Weiter ›</button></div>', () => {
+        $('rvS').querySelectorAll('button').forEach(b => b.onclick = () => { st = b.dataset.k; $('rvS').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+        $('rvX').onclick = () => { closeSheet(); render(); };
+        $('rvO').onclick = () => { closeSheet(); go('project', { pid: p.id, ptab: 'over' }); };
+        $('rvOk').onclick = () => { if (st !== p.status) { log(p, 'Status: ' + C.STATUS[st].n + ' (Review)'); p.status = st; } p.next = $('rvN').value.trim(); touch(p); i++; step(); };
+      });
+    };
+    step();
+  }
+
+  // ---------- Projekte ----------
+  const log = (p, t) => p.log.push({ d: today(), t, src: '' });
+  const touch = p => { p.updated = today(); commit(); };
+  App.log = log; App.touch = touch;
+  function newProjectSheet(pre, after) {
+    const o = Object.assign({ name: '', kunde: '', prio: 2, due: '', next: '' }, pre || {});
+    sheet('<h4>＋ Neues Projekt</h4><div class="row"><label class="f"><span>Name *</span><input id="npN" value="' + esc(o.name) + '" autofocus></label><label class="f"><span>Kunde</span><input id="npK" value="' + esc(o.kunde) + '"></label></div>' +
+      '<div class="row"><label class="f"><span>Priorität</span><select id="npP"><option value="1">★★★ Hoch</option><option value="2" selected>★★ Mittel</option><option value="3">★ Niedrig</option></select></label><label class="f"><span>Termin</span><input type="date" id="npD" value="' + esc(o.due) + '"></label></div>' +
+      '<label class="f"><span>Nächster Schritt</span><input id="npX" placeholder="Was passiert als Erstes?"></label><p class="help" style="margin-top:8px">Projekte aus weclapp kommen am einfachsten über 💾 Daten → weclapp-Import.</p>' +
+      '<div class="acts"><button class="btn sec" id="npC">Abbrechen</button><button class="btn" id="npOk">Anlegen</button></div>', () => {
+      $('npC').onclick = closeSheet;
+      $('npOk').onclick = () => {
+        const n = $('npN').value.trim(); if (!n) return $('npN').focus();
+        const p = C.newProject({ name: n, kunde: $('npK').value.trim(), prio: +$('npP').value, due: $('npD').value, next: $('npX').value.trim() }, today());
+        S.projects.push(p); after && after(); commit(); closeSheet(); go('project', { pid: p.id, ptab: 'over' });
+      };
+    });
+  }
+  App.newProjectSheet = newProjectSheet;
+  function projects() {
+    const q = C.normTxt(UI.q), pls = [...new Set(S.projects.map(p => p.wc && p.wc.pl).filter(Boolean))].sort();
+    let L = S.projects.filter(p => {
+      if (UI.show === 'active' && !C.isActive(p)) return false;
+      if (UI.show === 'paused' && (p.status !== 'p' || p.archived)) return false;
+      if (UI.show === 'done' && (p.status !== 'd' || p.archived)) return false;
+      if (UI.show === 'archived' && !p.archived) return false;
+      if (UI.show === 'missing' && !(p.wc && p.wc.missingSince)) return false;
+      if (UI.pl === '__me' ? !(S.me && p.wc && p.wc.pl === S.me) : UI.pl && !(p.wc && p.wc.pl === UI.pl)) return false;
+      if (UI.src === 'wc' && !p.wc) return false; if (UI.src === 'own' && p.wc) return false;
+      if (q && !C.normTxt([p.name, p.kunde, p.nr, p.next, p.notes, p.wc && p.wc.cons, p.wc && p.wc.phase].join(' ')).includes(q)) return false;
+      return true;
+    });
+    const sorts = { sev: (a, b) => sevOrd[projSev(a)] - sevOrd[projSev(b)] || a.prio - b.prio || a.name.localeCompare(b.name), name: (a, b) => a.name.localeCompare(b.name), due: (a, b) => (a.due || '9999').localeCompare(b.due || '9999'), upd: (a, b) => b.updated.localeCompare(a.updated) };
+    L.sort((a, b) => (b.pinned - a.pinned) || (sorts[UI.sort] || sorts.sev)(a, b));
+    const cnt = k => S.projects.filter(p => k === 'missing' ? p.wc && p.wc.missingSince : k === 'archived' ? p.archived : !p.archived && (k === 'active' ? C.isActive(p) : k === 'paused' ? p.status === 'p' : k === 'done' ? p.status === 'd' : true)).length;
+    let h = '<h2>Projekte<span class="sp"></span><button class="sm" id="impBtn">📥 weclapp-Import</button></h2>' +
+      '<div class="panel"><div class="row" style="margin-bottom:8px"><label class="f" style="flex:2"><span>Suche</span><input id="pq" value="' + esc(UI.q) + '" placeholder="Name, Kunde, Auftragsnr., Notizen …"></label>' +
+      '<label class="f"><span>Projektleiter</span><select id="ppl"><option value="">Alle</option>' + (S.me ? '<option value="__me"' + (UI.pl === '__me' ? ' selected' : '') + '>Meine (' + esc(S.me) + ')</option>' : '') + pls.map(n => '<option' + (UI.pl === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></label>' +
+      '<label class="f"><span>Quelle</span><select id="psrc"><option value="">Alle</option><option value="wc"' + (UI.src === 'wc' ? ' selected' : '') + '>aus weclapp</option><option value="own"' + (UI.src === 'own' ? ' selected' : '') + '>eigene</option></select></label>' +
+      '<label class="f"><span>Sortierung</span><select id="psort">' + [['sev', 'Ampel'], ['name', 'Name'], ['due', 'Termin'], ['upd', 'Zuletzt geändert']].map(([k, n]) => '<option value="' + k + '"' + (UI.sort === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label></div>' +
+      '<div class="chips">' + [['active', 'Aktiv'], ['paused', 'Pausiert'], ['done', 'Fertig'], ['missing', 'Nicht mehr in weclapp'], ['archived', 'Archiv'], ['all', 'Alle']].map(([k, n]) => '<button data-sh="' + k + '" class="' + (UI.show === k ? 'on' : '') + '">' + n + ' ' + cnt(k) + '</button>').join('') + '</div></div>';
+    h += L.length ? '<div class="grid">' + L.map(card).join('') + '</div>' : '<div class="empty"><div class="e">📁</div>Keine Projekte in dieser Ansicht.</div>';
+    $('view').innerHTML = h;
+    const qi = $('pq'); qi.oninput = () => { UI.q = qi.value; saveUI(); const p = qi.selectionStart; projects(); const n = $('pq'); n.focus(); n.setSelectionRange(p, p); };
+    $('ppl').onchange = e => { UI.pl = e.target.value; saveUI(); projects(); };
+    $('psrc').onchange = e => { UI.src = e.target.value; saveUI(); projects(); };
+    $('psort').onchange = e => { UI.sort = e.target.value; saveUI(); projects(); };
+    $('impBtn').onclick = () => $('fileImport').click();
+    $('view').querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { UI.show = b.dataset.sh; saveUI(); projects(); });
+    $('view').querySelectorAll('.card').forEach(b => b.onclick = () => go('project', { pid: b.dataset.id, ptab: 'over' }));
+  }
+  function card(p) {
+    const fl = projFlags(p).filter(f => f.s !== 'n'), s = projSev(p), w = p.wc, pr = C.progress(p);
+    const bud = w && w.plan > 0 && w.istab != null ? w.istab / w.plan * 100 : null;
+    return '<button class="card ' + s + '" data-id="' + p.id + '"><div class="h"><b>' + (p.pinned ? '📌 ' : '') + esc(p.name) + '</b>' + statusTag(p) + '</div>' +
+      '<div class="sub">' + [p.nr ? 'Nr. ' + esc(p.nr) : '', w && w.phase ? esc(w.phase) : '', w && w.pl ? 'PL ' + esc(w.pl) : '', p.due ? '🏁 ' + C.fmtD(p.due) : ''].filter(Boolean).join(' · ') + '</div>' +
+      (p.next ? '<div class="nx">➜ ' + esc(p.next) + '</div>' : C.isActive(p) ? '<div class="nx none">Kein nächster Schritt</div>' : '') +
+      (bud != null ? '<div class="meter" title="Budget abrechenbar ' + Math.round(bud) + ' %"><i class="' + (bud > S.settings.budgetR ? 'r' : bud >= S.settings.budgetY ? 'y' : '') + '" style="width:' + Math.min(100, bud) + '%"></i></div>' : pr != null ? '<div class="meter" title="Aufgaben ' + pr + ' %"><i style="width:' + pr + '%"></i></div>' : '') +
+      (fl.length ? '<div class="fl">' + fl.slice(0, 3).map(f => '<span class="tag ' + f.s + '">' + esc(f.t) + '</span>').join('') + (fl.length > 3 ? '<span class="tag">+' + (fl.length - 3) + '</span>' : '') + '</div>' : '') + '</button>';
+  }
+
+  // ---------- Projekt-Detail ----------
+  function project() {
+    const p = byId(UI.pid); if (!p) return go('projects');
+    const T = [['over', 'Überblick'], ['tasks', 'Aufgaben (' + p.tasks.filter(t => !t.done).length + ')'], ['est', 'Schätzungen (' + S.estimates.filter(e => e.pid === p.id).length + ')'], ['risks', 'Risiken (' + p.risks.length + ')'], ['log', 'Notizen & Verlauf']];
+    $('view').innerHTML = '<div class="bar"><button class="sm" id="pBack">‹ Projekte</button></div><h2>' + esc(p.name) + ' ' + statusTag(p) + '<span class="sp"></span><button class="sm" id="pPin">' + (p.pinned ? '📌 Angeheftet' : '📌 Anheften') + '</button></h2>' +
+      '<div class="tabs">' + T.map(([k, n]) => '<button data-pt="' + k + '" class="' + (UI.ptab === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div><div id="pBody"></div>';
+    $('pBack').onclick = () => go('projects');
+    $('pPin').onclick = () => { p.pinned = !p.pinned; touch(p); project(); };
+    $('view').querySelectorAll('[data-pt]').forEach(b => b.onclick = () => { UI.ptab = b.dataset.pt; saveUI(); project(); });
+    ({ over: pOver, tasks: pTasks, est: pEst, risks: pRisks, log: pLog })[UI.ptab in { over: 1, tasks: 1, est: 1, risks: 1, log: 1 } ? UI.ptab : 'over'](p);
+  }
+  function pOver(p) {
+    const fl = projFlags(p), w = p.wc;
+    let h = '<div class="cols"><div><div class="panel"><h3>Stammdaten</h3><div class="row"><label class="f" style="flex:2"><span>Name</span><input id="oN" value="' + esc(p.name) + '"></label><label class="f"><span>Kunde</span><input id="oK" value="' + esc(p.kunde) + '"></label></div>' +
+      '<div class="f" style="margin-bottom:10px"><span>Status</span><div class="chips" id="oS">' + Object.entries(C.STATUS).map(([k, v]) => '<button data-k="' + k + '" class="' + (p.status === k ? 'on' : '') + '">' + v.ic + ' ' + v.n + '</button>').join('') + '</div></div>' +
+      '<div class="row"><label class="f"><span>Priorität</span><select id="oP">' + [[1, '★★★ Hoch'], [2, '★★ Mittel'], [3, '★ Niedrig']].map(([k, n]) => '<option value="' + k + '"' + (p.prio === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label><label class="f"><span>Mein Termin</span><input type="date" id="oD" value="' + esc(p.due) + '"></label></div>' +
+      '<label class="f"><span>➜ Nächster Schritt</span><input id="oX" value="' + esc(p.next) + '" placeholder="Was ist der nächste konkrete Schritt?"></label></div>' +
+      (fl.length ? '<div class="panel"><h3>Hinweise</h3>' + fl.map(f => '<div class="note ' + (f.s === 'n' ? '' : f.s) + '" style="margin-bottom:6px;padding:7px 10px">' + esc(f.t) + '</div>').join('') + '</div>' : '<div class="note g">✅ Keine Auffälligkeiten.</div>') + '</div><div>';
+    if (w) {
+      const ap = w.plan > 0 && w.istab != null ? w.istab / w.plan * 100 : null, gp = w.plan > 0 && w.ist != null ? w.ist / w.plan * 100 : null;
+      const tp = w.start && w.ende && w.ende > w.start ? Math.max(0, Math.min(100, C.daysBetween(w.start, today()) / C.daysBetween(w.start, w.ende) * 100)) : null;
+      const A = C.parseAkt(w.akt, today());
+      h += '<div class="panel"><h3>🔗 weclapp<span class="sp"></span><span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">Stand ' + fdt(w.importedAt) + '</span></h3>' +
+        (w.missingSince ? '<div class="note y">Seit ' + C.fmtD(w.missingSince) + ' nicht mehr im Export. Abgeschlossen? Dann auf „Fertig“ setzen oder archivieren.</div>' : '') +
+        '<div class="kv"><span>Auftrag</span><b>' + esc(w.nr || p.nr) + '</b><span>Kunde</span><div>' + esc(w.kunde) + '</div><span>Kommission</span><div>' + esc(w.kom) + '</div><span>Typ / Phase</span><div>' + esc([w.typ, w.phase].filter(Boolean).join(' · ')) + '</div>' +
+        '<span>PL / Consultant</span><div>' + esc(w.pl || '–') + ' / ' + esc(w.cons || '–') + '</div><span>Status</span><div>' + esc(w.status || '–') + '</div>' + (w.golive ? '<span>GoLive</span><div>' + esc(w.golive) + '</div>' : '') + '</div>' +
+        (w.plan ? '<div style="margin-top:10px;font-size:13px">Budget <b>' + f1(w.plan) + ' h</b> · abrechenbar gebucht ' + f1(w.istab) + ' h' + (ap != null ? ' (' + Math.round(ap) + ' %)' : '') + ' · gesamt ' + f1(w.ist) + ' h' + (gp != null ? ' (' + Math.round(gp) + ' %)' : '') + '</div><div class="meter"><i class="' + (ap > S.settings.budgetR ? 'r' : ap >= S.settings.budgetY ? 'y' : '') + '" style="width:' + Math.min(100, ap || 0) + '%"></i></div>' : '') +
+        (tp != null ? '<div style="margin-top:8px;font-size:13px">Laufzeit ' + C.fmtD(w.start) + ' – ' + C.fmtD(w.ende) + ' · ' + Math.round(tp) + ' % vergangen</div><div class="meter"><i style="width:' + tp + '%;background:var(--acc)"></i></div>' : '') +
+        '<h3 style="margin-top:14px">Aktuelles (aus weclapp)</h3>' + (A.ent.length || A.notes.length ? '<div class="list">' + A.ent.slice(0, 6).map(e => '<div class="it"><div class="t">' + esc(e.t || '(nur Datum)') + '<small>' + C.fmtD(e.d) + '</small></div></div>').join('') + A.notes.slice(0, 3).map(n => '<div class="it"><div class="t muted">' + esc(n) + '</div></div>').join('') + '</div>' : '<div class="help">Leer.</div>') +
+        '<label class="f" style="margin-top:10px"><span>Neuer Eintrag für weclapp „Aktuelles“</span><input id="akIn" placeholder="z. B. Abnahmetermin mit Kunde vereinbart"></label><div class="bar" style="margin:8px 0 0"><button class="sm pri" id="akCp">📋 Kopieren (mit Datum) und im Verlauf notieren</button></div></div>';
+    } else h += '<div class="panel"><h3>🔗 weclapp</h3><div class="help">Eigenes Projekt, nicht aus weclapp. Beim Import wird es nie verändert.</div></div>';
+    h += '<div class="panel"><h3>Verwalten</h3><div class="bar" style="margin:0"><button class="sm" id="oArc">' + (p.archived ? '📤 Aus Archiv holen' : '🗄 Archivieren') + '</button><button class="sm" id="oEst">🧮 Neue Schätzung</button><button class="sm" id="oDel" style="color:var(--r)">🗑 Löschen</button></div></div></div></div>';
+    $('pBody').innerHTML = h;
+    const bind = (id, k, num) => $(id).onchange = $(id).oninput = e => { p[k] = num ? +e.target.value : e.target.value; touch(p); };
+    bind('oN', 'name'); bind('oK', 'kunde'); bind('oP', 'prio', true); bind('oD', 'due'); bind('oX', 'next');
+    $('oN').onblur = () => { if (!p.name.trim()) { p.name = p.nr || 'Ohne Namen'; touch(p); } project(); };
+    $('oS').querySelectorAll('button').forEach(b => b.onclick = () => { if (p.status === b.dataset.k) return; log(p, 'Status: ' + C.STATUS[b.dataset.k].n); p.status = b.dataset.k; touch(p); project(); if (p.status === 'd') toast('🎉 Projekt abgeschlossen'); });
+    if ($('akCp')) $('akCp').onclick = () => { const t = $('akIn').value.trim(); if (!t) return $('akIn').focus(); const line = C.fmtD(today()) + ': ' + t; copyText(line, '📋 „' + line + '“ kopiert – jetzt in weclapp einfügen'); log(p, 'Aktuelles: ' + t); touch(p); $('akIn').value = ''; };
+    $('oArc').onclick = () => { p.archived = !p.archived; log(p, p.archived ? 'Archiviert' : 'Aus Archiv geholt'); touch(p); project(); };
+    $('oEst').onclick = () => App.newEstimate(p.id);
+    $('oDel').onclick = async () => {
+      if (!confirm('Projekt „' + p.name + '“ löschen? Zugeordnete Schätzungen bleiben erhalten (ohne Projekt).')) return;
+      await App.snapshot('vor Löschen', 'Vor Löschen: ' + p.name);
+      const idx = S.projects.indexOf(p), est = S.estimates.filter(e => e.pid === p.id);
+      S.projects.splice(idx, 1); est.forEach(e => e.pid = ''); commit(); go('projects');
+      toast('🗑 „' + p.name + '“ gelöscht', 'Rückgängig', () => { S.projects.splice(idx, 0, p); est.forEach(e => e.pid = p.id); commit(); go('project', { pid: p.id }); });
+    };
+  }
+  function pTasks(p) {
+    const open = p.tasks.filter(t => !t.done).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999')), done = p.tasks.filter(t => t.done);
+    const row = t => '<div class="it ' + (t.done ? 'done' : '') + '"><button class="ck ' + (t.done ? 'on' : '') + '" data-tc="' + t.id + '">' + (t.done ? '✓' : '') + '</button><div class="t">' + esc(t.t) + '<small>' + [t.due ? (t.done ? '' : t.due < today() ? '⏰ überfällig · ' : '') + C.fmtD(t.due) : '', t.who ? '👤 ' + esc(t.who) : ''].filter(Boolean).join(' · ') + '</small></div><button class="x" data-te="' + t.id + '" aria-label="Bearbeiten">✏️</button><button class="x" data-tx="' + t.id + '" aria-label="Löschen">✕</button></div>';
+    $('pBody').innerHTML = '<div class="panel"><div class="row"><label class="f" style="flex:3"><span>Neue Aufgabe</span><input id="tN" placeholder="Was ist zu tun? (Enter)"></label><label class="f"><span>Fällig</span><input type="date" id="tD"></label><label class="f"><span>Wer</span><input id="tW" placeholder="optional"></label><button class="btn" id="tAdd">＋</button></div>' +
+      '<div class="list">' + (open.length ? open.map(row).join('') : '<div class="help">Keine offenen Aufgaben.</div>') + '</div>' + (done.length ? '<details style="margin-top:10px"><summary>Erledigt (' + done.length + ')</summary><div class="list">' + done.map(row).join('') + '</div></details>' : '') + '</div>';
+    const add = () => { const t = $('tN').value.trim(); if (!t) return $('tN').focus(); p.tasks.push({ id: C.uid(), t, due: $('tD').value, done: false, who: $('tW').value.trim() }); touch(p); project(); $('tN').focus(); };
+    $('tAdd').onclick = add; $('tN').onkeydown = e => { if (e.key === 'Enter') add(); };
+    $('pBody').querySelectorAll('[data-tc]').forEach(b => b.onclick = () => { const t = p.tasks.find(x => x.id === b.dataset.tc); t.done = !t.done; if (t.done) log(p, '✔ ' + t.t); touch(p); project(); });
+    $('pBody').querySelectorAll('[data-tx]').forEach(b => b.onclick = () => { const i = p.tasks.findIndex(x => x.id === b.dataset.tx), t = p.tasks[i]; p.tasks.splice(i, 1); touch(p); project(); toast('Aufgabe gelöscht', 'Rückgängig', () => { p.tasks.splice(i, 0, t); touch(p); project(); }); });
+    $('pBody').querySelectorAll('[data-te]').forEach(b => b.onclick = () => {
+      const t = p.tasks.find(x => x.id === b.dataset.te);
+      sheet('<h4>Aufgabe bearbeiten</h4><label class="f"><span>Aufgabe</span><input id="teN" value="' + esc(t.t) + '" autofocus></label><div class="row" style="margin-top:10px"><label class="f"><span>Fällig</span><input type="date" id="teD" value="' + esc(t.due) + '"></label><label class="f"><span>Wer</span><input id="teW" value="' + esc(t.who) + '"></label></div><div class="acts"><button class="btn sec" id="teC">Abbrechen</button><button class="btn" id="teOk">Speichern</button></div>', () => {
+        $('teC').onclick = closeSheet; $('teOk').onclick = () => { t.t = $('teN').value.trim() || t.t; t.due = $('teD').value; t.who = $('teW').value.trim(); touch(p); closeSheet(); project(); };
+      });
+    });
+  }
+  function pEst(p) {
+    const L = S.estimates.filter(e => e.pid === p.id).sort((a, b) => b.updated - a.updated);
+    $('pBody').innerHTML = '<div class="panel"><div class="bar"><button class="btn" id="eNew">＋ Neue Schätzung</button></div>' + (L.length ? '<div class="list">' + L.map(e => { const r = C.calcEstimate(e); return '<div class="it" data-e="' + e.id + '" style="cursor:pointer"><div class="t"><b>' + esc(e.title) + '</b><small>' + C.EST_STATUS[e.status] + ' · ' + C.fmtD(e.date) + ' · ' + e.tasks.length + ' Aufgaben</small></div><b>' + f1(r.total) + ' ' + esc(e.unit) + '</b></div>'; }).join('') + '</div>' : '<div class="help">Noch keine Schätzung für dieses Projekt.</div>') + '</div>';
+    $('eNew').onclick = () => App.newEstimate(p.id);
+    $('pBody').querySelectorAll('[data-e]').forEach(el => el.onclick = () => go('estimate', { eid: el.dataset.e, back: { view: 'project', pid: p.id, ptab: 'est' } }));
+  }
+  const rcol = s => s >= 15 ? 'var(--r)' : s >= 8 ? 'var(--y)' : 'var(--g)';
+  function pRisks(p) {
+    let w = 3, a = 3;
+    const heat = () => { let h = '<div class="heat">'; for (let y = 5; y >= 1; y--) { h += '<div class="ax">' + y + '</div>'; for (let x = 1; x <= 5; x++) { const n = p.risks.filter(r => r.w === y && r.a === x).length; h += '<div style="background:' + rcol(x * y) + ';opacity:' + (n ? 1 : .25) + ';color:#fff">' + (n || '') + '</div>'; } } return h + '<div></div>' + [1, 2, 3, 4, 5].map(x => '<div class="ax">' + x + '</div>').join('') + '</div><div class="help" style="margin-top:4px">↑ Wahrscheinlichkeit · Auswirkung →</div>'; };
+    const seg = (id, get, set) => { $(id).innerHTML = [1, 2, 3, 4, 5].map(i => '<button data-i="' + i + '" class="' + (get() === i ? 'on' : '') + '">' + i + '</button>').join(''); $(id).querySelectorAll('button').forEach(b => b.onclick = () => { set(+b.dataset.i); seg(id, get, set); }); };
+    $('pBody').innerHTML = '<div class="cols"><div class="panel"><h3>Risiken (Score = W × A)</h3><div class="list">' + (p.risks.length ? p.risks.slice().sort((x, y) => y.w * y.a - x.w * x.a).map(r => '<div class="it"><span class="tag" style="background:' + rcol(r.w * r.a) + ';color:#fff;border:0">' + r.w * r.a + '</span><div class="t">' + esc(r.n) + '<small>W' + r.w + ' · A' + r.a + (r.m ? ' · Maßnahme: ' + esc(r.m) : '') + '</small></div><button class="x" data-rx="' + r.id + '">✕</button></div>').join('') : '<div class="help">Noch keine Risiken erfasst.</div>') + '</div></div>' +
+      '<div><div class="panel"><h3>Matrix</h3>' + heat() + '</div><div class="panel"><h3>Neues Risiko</h3><label class="f"><span>Was kann schiefgehen?</span><input id="rN"></label><div class="f" style="margin:8px 0"><span>Wahrscheinlichkeit</span><div class="chips" id="rW"></div></div><div class="f" style="margin-bottom:8px"><span>Auswirkung</span><div class="chips" id="rA"></div></div><label class="f"><span>Gegenmaßnahme</span><input id="rM"></label><button class="btn wide" id="rAdd" style="margin-top:10px">＋ Risiko</button></div></div></div>';
+    seg('rW', () => w, v => w = v); seg('rA', () => a, v => a = v);
+    $('rAdd').onclick = () => { const n = $('rN').value.trim(); if (!n) return $('rN').focus(); p.risks.push({ id: C.uid(), n, w, a, m: $('rM').value.trim() }); touch(p); project(); };
+    $('pBody').querySelectorAll('[data-rx]').forEach(b => b.onclick = () => { p.risks = p.risks.filter(r => r.id !== b.dataset.rx); touch(p); project(); });
+  }
+  function pLog(p) {
+    $('pBody').innerHTML = '<div class="cols"><div class="panel"><h3>Notizen</h3><textarea id="lgN" rows="10" placeholder="Kontext, Entscheidungen, Ansprechpartner, Links …">' + esc(p.notes) + '</textarea></div>' +
+      '<div class="panel"><h3>Verlauf</h3><div class="row"><input id="lgIn" placeholder="Kurzes Update festhalten (Enter)"></div><div class="list">' + p.log.slice().reverse().slice(0, 60).map(l => '<div class="it"><div class="t">' + esc(l.t) + '<small>' + C.fmtD(l.d) + (l.src === 'weclapp' ? ' · weclapp-Import' : '') + '</small></div></div>').join('') + '</div></div></div>';
+    $('lgN').oninput = e => { p.notes = e.target.value; touch(p); };
+    $('lgIn').onkeydown = e => { if (e.key === 'Enter' && e.target.value.trim()) { log(p, e.target.value.trim()); touch(p); project(); $('lgIn').focus(); } };
+  }
+
+  // ---------- Start ----------
+  async function boot() {
+    await ST.init();
+    const r = await ST.load();
+    S = C.normalize(r.state || C.empty());
+    try { const snaps = await ST.snapshots(); const a = snaps.filter(x => x.kind === 'auto')[0]; lastAuto = a ? a.at : 0; } catch (e) {}
+    if (!ST.status.idb) banner('y', '⚠️ Der Browser stellt keine Datenbank (IndexedDB) bereit. Gespeichert wird nur im kleineren Zwischenspeicher. Bitte regelmäßig Backups machen.');
+    App.ready = true;
+    render();
+  }
+  App.boot = boot;
+  App.setState = s => { S = s; };
+})();
