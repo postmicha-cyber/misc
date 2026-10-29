@@ -9,7 +9,7 @@
   const blank = () => ({ token: '', gist: '', pass: '', apps: {} });
   let S = blank();
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(SK) || '{}')); } catch (e) {}
-  let cfg = null, busy = false, applying = false, timer = null, status = { k: 'off', t: 0, msg: '' }, panel = null;
+  let cfg = null, busy = false, applying = false, timer = null, status = { k: 'off', t: 0, msg: '' }, panel = null, passAsked = false;
   const persist = () => { try { localStorage.setItem(SK, JSON.stringify(S)); } catch (e) {} };
   const app = () => (S.apps[cfg.name] = S.apps[cfg.name] || { ts: 0, synced: 0 });
   const connected = () => !!(S.token && S.gist);
@@ -88,7 +88,8 @@
       } else await push(Math.max(a.ts, Date.now()));
       setStatus('ok');
     } catch (e) {
-      setStatus('err', e.message === 'AUTH' ? 'Zugang abgelehnt. Token prüfen.' : e.message === 'PASS' ? 'Passwort falsch oder fehlt.' : navigator.onLine === false ? 'Offline. Wird später gesendet.' : 'Fehler: ' + e.message);
+      setStatus('err', e.message === 'AUTH' ? 'Zugang abgelehnt. Token prüfen.' : e.message === 'PASS' ? 'Die Cloud-Daten sind mit einem App-Passwort verschlüsselt, das hier fehlt oder nicht passt.' : navigator.onLine === false ? 'Offline. Wird später gesendet.' : 'Fehler: ' + e.message);
+      if (e.message === 'PASS' && (manual || !passAsked)) { passAsked = true; setTimeout(askPass, 0); }
     } finally { busy = false; }
   }
   function changed() {
@@ -118,6 +119,42 @@
       o.querySelector('#c1').onclick = () => { o.remove(); res('cloud'); }; o.querySelector('#c2').onclick = () => { o.remove(); res('local'); };
     });
   }
+  // Verschlüsselte Cloud-Daten: Passwort eingeben oder verschlüsselte Dateien verwerfen
+  function askPass() {
+    if (document.getElementById('as-pass')) return;
+    const o = overlay('<button class="as-x" id="cl">✕</button><h3 id="as-pass">🔒 App-Passwort nötig</h3><p>In deinem Sync-Gist liegen Daten, die mit einem <b>App-Passwort</b> verschlüsselt wurden, vermutlich bei einer früheren Einrichtung. Das ist <b>nicht</b> dein GitHub-Passwort.</p>' +
+      '<h4>Passwort bekannt?</h4><input class="as-in" id="pw" type="password" placeholder="App-Passwort" autocomplete="current-password"><button class="as-b" id="ok">Entsperren</button>' +
+      '<h4>Passwort unbekannt?</h4><p>Dann die verschlüsselten Cloud-Dateien verwerfen und neu anfangen. Die Daten auf diesem Gerät bleiben erhalten und werden danach hochgeladen.</p><button class="as-b r" id="wipe">Verschlüsselte Cloud-Daten verwerfen</button><div class="as-st err" id="er" style="display:none"></div>');
+    const q = id => o.querySelector('#' + id); q('cl').onclick = () => o.remove();
+    q('ok').onclick = async () => { const v = q('pw').value; if (!v) { q('pw').focus(); return; } S.pass = v; persist(); o.remove(); await sync(true); };
+    q('wipe').onclick = async () => {
+      if (!confirm('Alle verschlüsselten Dateien im Sync-Gist löschen? Das betrifft alle Apps, die mit diesem Passwort gespeichert haben.')) return;
+      q('wipe').textContent = 'Lösche …';
+      try { await wipeEncrypted(); S.pass = ''; persist(); o.remove(); await sync(true); }
+      catch (e) { q('wipe').textContent = 'Verschlüsselte Cloud-Daten verwerfen'; q('er').style.display = 'block'; q('er').textContent = 'Fehler: ' + e.message; }
+    };
+  }
+  async function wipeEncrypted() {
+    const g = await gh('/gists/' + S.gist), files = {};
+    Object.entries(g.files || {}).forEach(([n, f]) => { if (/\.json$/.test(n) && (f.truncated || /"enc"\s*:\s*1/.test(f.content || ''))) files[n] = null; });
+    if (Object.keys(files).length) await gh('/gists/' + S.gist, 'PATCH', { files });
+    // Alle Apps auf diesem Gerät gelten danach als „noch nicht hochgeladen“
+    Object.values(S.apps).forEach(a => { a.synced = 0; if (!a.ts) a.ts = Date.now(); });
+  }
+  // Sync-Link: verbindet ein weiteres Gerät mit einem Antippen (alle Apps dieser Seite teilen die Einstellung)
+  const syncCode = () => 'AS1:' + btoa(JSON.stringify({ t: S.token, g: S.gist, p: S.pass }));
+  const syncLink = () => location.href.replace(/[#?].*$/, '').replace(/[^/]*$/, 'index.html') + '#sync=' + encodeURIComponent(syncCode());
+  function joinFromHash() {
+    const m = location.hash.match(/^#sync=(.+)$/); if (!m) return;
+    history.replaceState(null, '', location.href.replace(/#.*$/, ''));
+    try {
+      const c = JSON.parse(atob(decodeURIComponent(m[1]).replace(/^AS1:/, ''))); if (!c.t || !c.g) throw 0;
+      S.token = c.t; S.gist = c.g; S.pass = c.p || ''; persist();
+      const o = overlay('<h3>✅ Sync eingerichtet</h3><p>Dieses Gerät ist jetzt verbunden. Jede App gleicht beim Öffnen automatisch mit der Cloud ab.</p><button class="as-b" id="ok">Super</button>');
+      o.querySelector('#ok').onclick = () => o.remove();
+      if (cfg) sync(true);
+    } catch (e) { alert('Der Sync-Link ist ungültig oder unvollständig.'); }
+  }
   const ago = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'gerade eben' : m < 60 ? 'vor ' + m + ' Min.' : m < 1440 ? 'vor ' + Math.round(m / 60) + ' Std.' : 'vor ' + Math.round(m / 1440) + ' Tagen'; };
 
   function statusHTML() {
@@ -134,7 +171,7 @@
     if (!cfg) return;
     const on = connected();
     panel = overlay('<button class="as-x" id="as-cl">✕</button><h3>☁️ Sync &amp; Backup</h3><div id="as-status">' + statusHTML() + '</div>' +
-      (on ? '<button class="as-b" id="as-now">🔄 Jetzt synchronisieren</button><button class="as-b s" id="as-code">🔑 Sync-Code für anderes Gerät kopieren</button><button class="as-b r" id="as-off">Cloud-Sync auf diesem Gerät trennen</button>' :
+      (on ? '<button class="as-b" id="as-now">🔄 Jetzt synchronisieren</button><button class="as-b s" id="as-link">📲 Sync-Link für weitere Geräte</button><button class="as-b s" id="as-code">🔑 Sync-Code kopieren</button><button class="as-b r" id="as-off">Cloud-Sync auf diesem Gerät trennen</button>' :
         '<p>Gleicht deine Daten automatisch zwischen iPhone und iPad ab. Sie liegen dabei in einem <b>privaten GitHub-Gist</b> in deinem Account, optional verschlüsselt.</p><button class="as-b" id="as-setup">☁️ Cloud-Sync einrichten</button><button class="as-b s" id="as-join">🔑 Sync-Code von anderem Gerät einfügen</button>') +
       '<h4>Datei-Backup</h4><p>Speichert eine Sicherungsdatei, z. B. über „In Dateien sichern“ in <b>iCloud Drive</b>. So kannst du sie auch auf dem iPad laden.</p><button class="as-b s" id="as-save">📁 Backup-Datei sichern</button><button class="as-b s" id="as-load">📂 Aus Datei wiederherstellen</button><div class="as-s" id="as-msg" style="margin-top:8px"></div>');
     const q = id => panel.querySelector('#' + id), msg = t => { q('as-msg').textContent = t; };
@@ -142,7 +179,12 @@
     q('as-cl').onclick = close; panel.onclick = e => { if (e.target === panel) close(); };
     if (on) {
       q('as-now').onclick = () => sync(true);
-      q('as-code').onclick = () => { const code = 'AS1:' + btoa(JSON.stringify({ t: S.token, g: S.gist, p: S.pass })); (navigator.clipboard ? navigator.clipboard.writeText(code) : Promise.reject()).then(() => msg('Sync-Code kopiert. Auf dem anderen Gerät: „Sync-Code einfügen“. Enthält Zugangsdaten, nicht weitergeben.')).catch(() => { prompt('Sync-Code kopieren:', code); }); };
+      q('as-link').onclick = async () => {
+        const url = syncLink();
+        if (navigator.share) { try { await navigator.share({ title: 'Arcade Sync', text: 'Diesen Link auf dem anderen Gerät öffnen:', url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+        try { await navigator.clipboard.writeText(url); msg('Sync-Link kopiert. Auf dem anderen Gerät im Browser öffnen, fertig. Der Link enthält deinen Zugang, also nur dir selbst schicken.'); } catch (e) { prompt('Sync-Link kopieren:', url); }
+      };
+      q('as-code').onclick = () => { const code = syncCode(); (navigator.clipboard ? navigator.clipboard.writeText(code) : Promise.reject()).then(() => msg('Sync-Code kopiert. Auf dem anderen Gerät: „Sync-Code einfügen“. Enthält Zugangsdaten, nicht weitergeben.')).catch(() => { prompt('Sync-Code kopieren:', code); }); };
       q('as-off').onclick = () => { if (confirm('Cloud-Sync trennen? Die Daten bleiben auf diesem Gerät und in der Cloud erhalten.')) { S.token = S.gist = S.pass = ''; S.apps = {}; persist(); setStatus('off'); close(); } };
     } else {
       q('as-setup').onclick = () => { close(); setupSheet(); };
@@ -154,8 +196,8 @@
   function setupSheet() {
     const o = overlay('<button class="as-x" id="cl">✕</button><h3>☁️ Cloud-Sync einrichten</h3><p><b>1.</b> Erstelle bei GitHub ein Zugangs-Token. Es braucht nur die Berechtigung „gist“.</p>' +
       '<a class="as-b s" target="_blank" rel="noopener" href="https://github.com/settings/tokens/new?scopes=gist&description=Arcade%20Sync">GitHub öffnen und Token erstellen</a>' +
-      '<p style="margin-top:10px"><b>2.</b> Kopiere das Token (beginnt mit „ghp_“) und füge es hier ein:</p><input class="as-in" id="tk" placeholder="ghp_…" autocapitalize="off" autocorrect="off" spellcheck="false">' +
-      '<p><b>3.</b> Optional: Passwort zur Verschlüsselung (empfohlen). Merke es dir, es ist <b>nicht wiederherstellbar</b>.</p><input class="as-in" id="pw" type="password" placeholder="Passwort (optional)" autocomplete="new-password">' +
+      '<p class="as-s">Auf GitHub: Name egal, Ablauf z. B. „No expiration“, nur Haken bei „gist“, ganz unten „Generate token“.</p><p style="margin-top:10px"><b>2.</b> Kopiere das Token (beginnt mit „ghp_“) und füge es hier ein:</p><input class="as-in" id="tk" placeholder="ghp_…" autocapitalize="off" autocorrect="off" spellcheck="false">' +
+      '<p><b>3.</b> Optional: ein eigenes <b>App-Passwort</b>, mit dem die Daten verschlüsselt werden. Das ist <b>nicht</b> dein GitHub-Passwort. Für Tests einfach leer lassen. Wenn du eins setzt: merken, es ist nicht wiederherstellbar.</p><input class="as-in" id="pw" type="password" placeholder="leer lassen = ohne Verschlüsselung" autocomplete="new-password">' +
       '<div class="as-st" id="er" style="display:none"></div><button class="as-b" id="go">Verbinden</button>');
     const q = id => o.querySelector('#' + id); q('cl').onclick = () => o.remove();
     q('go').onclick = async () => {
@@ -208,4 +250,6 @@
     _S: () => S
   };
   window.AppSync = AppSync;
+  // Startseite ohne App: Sync-Link trotzdem annehmen
+  if (location.hash.startsWith('#sync=')) { if (document.body) joinFromHash(); else document.addEventListener('DOMContentLoaded', joinFromHash); }
 })();
