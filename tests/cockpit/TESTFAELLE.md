@@ -39,11 +39,20 @@ Neue Funktionen bekommen einen neuen Testfall. Ein gefundener Fehler bekommt zue
 | U40 | Hinweise: Budget, Projektende, überfällige Aufgaben, „Aktuelles“ leer/alt | Ampel-Logik |
 | U41 | Abrechenbar über Budget ist rot | Ampel-Logik |
 | U42 | „Aktuelles“ mit verschiedenen Datumsschreibweisen | weclapp-Freitext |
+| U43 | Ampel ignoriert weclapp-Laufzeit, „Aktuelles“ und fehlenden nächsten Schritt (nur Hinweise) | Ampel nur für Budget und eigene Termine |
+| U44 | Ampel: Budget, eigene Aufgaben (überfällig = rot, bald fällig = gelb), eigener Termin, selbst gesetzter Status | Ampel-Regeln |
+| U45 | Restbudget absolut und relativ, Summen über alle Projekte | Budget auf einen Blick |
+| U46 | Kürzel: 1. Buchstabe Vorname + 2 Buchstaben Nachname (MAL), auch „Nachname, Vorname“ | Bubbles für PL/Consultant |
+| U47 | weclapp-Link zur Suche nach der Auftragsnummer | Projekt in weclapp öffnen |
+| U48 | „Aktuelles“: Datums-Präfix automatisch, Schreibweise (#) übernommen, neuer Eintrag oben, wieder lesbar | Aktuelles fortschreiben |
 | U50 | PERT mit Zuschlägen in % und fest | Rechenrichtigkeit |
 | U51 | Unplausible und leere Werte | Keine NaN-Ergebnisse |
 | U52 | Umrechnung Stunden/Tage/Wochen | Wiederverwendung über Einheiten |
 | U53 | Schätzung duplizieren mit stimmigen Story-Verknüpfungen | Vorlagen/Kopien |
 | U54 | Ähnliche frühere Aufgabe wird gefunden | Wiederverwendung |
+| U55 | Kundenvariante: Aufgaben + Zuschläge + Puffer ergeben genau den 85-%-Wert, ohne O/M/P | Kundenexport stimmig |
+| U56 | Bibliothek merkt Aufgaben und Stories automatisch; bewusst gespeicherte werden nicht überschrieben | Wiederverwendung ohne Klick |
+| U57 | Neue Felder (Aktuelles-Entwurf, weclapp-Adresse) überstehen Backup und Reparatur | Abwärtskompatibilität |
 | U60 | Übernahme aus Projekt-Radar und PM-Rechner, mehrfach ohne Doppelte | Umstieg |
 | U70 | Interne Versionen: Takt und Begrenzung | Speicherplatz, Wiederherstellbarkeit |
 
@@ -64,6 +73,11 @@ Neue Funktionen bekommen einen neuen Testfall. Ein gefundener Fehler bekommt zue
 | E11 | Handy-Ansicht: Navigation unten, Import und Projekt bedienbar |
 | E12 | Excel-Import (xlsx) im Browser |
 | E13 | Komplett lokal als Datei geöffnet (`file://`): Import, Speichern, Neuladen |
+| E14 | Projekte: Filter nach Consultant, Kürzel-Bubbles, Restbudget und weclapp-Link auf der Karte |
+| E15 | Cockpit: Budget aller Projekte; Rot/Gelb-Kacheln filtern und lassen sich zurücksetzen; weclapp-Projektende färbt nicht |
+| E16 | Schätzungen-Übersicht: Öffnen, Export als Kundenvariante (ohne O/M/P, mit Puffer und Gesamt = 85 %), Löschen mit Rückgängig |
+| E17 | Aufgaben: Vorschlagsliste übernimmt Werte, neue Aufgaben landen automatisch in der Bibliothek, Tab öffnet Story-Auswahl mit erster Story |
+| E18 | „Aktuelles“ fortschreiben: Präfix automatisch, Entwurf übersteht Neuladen, ganzes Feld in die Zwischenablage, Link in weclapp |
 
 ## Manuelle Prüfung vor dem Einsatz mit echten Daten (einmalig, ca. 10 Minuten)
 

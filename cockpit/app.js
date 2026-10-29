@@ -12,7 +12,7 @@
 
   // ---------- Zustand ----------
   let S = C.empty();
-  const UI = Object.assign({ view: 'home', pid: null, ptab: 'over', eid: null, back: null, q: '', show: 'active', pl: '', src: '', sort: 'sev', theme: '' }, (() => { try { return JSON.parse(localStorage.getItem(UI_KEY) || '{}'); } catch (e) { return {}; } })());
+  const UI = Object.assign({ view: 'home', pid: null, ptab: 'over', eid: null, back: null, q: '', show: 'active', pl: '', cons: '', src: '', sort: 'sev', theme: '', homeSev: '' }, (() => { try { return JSON.parse(localStorage.getItem(UI_KEY) || '{}'); } catch (e) { return {}; } })());
   App.S = () => S; App.UI = UI;
   const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} };
   let saveT = null, dirty = false, lastAuto = 0, savingFail = false;
@@ -64,6 +64,15 @@
   const sevOrd = { r: 0, y: 1, g: 2 };
   const projSev = p => p.archived ? 'a' : (p.status === 'p' || p.status === 'd') ? p.status : C.severity(projFlags(p));
   App.projSev = projSev;
+  const AVC = ['#4257e8', '#c2410c', '#0f766e', '#7c3aed', '#be185d', '#15803d', '#b45309', '#0369a1'];
+  const avColor = n => { let h = 0; for (const c of String(n)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return AVC[h % AVC.length]; };
+  // Kürzel-Bubble: PL gefüllt, Consultant umrandet
+  const avatar = (name, role) => name ? '<span class="av' + (role === 'cons' ? ' o' : '') + '" style="--c:' + avColor(name) + '" title="' + (role === 'cons' ? 'Consultant' : 'Projektleiter') + ': ' + esc(name) + '">' + esc(C.initials(name)) + '</span>' : '';
+  const people = p => p.wc ? '<span class="avs">' + avatar(p.wc.pl, 'pl') + (p.wc.cons && p.wc.cons !== p.wc.pl ? avatar(p.wc.cons, 'cons') : '') + '</span>' : '';
+  const bCls = pct => pct > S.settings.budgetR ? 'r' : pct >= S.settings.budgetY ? 'y' : '';
+  const budgetLine = b => '<div class="bl"><span>Rest <b class="' + bCls(b.pct) + '">' + f1(b.rest) + ' h</b> · ' + f0(b.restPct) + ' %</span><span class="muted">' + f1(b.used) + ' / ' + f1(b.plan) + ' h</span></div><div class="meter"><i class="' + bCls(b.pct) + '" style="width:' + Math.min(100, Math.max(0, b.pct)) + '%"></i></div>';
+  const wcLink = p => { const u = C.weclappLink(S.settings.weclappUrl, p.nr || (p.wc && p.wc.nr)); return u ? '<a class="wl" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" title="In weclapp öffnen">↗ weclapp</a>' : ''; };
+  Object.assign(App, { avatar, people, budgetLine });
   const statusTag = p => '<span class="tag">' + C.STATUS[p.status].ic + ' ' + C.STATUS[p.status].n + '</span>';
 
   // ---------- Navigation ----------
@@ -96,30 +105,44 @@
 
   // ---------- Cockpit ----------
   function home() {
-    const act = S.projects.filter(C.isActive), F = C.focusItems(S, today());
+    if (!S.projects.length) return firstRun();
+    const act = S.projects.filter(C.isActive), F = C.focusItems(S, today()), hs = UI.homeSev;
     const sev = act.map(p => ({ p, f: projFlags(p), s: projSev(p) }));
     const red = sev.filter(x => x.s === 'r'), yel = sev.filter(x => x.s === 'y');
+    // Kachel-Filter Rot/Gelb wirkt auf alle Listen im Cockpit
+    const inSel = p => !hs || projSev(p) === hs, selP = act.filter(inSel);
+    const fod = F.od.filter(x => inSel(x.p)), fwk = F.wk.filter(x => inSel(x.p)), fnx = F.nx.filter(x => inSel(x.p));
     const openEst = S.estimates.filter(e => e.status === 'draft' || e.status === 'offered').length;
+    const bt = C.budgetTotals(selP);
     let h = '<h2>Guten ' + (new Date().getHours() < 11 ? 'Morgen' : new Date().getHours() < 18 ? 'Tag' : 'Abend') + (S.me ? ', ' + esc(S.me.split(' ')[0]) : '') + '<span class="sp"></span><button class="sm" id="rvBtn">🔁 Wochenreview</button></h2>';
-    if (!S.projects.length) return firstRun();
     const lb = S.meta.lastBackup, age = lb ? C.daysBetween(lb.slice(0, 10), today()) : null;
     if (!lb || age >= S.settings.backupDays) h += '<div class="note y">💾 ' + (lb ? 'Letztes Backup vor ' + age + ' Tagen.' : 'Du hast noch kein Backup erstellt.') + ' Ein Klick sichert alles als Datei. <button class="sm pri" id="bkNow">Backup jetzt</button></div>';
     if (act.length > S.settings.wip) h += '<div class="note y">⚠️ <b>' + act.length + ' aktive Projekte</b> bei einem Limit von ' + S.settings.wip + '. Pausiere oder schließe etwas ab, sonst leidet der Fokus.</div>';
-    h += '<div class="kpis"><div class="kpi"><b>' + act.length + '</b><span>aktive Projekte</span></div><div class="kpi"><b style="color:var(--r)">' + red.length + '</b><span>rot</span></div><div class="kpi"><b style="color:var(--y)">' + yel.length + '</b><span>gelb</span></div>' +
-      '<div class="kpi"><b style="color:' + (F.od.length ? 'var(--r)' : 'inherit') + '">' + F.od.length + '</b><span>überfällige Aufgaben</span></div><div class="kpi"><b>' + F.wk.length + '</b><span>fällig in 7 Tagen</span></div><div class="kpi"><b>' + openEst + '</b><span>offene Schätzungen</span></div></div>';
-    const att = red.concat(yel).sort((a, b) => sevOrd[a.s] - sevOrd[b.s] || a.p.prio - b.p.prio).slice(0, 12);
-    h += '<div class="cols"><div><div class="panel"><h3>🔥 Braucht Aufmerksamkeit<span class="sp"></span><span class="cnt">' + (red.length + yel.length) + '</span></h3>' +
-      (att.length ? att.map(x => '<div class="list"><div class="it" data-open="' + x.p.id + '" style="cursor:pointer"><span class="tag ' + x.s + '">' + (x.s === 'r' ? 'Rot' : 'Gelb') + '</span><div class="t"><b>' + esc(x.p.name) + '</b><small>' + x.f.filter(f => f.s !== 'n').slice(0, 3).map(f => esc(f.t)).join(' · ') + '</small></div></div></div>').join('')
+    h += '<div class="kpis"><div class="kpi"><b>' + act.length + '</b><span>aktive Projekte</span></div>' +
+      '<button class="kpi fk' + (hs === 'r' ? ' on' : '') + '" data-hs="r" aria-pressed="' + (hs === 'r') + '"><b style="color:var(--r)">' + red.length + '</b><span>rot · Filter</span></button>' +
+      '<button class="kpi fk' + (hs === 'y' ? ' on' : '') + '" data-hs="y" aria-pressed="' + (hs === 'y') + '"><b style="color:var(--y)">' + yel.length + '</b><span>gelb · Filter</span></button>' +
+      '<div class="kpi"><b style="color:' + (fod.length ? 'var(--r)' : 'inherit') + '">' + fod.length + '</b><span>überfällige Aufgaben</span></div><div class="kpi"><b>' + fwk.length + '</b><span>fällig in 7 Tagen</span></div><div class="kpi"><b>' + openEst + '</b><span>offene Schätzungen</span></div></div>';
+    if (hs) h += '<div class="note ' + hs + '" id="hsBar">Filter aktiv: nur <b>' + (hs === 'r' ? 'rote' : 'gelbe') + '</b> Projekte (' + selP.length + '). <button class="sm" id="hsReset">✕ Filter zurücksetzen</button></div>';
+    const att = (hs ? sev.filter(x => x.s === hs) : red.concat(yel)).sort((a, b) => sevOrd[a.s] - sevOrd[b.s] || a.p.prio - b.p.prio).slice(0, 15);
+    const budP = selP.map(p => ({ p, b: C.budget(p) })).filter(x => x.b).sort((a, b) => a.b.restPct - b.b.restPct);
+    h += '<div class="cols"><div><div class="panel"><h3>🔥 Braucht Aufmerksamkeit<span class="sp"></span><span class="cnt">' + att.length + '</span></h3>' +
+      (att.length ? '<div class="list">' + att.map(x => '<div class="it" data-open="' + x.p.id + '" style="cursor:pointer"><span class="tag ' + x.s + '">' + (x.s === 'r' ? 'Rot' : 'Gelb') + '</span><div class="t"><b>' + esc(x.p.name) + '</b><small>' + x.f.filter(f => f.s !== 'n').slice(0, 3).map(f => esc(f.t)).join(' · ') + '</small></div>' + people(x.p) + '</div>').join('') + '</div>'
         : '<div class="note g">✅ Keine Auffälligkeiten. Alles läuft ruhig.</div>') + '</div>' +
-      '<div class="panel"><h3>➜ Nächste Schritte<span class="sp"></span><span class="cnt">' + F.nx.length + '</span></h3><div class="list">' +
-      (F.nx.length ? F.nx.slice(0, 15).map(x => '<div class="it"><button class="ck" data-nx="' + x.p.id + '" title="Erledigt">' + '</button><div class="t" data-open="' + x.p.id + '" style="cursor:pointer">' + esc(x.p.next) + '<small>' + esc(x.p.name) + '</small></div></div>').join('') : '<div class="help">Keine nächsten Schritte festgelegt.</div>') + '</div></div></div>' +
+      '<div class="panel" id="budgetPanel"><h3>💶 Budget' + (hs ? ' (gefiltert)' : ' aller aktiven Projekte') + '<span class="sp"></span><span class="cnt">' + bt.count + '</span></h3>' +
+      (bt.count ? '<div class="res" style="margin-bottom:10px"><div><b>' + f0(bt.plan) + ' h</b><span>Budget gesamt</span></div><div><b>' + f0(bt.used) + ' h</b><span>verbraucht (' + f0(bt.pct) + ' %)</span></div><div class="hl"><b id="budgetRest">' + f0(bt.rest) + ' h · ' + f0(bt.restPct) + ' %</b><span>Restbudget' + (bt.over ? ' · ' + bt.over + ' Projekt(e) überzogen' : '') + '</span></div></div>' +
+        '<div class="list">' + budP.map(x => '<div class="it" data-open="' + x.p.id + '" style="cursor:pointer;display:block"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1;min-width:0;font-size:14px">' + esc(x.p.name) + '</b>' + people(x.p) + '</div>' + budgetLine(x.b) + '</div>').join('') + '</div>'
+        : '<div class="help">Keine Projekte mit Budget aus weclapp.</div>') + '</div></div>' +
       '<div><div class="panel"><h3>⏰ Fällige Aufgaben</h3><div class="list">' +
-      (F.od.length + F.wk.length ? F.od.concat(F.wk).slice(0, 20).map(x => '<div class="it"><button class="ck" data-ck="' + x.p.id + '|' + x.t.id + '"></button><div class="t">' + esc(x.t.t) + '<small style="color:' + (x.d < 0 ? 'var(--r)' : 'inherit') + '">' + esc(x.p.name) + ' · ' + (x.d < 0 ? 'seit ' + (-x.d) + ' T überfällig' : x.d === 0 ? 'heute' : 'in ' + x.d + ' T') + '</small></div></div>').join('') : '<div class="help">Nichts fällig in den nächsten 7 Tagen.</div>') + '</div></div>' +
+      (fod.length + fwk.length ? fod.concat(fwk).slice(0, 20).map(x => '<div class="it"><button class="ck" data-ck="' + x.p.id + '|' + x.t.id + '" aria-label="Erledigt"></button><div class="t">' + esc(x.t.t) + '<small style="color:' + (x.d < 0 ? 'var(--r)' : 'inherit') + '">' + esc(x.p.name) + ' · ' + (x.d < 0 ? 'seit ' + (-x.d) + ' T überfällig' : x.d === 0 ? 'heute' : 'in ' + x.d + ' T') + '</small></div></div>').join('') : '<div class="help">Nichts fällig in den nächsten 7 Tagen.</div>') + '</div></div>' +
+      '<div class="panel"><h3>➜ Nächste Schritte<span class="sp"></span><span class="cnt">' + fnx.length + '</span></h3><div class="list">' +
+      (fnx.length ? fnx.slice(0, 15).map(x => '<div class="it"><button class="ck" data-nx="' + x.p.id + '" title="Erledigt" aria-label="Erledigt"></button><div class="t" data-open="' + x.p.id + '" style="cursor:pointer">' + esc(x.p.next) + '<small>' + esc(x.p.name) + '</small></div></div>').join('') : '<div class="help">Keine nächsten Schritte festgelegt.</div>') + '</div></div>' +
       ideasPanel() + '</div></div>';
     $('view').innerHTML = h;
     wireIdeas();
     if ($('bkNow')) $('bkNow').onclick = () => App.doBackup();
     $('rvBtn').onclick = review;
+    $('view').querySelectorAll('[data-hs]').forEach(b => b.onclick = () => { UI.homeSev = UI.homeSev === b.dataset.hs ? '' : b.dataset.hs; saveUI(); home(); });
+    if ($('hsReset')) $('hsReset').onclick = () => { UI.homeSev = ''; saveUI(); home(); };
     $('view').querySelectorAll('[data-open]').forEach(el => el.onclick = () => go('project', { pid: el.dataset.open, ptab: 'over' }));
     $('view').querySelectorAll('[data-ck]').forEach(b => b.onclick = () => { const [pid, tid] = b.dataset.ck.split('|'), p = byId(pid), t = p.tasks.find(x => x.id === tid); t.done = true; log(p, '✔ ' + t.t); touch(p); render(); toast('✔ Erledigt', 'Rückgängig', () => { t.done = false; touch(p); render(); }); });
     $('view').querySelectorAll('[data-nx]').forEach(b => b.onclick = () => nextDone(byId(b.dataset.nx)));
@@ -188,7 +211,7 @@
   }
   App.newProjectSheet = newProjectSheet;
   function projects() {
-    const q = C.normTxt(UI.q), pls = [...new Set(S.projects.map(p => p.wc && p.wc.pl).filter(Boolean))].sort();
+    const q = C.normTxt(UI.q), uniq = k => [...new Set(S.projects.map(p => p.wc && p.wc[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')), pls = uniq('pl'), conss = uniq('cons');
     let L = S.projects.filter(p => {
       if (UI.show === 'active' && !C.isActive(p)) return false;
       if (UI.show === 'paused' && (p.status !== 'p' || p.archived)) return false;
@@ -196,6 +219,7 @@
       if (UI.show === 'archived' && !p.archived) return false;
       if (UI.show === 'missing' && !(p.wc && p.wc.missingSince)) return false;
       if (UI.pl === '__me' ? !(S.me && p.wc && p.wc.pl === S.me) : UI.pl && !(p.wc && p.wc.pl === UI.pl)) return false;
+      if (UI.cons === '__me' ? !(S.me && p.wc && p.wc.cons === S.me) : UI.cons && !(p.wc && p.wc.cons === UI.cons)) return false;
       if (UI.src === 'wc' && !p.wc) return false; if (UI.src === 'own' && p.wc) return false;
       if (q && !C.normTxt([p.name, p.kunde, p.nr, p.next, p.notes, p.wc && p.wc.cons, p.wc && p.wc.phase].join(' ')).includes(q)) return false;
       return true;
@@ -206,6 +230,7 @@
     let h = '<h2>Projekte<span class="sp"></span><button class="sm" id="impBtn">📥 weclapp-Import</button></h2>' +
       '<div class="panel"><div class="row" style="margin-bottom:8px"><label class="f" style="flex:2"><span>Suche</span><input id="pq" value="' + esc(UI.q) + '" placeholder="Name, Kunde, Auftragsnr., Notizen …"></label>' +
       '<label class="f"><span>Projektleiter</span><select id="ppl"><option value="">Alle</option>' + (S.me ? '<option value="__me"' + (UI.pl === '__me' ? ' selected' : '') + '>Meine (' + esc(S.me) + ')</option>' : '') + pls.map(n => '<option' + (UI.pl === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></label>' +
+      '<label class="f"><span>Consultant</span><select id="pcons"><option value="">Alle</option>' + (S.me ? '<option value="__me"' + (UI.cons === '__me' ? ' selected' : '') + '>Ich (' + esc(S.me) + ')</option>' : '') + conss.map(n => '<option' + (UI.cons === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></label>' +
       '<label class="f"><span>Quelle</span><select id="psrc"><option value="">Alle</option><option value="wc"' + (UI.src === 'wc' ? ' selected' : '') + '>aus weclapp</option><option value="own"' + (UI.src === 'own' ? ' selected' : '') + '>eigene</option></select></label>' +
       '<label class="f"><span>Sortierung</span><select id="psort">' + [['sev', 'Ampel'], ['name', 'Name'], ['due', 'Termin'], ['upd', 'Zuletzt geändert']].map(([k, n]) => '<option value="' + k + '"' + (UI.sort === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label></div>' +
       '<div class="chips">' + [['active', 'Aktiv'], ['paused', 'Pausiert'], ['done', 'Fertig'], ['missing', 'Nicht mehr in weclapp'], ['archived', 'Archiv'], ['all', 'Alle']].map(([k, n]) => '<button data-sh="' + k + '" class="' + (UI.show === k ? 'on' : '') + '">' + n + ' ' + cnt(k) + '</button>').join('') + '</div></div>';
@@ -213,27 +238,36 @@
     $('view').innerHTML = h;
     const qi = $('pq'); qi.oninput = () => { UI.q = qi.value; saveUI(); const p = qi.selectionStart; projects(); const n = $('pq'); n.focus(); n.setSelectionRange(p, p); };
     $('ppl').onchange = e => { UI.pl = e.target.value; saveUI(); projects(); };
+    $('pcons').onchange = e => { UI.cons = e.target.value; saveUI(); projects(); };
     $('psrc').onchange = e => { UI.src = e.target.value; saveUI(); projects(); };
     $('psort').onchange = e => { UI.sort = e.target.value; saveUI(); projects(); };
     $('impBtn').onclick = () => $('fileImport').click();
     $('view').querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { UI.show = b.dataset.sh; saveUI(); projects(); });
-    $('view').querySelectorAll('.card').forEach(b => b.onclick = () => go('project', { pid: b.dataset.id, ptab: 'over' }));
+    wireCards($('view'));
   }
   function card(p) {
-    const fl = projFlags(p).filter(f => f.s !== 'n'), s = projSev(p), w = p.wc, pr = C.progress(p);
-    const bud = w && w.plan > 0 && w.istab != null ? w.istab / w.plan * 100 : null;
-    return '<button class="card ' + s + '" data-id="' + p.id + '"><div class="h"><b>' + (p.pinned ? '📌 ' : '') + esc(p.name) + '</b>' + statusTag(p) + '</div>' +
-      '<div class="sub">' + [p.nr ? 'Nr. ' + esc(p.nr) : '', w && w.phase ? esc(w.phase) : '', w && w.pl ? 'PL ' + esc(w.pl) : '', p.due ? '🏁 ' + C.fmtD(p.due) : ''].filter(Boolean).join(' · ') + '</div>' +
+    const fl = projFlags(p).filter(f => f.s !== 'n'), sv = projSev(p), w = p.wc, pr = C.progress(p), b = C.budget(p);
+    return '<div class="card ' + sv + '" data-id="' + p.id + '" role="button" tabindex="0"><div class="h"><b>' + (p.pinned ? '📌 ' : '') + esc(p.name) + '</b>' + people(p) + '</div>' +
+      '<div class="sub">' + [statusTag(p), p.nr ? esc(p.nr) : '', w && w.phase ? esc(w.phase) : '', p.due ? '🏁 ' + C.fmtD(p.due) : '', wcLink(p)].filter(Boolean).join(' · ') + '</div>' +
       (p.next ? '<div class="nx">➜ ' + esc(p.next) + '</div>' : C.isActive(p) ? '<div class="nx none">Kein nächster Schritt</div>' : '') +
-      (bud != null ? '<div class="meter" title="Budget abrechenbar ' + Math.round(bud) + ' %"><i class="' + (bud > S.settings.budgetR ? 'r' : bud >= S.settings.budgetY ? 'y' : '') + '" style="width:' + Math.min(100, bud) + '%"></i></div>' : pr != null ? '<div class="meter" title="Aufgaben ' + pr + ' %"><i style="width:' + pr + '%"></i></div>' : '') +
-      (fl.length ? '<div class="fl">' + fl.slice(0, 3).map(f => '<span class="tag ' + f.s + '">' + esc(f.t) + '</span>').join('') + (fl.length > 3 ? '<span class="tag">+' + (fl.length - 3) + '</span>' : '') + '</div>' : '') + '</button>';
+      (b ? budgetLine(b) : pr != null ? '<div class="meter" title="Aufgaben ' + pr + ' %"><i style="width:' + pr + '%"></i></div>' : '') +
+      (fl.length ? '<div class="fl">' + fl.slice(0, 3).map(f => '<span class="tag ' + f.s + '">' + esc(f.t) + '</span>').join('') + (fl.length > 3 ? '<span class="tag">+' + (fl.length - 3) + '</span>' : '') + '</div>' : '') + '</div>';
+  }
+  App.card = card;
+  // Karten sind divs (damit der weclapp-Link darin gültig ist): Klick und Enter öffnen das Projekt
+  function wireCards(root) {
+    root.querySelectorAll('.card[data-id]').forEach(c => {
+      const openIt = () => go('project', { pid: c.dataset.id, ptab: 'over' });
+      c.onclick = e => { if (!e.target.closest('a')) openIt(); };
+      c.onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === c) { e.preventDefault(); openIt(); } };
+    });
   }
 
   // ---------- Projekt-Detail ----------
   function project() {
     const p = byId(UI.pid); if (!p) return go('projects');
     const T = [['over', 'Überblick'], ['tasks', 'Aufgaben (' + p.tasks.filter(t => !t.done).length + ')'], ['est', 'Schätzungen (' + S.estimates.filter(e => e.pid === p.id).length + ')'], ['risks', 'Risiken (' + p.risks.length + ')'], ['log', 'Notizen & Verlauf']];
-    $('view').innerHTML = '<div class="bar"><button class="sm" id="pBack">‹ Projekte</button></div><h2>' + esc(p.name) + ' ' + statusTag(p) + '<span class="sp"></span><button class="sm" id="pPin">' + (p.pinned ? '📌 Angeheftet' : '📌 Anheften') + '</button></h2>' +
+    $('view').innerHTML = '<div class="bar"><button class="sm" id="pBack">‹ Projekte</button></div><h2>' + esc(p.name) + ' ' + statusTag(p) + people(p) + '<span class="sp"></span>' + (wcLink(p) ? wcLink(p).replace('class="wl"', 'class="sm"') : '') + '<button class="sm" id="pPin">' + (p.pinned ? '📌 Angeheftet' : '📌 Anheften') + '</button></h2>' +
       '<div class="tabs">' + T.map(([k, n]) => '<button data-pt="' + k + '" class="' + (UI.ptab === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div><div id="pBody"></div>';
     $('pBack').onclick = () => go('projects');
     $('pPin').onclick = () => { p.pinned = !p.pinned; touch(p); project(); };
@@ -251,14 +285,16 @@
       const ap = w.plan > 0 && w.istab != null ? w.istab / w.plan * 100 : null, gp = w.plan > 0 && w.ist != null ? w.ist / w.plan * 100 : null;
       const tp = w.start && w.ende && w.ende > w.start ? Math.max(0, Math.min(100, C.daysBetween(w.start, today()) / C.daysBetween(w.start, w.ende) * 100)) : null;
       const A = C.parseAkt(w.akt, today());
-      h += '<div class="panel"><h3>🔗 weclapp<span class="sp"></span><span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">Stand ' + fdt(w.importedAt) + '</span></h3>' +
+      h += '<div class="panel"><h3>🔗 weclapp<span class="sp"></span>' + wcLink(p) + ' <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">Stand ' + fdt(w.importedAt) + '</span></h3>' +
         (w.missingSince ? '<div class="note y">Seit ' + C.fmtD(w.missingSince) + ' nicht mehr im Export. Abgeschlossen? Dann auf „Fertig“ setzen oder archivieren.</div>' : '') +
         '<div class="kv"><span>Auftrag</span><b>' + esc(w.nr || p.nr) + '</b><span>Kunde</span><div>' + esc(w.kunde) + '</div><span>Kommission</span><div>' + esc(w.kom) + '</div><span>Typ / Phase</span><div>' + esc([w.typ, w.phase].filter(Boolean).join(' · ')) + '</div>' +
         '<span>PL / Consultant</span><div>' + esc(w.pl || '–') + ' / ' + esc(w.cons || '–') + '</div><span>Status</span><div>' + esc(w.status || '–') + '</div>' + (w.golive ? '<span>GoLive</span><div>' + esc(w.golive) + '</div>' : '') + '</div>' +
-        (w.plan ? '<div style="margin-top:10px;font-size:13px">Budget <b>' + f1(w.plan) + ' h</b> · abrechenbar gebucht ' + f1(w.istab) + ' h' + (ap != null ? ' (' + Math.round(ap) + ' %)' : '') + ' · gesamt ' + f1(w.ist) + ' h' + (gp != null ? ' (' + Math.round(gp) + ' %)' : '') + '</div><div class="meter"><i class="' + (ap > S.settings.budgetR ? 'r' : ap >= S.settings.budgetY ? 'y' : '') + '" style="width:' + Math.min(100, ap || 0) + '%"></i></div>' : '') +
+        (C.budget(p) ? '<div style="margin-top:10px">' + budgetLine(C.budget(p)) + '<div class="help" style="margin:4px 0 0">Budget ' + f1(w.plan) + ' h · abrechenbar gebucht ' + f1(w.istab) + ' h' + (ap != null ? ' (' + Math.round(ap) + ' %)' : '') + ' · gesamt gebucht ' + f1(w.ist) + ' h' + (gp != null ? ' (' + Math.round(gp) + ' %)' : '') + '</div></div>' : '') +
         (tp != null ? '<div style="margin-top:8px;font-size:13px">Laufzeit ' + C.fmtD(w.start) + ' – ' + C.fmtD(w.ende) + ' · ' + Math.round(tp) + ' % vergangen</div><div class="meter"><i style="width:' + tp + '%;background:var(--acc)"></i></div>' : '') +
         '<h3 style="margin-top:14px">Aktuelles (aus weclapp)</h3>' + (A.ent.length || A.notes.length ? '<div class="list">' + A.ent.slice(0, 6).map(e => '<div class="it"><div class="t">' + esc(e.t || '(nur Datum)') + '<small>' + C.fmtD(e.d) + '</small></div></div>').join('') + A.notes.slice(0, 3).map(n => '<div class="it"><div class="t muted">' + esc(n) + '</div></div>').join('') + '</div>' : '<div class="help">Leer.</div>') +
-        '<label class="f" style="margin-top:10px"><span>Neuer Eintrag für weclapp „Aktuelles“</span><input id="akIn" placeholder="z. B. Abnahmetermin mit Kunde vereinbart"></label><div class="bar" style="margin:8px 0 0"><button class="sm pri" id="akCp">📋 Kopieren (mit Datum) und im Verlauf notieren</button></div></div>';
+        '<h3 style="margin-top:14px">✍️ Aktuelles fortschreiben</h3><label class="f"><span>Neuer Eintrag (Datum wird automatisch vorangestellt, wird gespeichert)</span><textarea id="akIn" rows="2" placeholder="z. B. Abnahmetermin mit Kunde vereinbart">' + esc(p.aktNew) + '</textarea></label>' +
+        '<div class="help" style="margin:6px 0 4px">Vorschau des Feldes „Aktuelles“ für weclapp:</div><pre id="akPv" class="akpv"></pre>' +
+        '<div class="bar" style="margin:8px 0 0"><button class="sm pri" id="akCpAll">📋 Ganzes Feld kopieren</button><button class="sm" id="akCpNew">📋 Nur neuen Eintrag kopieren</button>' + (wcLink(p) ? wcLink(p).replace('class="wl"', 'class="sm"') : '') + '<button class="sm" id="akDone" title="Eintrag ist in weclapp, Feld leeren">✓ Eingetragen</button></div></div>';
     } else h += '<div class="panel"><h3>🔗 weclapp</h3><div class="help">Eigenes Projekt, nicht aus weclapp. Beim Import wird es nie verändert.</div></div>';
     h += '<div class="panel"><h3>Verwalten</h3><div class="bar" style="margin:0"><button class="sm" id="oArc">' + (p.archived ? '📤 Aus Archiv holen' : '🗄 Archivieren') + '</button><button class="sm" id="oEst">🧮 Neue Schätzung</button><button class="sm" id="oDel" style="color:var(--r)">🗑 Löschen</button></div></div></div></div>';
     $('pBody').innerHTML = h;
@@ -266,7 +302,14 @@
     bind('oN', 'name'); bind('oK', 'kunde'); bind('oP', 'prio', true); bind('oD', 'due'); bind('oX', 'next');
     $('oN').onblur = () => { if (!p.name.trim()) { p.name = p.nr || 'Ohne Namen'; touch(p); } project(); };
     $('oS').querySelectorAll('button').forEach(b => b.onclick = () => { if (p.status === b.dataset.k) return; log(p, 'Status: ' + C.STATUS[b.dataset.k].n); p.status = b.dataset.k; touch(p); project(); if (p.status === 'd') toast('🎉 Projekt abgeschlossen'); });
-    if ($('akCp')) $('akCp').onclick = () => { const t = $('akIn').value.trim(); if (!t) return $('akIn').focus(); const line = C.fmtD(today()) + ': ' + t; copyText(line, '📋 „' + line + '“ kopiert – jetzt in weclapp einfügen'); log(p, 'Aktuelles: ' + t); touch(p); $('akIn').value = ''; };
+    if ($('akIn')) {
+      const pv = () => { $('akPv').textContent = C.aktCompose(w.akt, $('akIn').value, today()) || '(leer)'; };
+      $('akIn').oninput = () => { p.aktNew = $('akIn').value; commit(); pv(); }; pv();
+      const noted = t => { if (!p.log.some(l => l.d === today() && l.t === 'Aktuelles: ' + t)) { log(p, 'Aktuelles: ' + t); touch(p); } };
+      $('akCpAll').onclick = () => { const t = $('akIn').value.trim(); if (!t) return $('akIn').focus(); copyText(C.aktCompose(w.akt, t, today()), '📋 Ganzes Feld „Aktuelles“ kopiert – in weclapp ersetzen'); noted(t); };
+      $('akCpNew').onclick = () => { const t = $('akIn').value.trim(); if (!t) return $('akIn').focus(); const line = C.aktPrefix(w.akt, today()) + t.replace(/\s*\n\s*/g, ' '); copyText(line, '📋 „' + line + '“ kopiert'); noted(t); };
+      $('akDone').onclick = () => { const t = $('akIn').value.trim(); if (t) noted(t); p.aktNew = ''; touch(p); project(); toast('✓ Eintrag erledigt'); };
+    }
     $('oArc').onclick = () => { p.archived = !p.archived; log(p, p.archived ? 'Archiviert' : 'Aus Archiv geholt'); touch(p); project(); };
     $('oEst').onclick = () => App.newEstimate(p.id);
     $('oDel').onclick = async () => {

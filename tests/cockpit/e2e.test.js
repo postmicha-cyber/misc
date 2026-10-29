@@ -126,10 +126,10 @@ test('E05 Schätzung im Projekt: Werte, Ergebnis, E-Mail-Kopie (HTML), Excel-Dow
   await task.locator('[data-k="n"]').fill('Schnittstelle'); await task.locator('[data-k="o"]').fill('2'); await task.locator('[data-k="m"]').fill('4'); await task.locator('[data-k="p"]').fill('8');
   // 4,333 + 10 % PM + 5 % Kommunikation = 4,983 → „5“ Tage
   assert.match(await p.textContent('#resTotal'), /^5 Tage$/);
-  await p.click('#xMail'); await p.waitForFunction(() => /Kopiert/.test(document.getElementById('toastT').textContent));
+  await p.click('#xintMail'); await p.waitForFunction(() => /Kopiert/.test(document.getElementById('toastT').textContent));
   const types = await p.evaluate(async () => (await navigator.clipboard.read())[0].types);
   assert.ok(types.includes('text/html'));
-  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#xXls')]);
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#xintXls')]);
   assert.match(dl.suggestedFilename(), /\.xlsx$/);
   const s = await state(p); assert.equal(s.estimates[0].pid, s.projects[0].id);
   assert.deepEqual(t.errors, []); await t.close();
@@ -212,4 +212,89 @@ test('E13 Komplett lokal als Datei geöffnet (file://): Import, Speichern, Neula
   await page.reload(); await page.waitForFunction(() => App.ready);
   assert.equal((await state(page)).projects.length, 4);
   assert.deepEqual(errors, []); await ctx.close();
+});
+
+// ---------- Erweiterung 2 ----------
+async function seed(p) {
+  await importFixture(p, 'weclapp-1.csv');
+  await p.evaluate(() => { App.S().settings.weclappUrl = 'https://tcgprocess.weclapp.com'; App.commit(); return App.flush(); });
+}
+test('E14 Projekte: Filter nach Consultant, Kürzel-Bubbles, Restbudget und weclapp-Link auf der Karte', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  await p.click('#nav button[data-v="projects"]');
+  await p.selectOption('#pcons', 'Anna Beispiel');
+  assert.equal(await p.locator('.card').count(), 1);
+  const card = p.locator('.card').first();
+  assert.deepEqual(await card.locator('.av').allTextContents(), ['MMU', 'ABE']);
+  assert.match(await card.textContent(), /Rest 50 h · 25 %/);
+  assert.equal(await card.locator('a.wl').getAttribute('href'), 'https://tcgprocess.weclapp.com/app/search?s=1001');
+  await p.selectOption('#pcons', ''); assert.equal(await p.locator('.card').count(), 4);
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E15 Cockpit: Budget aller Projekte, Rot/Gelb-Kacheln filtern, Filter zurücksetzen; weclapp-Laufzeit färbt nicht', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  await p.evaluate(() => { const s = App.S(); s.projects.forEach(x => x.next = 'weiter'); s.projects.find(x => x.nr === '1002').status = 'r'; App.commit(); App.go('home'); });
+  // 1003 hat Projektende in der Vergangenheit und leeres „Aktuelles“ → darf nicht gelb sein
+  const s = await state(p); const sev = await p.evaluate(() => App.S().projects.map(x => [x.nr, App.projSev(x)]));
+  assert.equal(Object.fromEntries(sev)['1003'], 'g');
+  assert.match(await p.textContent('#budgetPanel'), /1\.561 h\s*Budget gesamt/);
+  assert.match(await p.textContent('#budgetRest'), /h · \d+ %/);
+  await p.click('[data-hs="r"]'); await p.waitForSelector('#hsBar');
+  assert.equal(await p.locator('#view .panel').first().locator('.it').count(), 1);
+  assert.match(await p.textContent('#budgetPanel'), /gefiltert/);
+  await p.click('#hsReset'); assert.equal(await p.locator('#hsBar').count(), 0);
+  await p.click('[data-hs="y"]'); await p.click('[data-hs="y"]'); assert.equal(await p.locator('#hsBar').count(), 0);
+  assert.ok(s.projects.length === 4); assert.deepEqual(t.errors, []); await t.close();
+});
+test('E16 Schätzungen-Übersicht: Aktionen Öffnen, Export (Kundenvariante), Löschen mit Rückgängig', { skip }, async () => {
+  const t = await open(), p = t.page;
+  await p.evaluate(() => { const C = App.C, es = C.newEstimate({ title: 'Angebot A', idea: 'REST-Schnittstelle', stories: [{ id: 's1', role: 'Einkauf', want: 'Bestellungen exportieren', benefit: 'schneller', ac: ['CSV-Datei'], prio: 'must' }], tasks: [{ id: 'a', n: 'Schnittstelle', d: 'Token', sid: 's1', o: 2, m: 4, p: 8 }] }); App.S().estimates.push(es); App.commit(); App.go('estimates'); });
+  await p.click('[data-ex]'); await p.click('.sheet [data-v="cust"][data-f="mail"]');
+  await p.waitForFunction(() => /Kopiert/.test(document.getElementById('toastT').textContent));
+  const html = await p.evaluate(async () => { const it = (await navigator.clipboard.read())[0]; return await (await it.getType('text/html')).text(); });
+  assert.match(html, /Puffer für Planungssicherheit/); assert.match(html, /Lösung/); assert.match(html, /Bestellungen exportieren/); assert.match(html, /CSV-Datei/);
+  assert.doesNotMatch(html, /Optimistisch|Pessimistisch|>O<|Standardabw/);
+  const k = await p.evaluate(() => App.C.customerView(App.S().estimates[0]).total.toLocaleString('de-DE', { maximumFractionDigits: 1 }));
+  assert.ok(html.includes('<b>' + k + '</b>'));
+  await p.click('#exC');
+  await p.click('[data-ed]'); await p.waitForFunction(() => App.S().estimates.length === 0);
+  await p.click('#toastB'); await p.waitForFunction(() => App.S().estimates.length === 1);
+  await p.click('[data-eo]'); await p.waitForSelector('#eT');
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E17 Aufgaben: Vorschlagsliste füllt Werte, neue Aufgaben landen automatisch in der Bibliothek, Tab öffnet Story-Auswahl', { skip }, async () => {
+  const t = await open(), p = t.page;
+  await p.evaluate(() => { const C = App.C; App.S().estimates.push(C.newEstimate({ title: 'Alt', tasks: [{ id: 'x', n: 'Workshop Anforderungen', d: 'mit Fachbereich', o: 1, m: 2, p: 4 }] })); App.S().estimates.push(C.newEstimate({ id: 'neu', title: 'Neu', stories: [{ id: 's1', role: 'A', want: 'B', benefit: '', ac: [], prio: 'must' }, { id: 's2', role: 'C', want: 'D', benefit: '', ac: [], prio: 'must' }] })); App.commit(); App.go('estimate', { eid: 'neu' }); });
+  await p.click('#tAdd');
+  const n = p.locator('.task').last().locator('[data-k="n"]');
+  assert.ok(await p.locator('#dlT option[value="Workshop Anforderungen"]').count());
+  await n.fill('Workshop Anforderungen'); await n.dispatchEvent('change');
+  await p.waitForFunction(() => App.S().estimates.find(e => e.id === 'neu').tasks[0].m == 2);
+  assert.equal(await p.locator('.task').last().locator('[data-k="d"]').inputValue(), 'mit Fachbereich');
+  // neue eigene Aufgabe wird automatisch gemerkt
+  await p.click('#tAdd'); const box = p.locator('.task').last();
+  await box.locator('[data-k="n"]').fill('Datenmigration testen'); await box.locator('[data-k="m"]').fill('3');
+  await p.waitForFunction(() => App.S().lib.tasks.some(x => x.n === 'Datenmigration testen' && x.auto), null, { timeout: 4000 });
+  // Tab vom Aufgabennamen springt in die Story-Auswahl und wählt die erste Story vor
+  await box.locator('[data-k="n"]').focus(); await p.keyboard.press('Tab');
+  assert.equal(await p.evaluate(() => document.activeElement.dataset.k), 'sid');
+  await p.waitForFunction(() => App.S().estimates.find(e => e.id === 'neu').tasks[1].sid === 's1');
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E18 Aktuelles fortschreiben: Präfix automatisch, Entwurf bleibt gespeichert, ganzes Feld in die Zwischenablage', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  const pid = (await state(p)).projects.find(x => x.nr === '1001').id;
+  await p.evaluate(id => App.go('project', { pid: id, ptab: 'over' }), pid);
+  await p.fill('#akIn', 'Abnahmetermin vereinbart');
+  const today = await p.evaluate(() => App.C.fmtD(App.C.isoDate()));
+  assert.ok((await p.textContent('#akPv')).startsWith('#' + today + ': Abnahmetermin vereinbart\n#20.10.2026: Abnahmetest läuft'));
+  await p.evaluate(() => App.flush()); await p.reload(); await p.waitForFunction(() => App.ready);
+  assert.equal(await p.inputValue('#akIn'), 'Abnahmetermin vereinbart');
+  await p.click('#akCpAll'); await p.waitForFunction(() => /kopiert/.test(document.getElementById('toastT').textContent));
+  const clip = await p.evaluate(() => navigator.clipboard.readText());
+  assert.ok(clip.startsWith('#' + today + ': Abnahmetermin vereinbart\n#20.10.2026'));
+  assert.ok((await state(p)).projects.find(x => x.nr === '1001').log.some(l => l.t === 'Aktuelles: Abnahmetermin vereinbart'));
+  await p.click('#akDone'); assert.equal(await p.inputValue('#akIn'), '');
+  assert.equal(await p.locator('h2 a.sm').getAttribute('href'), 'https://tcgprocess.weclapp.com/app/search?s=1001');
+  assert.deepEqual(t.errors, []); await t.close();
 });
