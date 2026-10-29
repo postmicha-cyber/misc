@@ -24,7 +24,7 @@
   const PRIO = { must: 'Must', should: 'Should', could: 'Could', wont: 'Won’t' };
   const UNITS = ['Stunden', 'Tage', 'Wochen', 'Story Points'];
   const HOURS = { Stunden: 1, Tage: 8, Wochen: 40 };
-  const DEFAULT_SETTINGS = { wip: 8, stale: 14, budgetY: 85, budgetR: 100, aktStale: 14, backupDays: 7, done: 'abgeschlossen, fertig, erledigt, storniert, beendet' };
+  const DEFAULT_SETTINGS = { wip: 8, stale: 14, budgetY: 85, budgetR: 100, aktStale: 14, backupDays: 7, soonDays: 3, done: 'abgeschlossen, fertig, erledigt, storniert, beendet', weclappUrl: 'https://tcgprocess.weclapp.com' };
   const EXTRAS = () => [
     { id: uid(), n: 'Projektmanagement', type: 'pct', v: 10, on: true }, { id: uid(), n: 'Kommunikation & Abstimmung', type: 'pct', v: 5, on: true },
     { id: uid(), n: 'Test & Qualitätssicherung', type: 'pct', v: 10, on: false }, { id: uid(), n: 'Dokumentation', type: 'pct', v: 5, on: false },
@@ -41,7 +41,7 @@
   }
   function newProject(o, today) {
     const t = today || isoDate();
-    return Object.assign({ id: uid(), nr: '', name: 'Neues Projekt', kunde: '', status: 'g', prio: 2, due: '', next: '', notes: '', tasks: [], log: [{ d: t, t: 'Projekt angelegt' }], risks: [], pinned: false, archived: false, created: t, updated: t, wc: null }, o || {});
+    return Object.assign({ id: uid(), nr: '', name: 'Neues Projekt', kunde: '', status: 'g', prio: 2, due: '', next: '', notes: '', aktNew: '', tasks: [], log: [{ d: t, t: 'Projekt angelegt' }], risks: [], pinned: false, archived: false, created: t, updated: t, wc: null }, o || {});
   }
   function newEstimate(o, today) {
     return Object.assign({ id: uid(), pid: '', title: 'Neue Schätzung', status: 'draft', date: today || isoDate(), source: '', unit: 'Tage', idea: '', stories: [], tasks: [], extras: EXTRAS(), tpl: false, created: Date.now(), updated: Date.now() }, o || {});
@@ -59,7 +59,7 @@
       Object.assign(q, {
         id: id(p.id), nr: str(p.nr), name: str(p.name) || str(p.nr) || 'Ohne Namen', kunde: str(p.kunde),
         status: STATUS[p.status] ? p.status : 'g', prio: [1, 2, 3].includes(p.prio) ? p.prio : 2, due: validIso(p.due) ? p.due : '',
-        next: str(p.next), notes: typeof p.notes === 'string' ? p.notes : '', pinned: !!p.pinned, archived: !!p.archived,
+        next: str(p.next), notes: typeof p.notes === 'string' ? p.notes : '', aktNew: typeof p.aktNew === 'string' ? p.aktNew : '', pinned: !!p.pinned, archived: !!p.archived,
         created: validIso(p.created) ? p.created : q.created, updated: validIso(p.updated) ? p.updated : q.updated,
         tasks: arr(p.tasks).filter(isObj).map(t => ({ id: id(t.id), t: str(t.t) || 'Aufgabe', due: validIso(t.due) ? t.due : '', done: !!t.done, who: str(t.who) })),
         log: arr(p.log).filter(isObj).map(l => ({ d: validIso(l.d) ? l.d : q.created, t: str(l.t), src: str(l.src) })).filter(l => l.t),
@@ -83,7 +83,7 @@
       return q;
     });
     const lib = isObj(src.lib) ? src.lib : {};
-    s.lib.tasks = arr(lib.tasks).filter(isObj).map(t => ({ id: id(t.id), n: str(t.n), d: str(t.d), o: num(t.o), m: num(t.m), p: num(t.p), unit: UNITS.includes(t.unit) ? t.unit : 'Tage', used: num(t.used) })).filter(t => t.n);
+    s.lib.tasks = arr(lib.tasks).filter(isObj).map(t => ({ id: id(t.id), n: str(t.n), d: str(t.d), o: num(t.o), m: num(t.m), p: num(t.p), unit: UNITS.includes(t.unit) ? t.unit : 'Tage', used: num(t.used), auto: !!t.auto })).filter(t => t.n);
     s.lib.stories = arr(lib.stories).filter(isObj).map(x => ({ id: id(x.id), role: str(x.role), want: str(x.want), benefit: str(x.benefit), ac: arr(x.ac).map(str).filter(Boolean), prio: PRIO[x.prio] ? x.prio : 'must' })).filter(x => x.want);
     s.ideas = arr(src.ideas).filter(isObj).map(i => ({ id: id(i.id), t: str(i.t) })).filter(i => i.t);
     if (isObj(src.tools)) { if (isObj(src.tools.cap)) s.tools.cap = Object.assign(s.tools.cap, src.tools.cap); if (isObj(src.tools.fc)) s.tools.fc = Object.assign(s.tools.fc, src.tools.fc); }
@@ -310,35 +310,69 @@
   // ---------------- Hinweise & Ampel ----------------
   const isActive = p => !p.archived && p.status !== 'p' && p.status !== 'd';
   const progress = p => p.tasks.length ? Math.round(p.tasks.filter(t => t.done).length / p.tasks.length * 100) : null;
+  // Ampel: gelb/rot nur durch Budget, eigene Aufgaben, eigene Termine und den selbst gesetzten Status.
+  // Projektstart/-ende aus weclapp, „Aktuelles“, fehlender nächster Schritt usw. erscheinen nur als Hinweis (n).
   function flags(p, settings, today) {
     const c = Object.assign({}, DEFAULT_SETTINGS, settings || {}), t = today || isoDate(), F = [], add = (s, x) => F.push({ s, t: x });
     if (p.archived) return F;
     if (p.status === 'r') add('r', '🔴 Als blockiert markiert');
-    const od = p.tasks.filter(x => !x.done && x.due && x.due < t).length;
+    if (p.status === 'y') add('y', '🟡 Als „Achtung“ markiert');
+    const open = p.tasks.filter(x => !x.done && x.due), od = open.filter(x => x.due < t).length, soon = open.filter(x => x.due >= t && daysBetween(t, x.due) <= c.soonDays).length;
     if (od) add('r', '⏰ ' + od + ' überfällige Aufgabe' + (od > 1 ? 'n' : ''));
-    if (p.due && p.due < t && p.status !== 'd') add('r', '🏁 Projekttermin überschritten (' + fmtD(p.due) + ')');
-    const w = p.wc;
+    if (soon) add('y', '⏳ ' + soon + ' Aufgabe' + (soon > 1 ? 'n' : '') + ' in den nächsten ' + c.soonDays + ' Tagen fällig');
+    if (p.due && p.status !== 'd') { const d = daysBetween(t, p.due); if (d < 0) add('r', '🏁 Mein Termin überschritten (' + fmtD(p.due) + ')'); else if (d <= c.soonDays) add('y', '🏁 Mein Termin in ' + d + ' Tagen (' + fmtD(p.due) + ')'); }
+    const w = p.wc, b = budget(p);
+    if (b && !w.missingSince) {
+      if (b.pct > c.budgetR) add('r', '💶 Abrechenbar über Budget (' + Math.round(b.pct) + ' %)');
+      else if (b.pct >= c.budgetY) add('y', '💶 Budget zu ' + Math.round(b.pct) + ' % verbraucht');
+      if (b.pctAll != null && b.pctAll > c.budgetR && b.pctAll - b.pct >= 5) add(b.pct > c.budgetR ? 'y' : 'r', '💸 Gesamtaufwand ' + Math.round(b.pctAll) + ' % des Budgets');
+    }
     if (w && !w.missingSince) {
-      const ap = w.plan > 0 && w.istab != null ? w.istab / w.plan * 100 : null, gp = w.plan > 0 && w.ist != null ? w.ist / w.plan * 100 : null;
-      if (ap != null && ap > c.budgetR) add('r', '💶 Abrechenbar über Budget (' + Math.round(ap) + ' %)');
-      else if (ap != null && ap >= c.budgetY) add('y', '💶 Budget zu ' + Math.round(ap) + ' % verbraucht');
-      if (gp != null && gp > c.budgetR && (ap == null || gp - ap >= 5)) add(ap != null && ap > c.budgetR ? 'y' : 'r', '💸 Gesamtaufwand ' + Math.round(gp) + ' % des Budgets');
       const done = isDoneRow(w, c) || p.status === 'd';
-      if (w.ende && w.ende < t && !done) add('y', '📅 Projektende laut weclapp überschritten (' + fmtD(w.ende) + ')');
+      if (w.ende && w.ende < t && !done) add('n', '📅 Projektende laut weclapp überschritten (' + fmtD(w.ende) + ')');
       if (!done && isActive(p)) {
         const A = parseAkt(w.akt, t);
-        if (!w.akt) add('y', '✍️ „Aktuelles“ in weclapp ist leer');
-        else if (A.latest && daysBetween(A.latest.d, t) >= c.aktStale) add('y', '✍️ „Aktuelles“ ' + daysBetween(A.latest.d, t) + ' Tage alt');
+        if (!w.akt) add('n', '✍️ „Aktuelles“ in weclapp ist leer');
+        else if (A.latest && daysBetween(A.latest.d, t) >= c.aktStale) add('n', '✍️ „Aktuelles“ ' + daysBetween(A.latest.d, t) + ' Tage alt');
       }
     }
     if (w && w.missingSince) add('n', 'ℹ️ Seit ' + fmtD(w.missingSince) + ' nicht mehr im weclapp-Export');
     if (isActive(p)) {
-      if (!p.next) add('y', '➜ Kein nächster Schritt festgelegt');
-      if (p.status === 'y') add('y', '🟡 Als „Achtung“ markiert');
+      if (!p.next) add('n', '➜ Kein nächster Schritt festgelegt');
       const sd = daysBetween(p.updated, t); if (sd >= c.stale) add('n', '🕒 ' + sd + ' Tage ohne Update');
-      const crit = p.risks.filter(r => r.w * r.a >= 15).length; if (crit) add('y', '⚠️ ' + crit + ' kritische(s) Risiko');
+      const crit = p.risks.filter(r => r.w * r.a >= 15).length; if (crit) add('n', '⚠️ ' + crit + ' kritische(s) Risiko');
     }
     return F;
+  }
+  // Budget aus weclapp: geplant (abrechenbar) gegen gebucht abrechenbar; Rest absolut und relativ
+  function budget(p) {
+    const w = p && p.wc; if (!w || !(w.plan > 0)) return null;
+    const used = w.istab != null ? w.istab : (w.ist != null ? w.ist : 0);
+    return { plan: w.plan, used, rest: w.plan - used, pct: used / w.plan * 100, restPct: (w.plan - used) / w.plan * 100, usedAll: w.ist, pctAll: w.ist != null ? w.ist / w.plan * 100 : null };
+  }
+  function budgetTotals(projects) {
+    const L = arr(projects).map(budget).filter(Boolean), plan = L.reduce((a, b) => a + b.plan, 0), used = L.reduce((a, b) => a + b.used, 0);
+    return { count: L.length, plan, used, rest: plan - used, pct: plan ? used / plan * 100 : 0, restPct: plan ? (plan - used) / plan * 100 : 0, over: L.filter(b => b.rest < 0).length };
+  }
+  // Kürzel: erster Buchstabe des Vornamens + erste zwei des Nachnamens (Max Albrecht → MAL)
+  function initials(name) {
+    let s = str(name).replace(/^Benutzer\s+/i, '');
+    if (s.includes(',')) { const [a, b] = s.split(','); s = (b || '').trim() + ' ' + a.trim(); }
+    const w = s.split(/\s+/).filter(x => /[A-Za-zÄÖÜäöüß]/.test(x));
+    if (!w.length) return '';
+    if (w.length === 1) return w[0].slice(0, 3).toUpperCase();
+    return (w[0][0] + w[w.length - 1].slice(0, 2)).toUpperCase();
+  }
+  const weclappLink = (base, nr) => nr ? String(base || DEFAULT_SETTINGS.weclappUrl).trim().replace(/\/+$/, '') + '/app/search?s=' + encodeURIComponent(nr) : '';
+  // „Aktuelles“: neuer Eintrag mit Datums-Präfix oben anfügen; Schreibweise (# davor oder nicht) wie die vorhandenen Einträge
+  function aktPrefix(existing, today) {
+    const first = String(existing || '').split('\n').map(x => x.trim()).find(Boolean) || '';
+    return (/^#\s*\d/.test(first) ? '#' : '') + fmtD(today || isoDate()) + ': ';
+  }
+  function aktCompose(existing, text, today) {
+    const t = str(text); if (!t) return String(existing || '');
+    const line = aktPrefix(existing, today) + t.replace(/\s*\n\s*/g, ' ');
+    return existing && String(existing).trim() ? line + '\n' + String(existing).replace(/^\s+/, '') : line;
   }
   const severity = F => F.some(f => f.s === 'r') ? 'r' : F.some(f => f.s === 'y') ? 'y' : 'g';
   function focusItems(state, today) {
@@ -362,6 +396,26 @@
     const total = base + ex.reduce((a, e) => a + e.amt, 0), sd = Math.sqrt(varc) * (1 + pct);
     return { base, ex, total, sd, p85: total + 1.04 * sd, r68: [Math.max(0, total - sd), total + sd], r95: [Math.max(0, total - 2 * sd), total + 2 * sd],
       bad: es.tasks.filter(t => !(num(t.o) <= num(t.m) && num(t.m) <= num(t.p))) };
+  }
+  function customerView(es) {
+    const r = calcEstimate(es), buffer = Math.max(0, r.p85 - r.total);
+    return { tasks: es.tasks.map(t => ({ n: t.n, d: t.d, sid: t.sid, e: tE(t) })), base: r.base, extras: r.ex.map(e => ({ n: e.x.n, pct: e.x.type === 'pct' ? num(e.x.v) : null, amt: e.amt })), buffer, total: r.total + buffer };
+  }
+  // Bibliothek: Aufgaben und Stories werden beim Eintragen automatisch gemerkt (gleicher Name = aktualisieren)
+  function libUpsertTask(state, t, unit, auto) {
+    if (!str(t.n) || !(num(t.m) || num(t.p))) return null;
+    const L = state.lib.tasks, ex = L.find(x => normTxt(x.n) === normTxt(t.n));
+    if (ex && auto && !ex.auto) return ex;   // bewusst gespeicherte Einträge nicht automatisch überschreiben
+    const item = { n: str(t.n), d: str(t.d), o: num(t.o), m: num(t.m), p: num(t.p), unit: UNITS.includes(unit) ? unit : 'Tage', auto: !!auto };
+    if (ex) return Object.assign(ex, item);
+    const n = Object.assign({ id: uid(), used: 0 }, item); L.push(n); return n;
+  }
+  function libUpsertStory(state, s) {
+    if (!str(s.want)) return null;
+    const L = state.lib.stories, ex = L.find(x => normTxt(x.want) === normTxt(s.want));
+    const item = { role: str(s.role), want: str(s.want), benefit: str(s.benefit), ac: arr(s.ac).map(str).filter(Boolean), prio: PRIO[s.prio] ? s.prio : 'must' };
+    if (ex) return Object.assign(ex, item);
+    const n = Object.assign({ id: uid() }, item); L.push(n); return n;
   }
   const conv = (v, from, to) => (from === to || !HOURS[from] || !HOURS[to]) ? num(v) : Math.round(num(v) * HOURS[from] / HOURS[to] * 100) / 100;
   const storyText = s => 'Als ' + (s.role || '…') + ' möchte ich ' + (s.want || '…') + (s.benefit ? ', damit ' + s.benefit : '') + '.';
@@ -444,7 +498,7 @@
     empty, normalize, newProject, newEstimate, EXTRAS,
     makeBackup, validateBackup, counts,
     normH, autoMap, findHeader, decode, parseCSV, toISO, toNum, buildRows, readTable, planImport, applyImport, wcName, shortKunde,
-    parseAkt, flags, severity, isActive, progress, focusItems,
+    parseAkt, flags, severity, isActive, progress, focusItems, budget, budgetTotals, initials, weclappLink, aktPrefix, aktCompose, customerView, libUpsertTask, libUpsertStory,
     tE, tV, calcEstimate, conv, storyText, cloneEstimate, bestMatch, normTxt,
     migrateFromApps, shouldAutoSnapshot, pruneSnapshots
   };

@@ -13,7 +13,7 @@
   :root[data-theme="dark"] { --bg: #0f1626; --panel: #172036; --panel2: #1f2a45; --line: #2c3a62; --txt: #edf1ff; --mut: #9aa6c8; --acc: #6f80ff; --acc-t: #ffffff;
     --r: #ff6b7a; --y: #ffc247; --g: #3fe08f; --n: #9aa6c8; --r-bg: rgba(255,107,122,.13); --y-bg: rgba(255,194,71,.12); --g-bg: rgba(63,224,143,.1); --shadow: none; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow-x: hidden; }
+  html, body { overflow-x: hidden; }
   body { background: var(--bg); color: var(--txt); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   button, input, select, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; border: 0; background: none; }
@@ -114,6 +114,16 @@
   .pick { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--line); } .pick div { flex: 1; } .pick small { display: block; color: var(--mut); }
   details summary { cursor: pointer; font-weight: 700; font-size: 14px; margin: 6px 0; }
   .muted { color: var(--mut); }
+  .av { display: inline-grid; place-items: center; min-width: 34px; height: 22px; padding: 0 6px; border-radius: 11px; font-size: 10.5px; font-weight: 800; letter-spacing: .4px; color: #fff; background: var(--c); border: 2px solid var(--c); vertical-align: middle; }
+  .av.o { background: transparent; color: var(--c); }
+  :root[data-theme="dark"] .av.o { color: var(--txt); }
+  .avs { display: inline-flex; gap: 4px; flex: none; }
+  .bl { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; margin-top: 8px; } .bl b.r { color: var(--r); } .bl b.y { color: var(--y); }
+  .wl { font-size: 12.5px; font-weight: 700; text-decoration: none; white-space: nowrap; text-transform: none; letter-spacing: 0; }
+  .kpi.fk { text-align: left; cursor: pointer; } .kpi.fk:hover { border-color: var(--acc); } .kpi.fk.on { outline: 2px solid var(--acc); border-color: var(--acc); }
+  .akpv { white-space: pre-wrap; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; max-height: 180px; overflow: auto; }
+  .card { cursor: pointer; }
+  .acts-row { display: flex; gap: 6px; flex: none; }
   .mob { display: none; }
   @media (max-width: 900px) {
     #app { grid-template-columns: 1fr; }

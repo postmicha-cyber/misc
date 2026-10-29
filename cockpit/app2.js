@@ -41,12 +41,42 @@
       '<div class="panel"><input id="esQ" value="' + esc(UI.estQ || '') + '" placeholder="🔎 Schätzungen, Aufgaben, Stories durchsuchen …"></div>';
     if (!S().estimates.length) h += '<div class="empty"><div class="e">🧮</div>Noch keine Schätzung. Lege eine an – am besten direkt im Projekt unter „Schätzungen“.</div>';
     h += '<div class="grid">' + [...groups.entries()].map(([pid, es]) => '<div class="panel"><h3>📁 ' + esc(projName(pid)) + '<span class="sp"></span><span class="cnt">' + es.length + '</span></h3><div class="list">' +
-      es.map(e => { const r = C.calcEstimate(e); return '<div class="it" data-e="' + e.id + '" style="cursor:pointer"><div class="t"><b>' + (e.tpl ? '📌 ' : '') + esc(e.title) + '</b><small>' + C.EST_STATUS[e.status] + ' · ' + C.fmtD(e.date) + ' · 85 %: ' + f1(r.p85) + '</small></div><b>' + f1(r.total) + ' ' + esc(short(e.unit)) + '</b></div>'; }).join('') + '</div></div>').join('') + '</div>';
+      es.map(e => { const r = C.calcEstimate(e); return '<div class="it"><div class="t" data-e="' + e.id + '" style="cursor:pointer"><b>' + (e.tpl ? '📌 ' : '') + esc(e.title) + '</b><small>' + C.EST_STATUS[e.status] + ' · ' + C.fmtD(e.date) + ' · ' + f1(r.total) + ' ' + esc(short(e.unit)) + ' · 85 %: ' + f1(r.p85) + '</small></div>' +
+        '<span class="acts-row"><button class="sm" data-eo="' + e.id + '" title="Öffnen">✏️ Öffnen</button><button class="sm" data-ex="' + e.id + '" title="Exportieren">📤 Export</button><button class="x" data-ed="' + e.id + '" title="Löschen" aria-label="Löschen">🗑</button></span></div>'; }).join('') + '</div></div>').join('') + '</div>';
     $('view').innerHTML = h;
     const qi = $('esQ'); qi.oninput = () => { UI.estQ = qi.value; const p = qi.selectionStart; A.estimatesView(); const n = $('esQ'); n.focus(); n.setSelectionRange(p, p); };
     $('esNew').onclick = () => A.newEstimate(''); $('libBtn').onclick = libSheet;
-    $('view').querySelectorAll('[data-e]').forEach(el => el.onclick = () => A.go('estimate', { eid: el.dataset.e, back: { view: 'estimates' } }));
+    const open = id => A.go('estimate', { eid: id, back: { view: 'estimates' } }), find = id => S().estimates.find(x => x.id === id);
+    $('view').querySelectorAll('[data-e]').forEach(el => el.onclick = () => open(el.dataset.e));
+    $('view').querySelectorAll('[data-eo]').forEach(el => el.onclick = () => open(el.dataset.eo));
+    $('view').querySelectorAll('[data-ex]').forEach(el => el.onclick = () => exportSheet(find(el.dataset.ex)));
+    $('view').querySelectorAll('[data-ed]').forEach(el => el.onclick = () => deleteEstimate(find(el.dataset.ed), () => A.estimatesView()));
   };
+  async function deleteEstimate(es, after) {
+    if (!confirm('Schätzung „' + es.title + '“ löschen?')) return;
+    await A.snapshot('vor Löschen', 'Vor Löschen: Schätzung ' + es.title);
+    const i = S().estimates.indexOf(es); S().estimates.splice(i, 1); A.commit(); after();
+    A.toast('Schätzung gelöscht', 'Rückgängig', () => { S().estimates.splice(i, 0, es); A.commit(); A.render(); });
+  }
+  A.deleteEstimate = deleteEstimate;
+  // Export: intern (alles) oder Kundenvariante (85-%-Wert, Lösung, Anforderungen, Aufgaben mit erwartetem Aufwand, Zuschläge, Gesamt)
+  function exportSheet(es) {
+    A.sheet('<h4>📤 Export: ' + esc(es.title) + '</h4>' +
+      '<div class="panel"><h3>👥 Für uns (intern)</h3><div class="help">Alles: O / M / P, Erwartungswert, Streuung, 85-%-Wert, Story-Zuordnung.</div><div class="bar" style="margin:0"><button class="sm pri" data-v="int" data-f="mail">📋 E-Mail</button><button class="sm" data-v="int" data-f="xls">📊 Excel</button><button class="sm" data-v="int" data-f="print">🖨 Drucken / PDF</button></div></div>' +
+      '<div class="panel"><h3>🤝 Für den Kunden</h3><div class="help">Lösung, Anforderungen, Aufgaben mit erwartetem Aufwand, Zusatzaufwände und als Gesamt der 85-%-Wert (Differenz als „Puffer für Planungssicherheit“). Keine O / M / P, keine Streuung.</div><div class="bar" style="margin:0"><button class="sm pri" data-v="cust" data-f="mail">📋 E-Mail</button><button class="sm" data-v="cust" data-f="xls">📊 Excel</button><button class="sm" data-v="cust" data-f="print">🖨 Drucken / PDF</button></div></div>' +
+      '<div class="acts"><button class="btn sec" id="exC">Schließen</button></div>', () => {
+      $('exC').onclick = A.closeSheet;
+      $('sheet').querySelectorAll('[data-v]').forEach(b => b.onclick = () => runExport(es, b.dataset.v, b.dataset.f));
+    });
+  }
+  function runExport(es, variant, fmt) {
+    const cust = variant === 'cust';
+    if (fmt === 'mail') return copyRich(cust ? custHTML(es) : reportHTML(es), cust ? custText(es) : reportText(es));
+    if (fmt === 'xls') return cust ? custXlsx(es) : exportXlsx(es);
+    const w = window.open('', '_blank'); if (!w) return A.toast('Pop-up blockiert');
+    w.document.write('<!doctype html><html lang="de"><head><meta charset="utf-8"><title>' + esc(es.title) + '</title></head><body style="margin:24px">' + (cust ? custHTML(es) : reportHTML(es)) + '<script>setTimeout(()=>print(),300)<\/script></body></html>'); w.document.close();
+  }
+  A.exportSheet = exportSheet; A.runExport = runExport;
   const cur = () => S().estimates.find(e => e.id === UI.eid);
   A.estimateEditor = () => {
     const es = cur(); if (!es) return A.go('estimates');
@@ -64,7 +94,7 @@
     $('eU').onchange = e => { const to = e.target.value; if (es.tasks.length && C.HOURS[es.unit] && C.HOURS[to] && confirm('Werte von ' + es.unit + ' in ' + to + ' umrechnen (1 Tag = 8 h, 1 Woche = 5 Tage)?')) convertEst(es, to); else es.unit = to; touchE(es); A.estimateEditor(); };
     $('eDup').onclick = () => { const c = C.cloneEstimate(es); Object.assign(c, { title: es.title + ' (Kopie)', tpl: false, status: 'draft', date: today() }); S().estimates.push(c); A.commit(); A.go('estimate', { eid: c.id }); A.toast('Kopie angelegt'); };
     $('eTpl').onclick = () => { es.tpl = !es.tpl; touchE(es); A.estimateEditor(); A.toast(es.tpl ? '📌 Steht bei „Neue Schätzung“ als Vorlage bereit' : 'Keine Vorlage mehr'); };
-    $('eDel').onclick = async () => { if (!confirm('Schätzung „' + es.title + '“ löschen?')) return; await A.snapshot('vor Löschen', 'Vor Löschen: Schätzung ' + es.title); const i = S().estimates.indexOf(es); S().estimates.splice(i, 1); A.commit(); A.go(UI.back && UI.back.view || 'estimates', UI.back || {}); A.toast('Schätzung gelöscht', 'Rückgängig', () => { S().estimates.splice(i, 0, es); A.commit(); A.go('estimate', { eid: es.id }); }); };
+    $('eDel').onclick = () => deleteEstimate(es, () => A.go(UI.back && UI.back.view || 'estimates', UI.back || {}));
     wireExport(); renderStories(); renderTasks(); renderExtras(); renderOut();
   };
   function renderStories() {
@@ -82,14 +112,16 @@
     const roles = [...new Set(S().estimates.flatMap(x => x.stories.map(y => y.role)).concat(['Kunde', 'Sachbearbeiter:in', 'Projektleiter:in', 'Administrator:in']).filter(Boolean))].slice(0, 8);
     A.sheet('<h4>' + (isNew ? '📝 Neue User Story' : '✏️ User Story') + '</h4><div class="help">Vorlage: <b>Als</b> [Rolle] <b>möchte ich</b> [Ziel], <b>damit</b> [Nutzen]. Beschreibe das <i>Was</i>, nicht das <i>Wie</i>; klein und testbar.</div>' +
       '<label class="f"><span>Als …</span><input id="sR" value="' + esc(w.role) + '" autofocus></label><div class="chips" id="sRc" style="margin:6px 0 10px">' + roles.map(r => '<button>' + esc(r) + '</button>').join('') + '</div>' +
-      '<label class="f"><span>möchte ich …</span><textarea id="sW">' + esc(w.want) + '</textarea></label><label class="f" style="margin-top:8px"><span>damit …</span><textarea id="sB">' + esc(w.benefit) + '</textarea></label>' +
+      '<label class="f"><span>möchte ich … (bekannte Anforderungen werden vorgeschlagen)</span><input id="sW" list="dlS" value="' + esc(w.want) + '" autocomplete="off"><datalist id="dlS">' + knownStories().map(x => '<option value="' + esc(x.want) + '">').join('') + '</datalist></label><label class="f" style="margin-top:8px"><span>damit …</span><textarea id="sB">' + esc(w.benefit) + '</textarea></label>' +
       '<div class="note" id="sPv" style="margin-top:10px"></div><label class="f"><span>Akzeptanzkriterien (eins pro Zeile)</span><textarea id="sA" rows="3">' + esc(w.ac.join('\n')) + '</textarea></label>' +
       '<div class="chips" style="margin:6px 0 10px"><button id="sG">＋ Gegeben … wenn … dann …</button><button id="sF">＋ Fehlerfall</button></div>' +
       '<div class="f"><span>Priorität (MoSCoW)</span><div class="chips" id="sP">' + Object.entries(C.PRIO).map(([k, v]) => '<button data-p="' + k + '" class="' + (w.prio === k ? 'on' : '') + '">' + v + '</button>').join('') + '</div></div>' +
-      '<label class="pick" style="border:0;margin-top:8px"><input type="checkbox" id="sL"><div>Auch in der Bibliothek speichern<small>zur Wiederverwendung in anderen Schätzungen</small></div></label>' +
+      '<label class="pick" style="border:0;margin-top:8px"><input type="checkbox" id="sL" checked><div>Auch in der Bibliothek speichern<small>zur Wiederverwendung in anderen Schätzungen</small></div></label>' +
       '<div class="acts">' + (isNew ? '' : '<button class="btn red" id="sX">Löschen</button>') + '<button class="btn sec" id="sC">Abbrechen</button><button class="btn" id="sOk">Speichern</button></div>', () => {
       const read = () => { w.role = $('sR').value.trim(); w.want = $('sW').value.trim(); w.benefit = $('sB').value.trim(); w.ac = $('sA').value.split('\n').map(x => x.trim()).filter(Boolean); };
       const pv = () => { read(); $('sPv').textContent = C.storyText(w); }; ['sR', 'sW', 'sB'].forEach(id => $(id).oninput = pv); pv();
+      // Bekannte Anforderung gewählt: leere Felder mit gespeicherten Werten füllen
+      $('sW').onchange = () => { const k = knownStories().find(x => C.normTxt(x.want) === C.normTxt($('sW').value)); if (!k) return; if (!$('sR').value.trim()) $('sR').value = k.role; if (!$('sB').value.trim()) $('sB').value = k.benefit; if (!$('sA').value.trim()) $('sA').value = (k.ac || []).join('\n'); pv(); };
       $('sRc').querySelectorAll('button').forEach(b => b.onclick = () => { $('sR').value = b.textContent; pv(); });
       const add = t => { const a = $('sA'); a.value = (a.value.trim() ? a.value.trim() + '\n' : '') + t; a.focus(); };
       $('sG').onclick = () => add('Gegeben …, wenn …, dann …'); $('sF').onclick = () => add('Wenn … fehlschlägt, dann sehe ich eine verständliche Meldung');
@@ -99,7 +131,7 @@
       $('sOk').onclick = () => {
         read(); if (!w.want) return $('sW').focus();
         if (isNew) es.stories.push(w); else Object.assign(s, w);
-        if ($('sL').checked) { const L = S().lib.stories, ex = L.find(x => C.normTxt(x.want) === C.normTxt(w.want)); const item = { role: w.role, want: w.want, benefit: w.benefit, ac: w.ac.slice(), prio: w.prio }; if (ex) Object.assign(ex, item); else L.push(Object.assign({ id: C.uid() }, item)); }
+        if ($('sL').checked) C.libUpsertStory(S(), w);
         touchE(es); A.closeSheet(); renderStories(); renderTasks(); A.toast('📝 Story gespeichert');
       };
     });
@@ -111,12 +143,12 @@
   function renderTasks() {
     const es = cur(), u = short(es.unit);
     $('tkP').innerHTML = '<h3>🔧 Aufgaben<span class="sp"></span><span class="cnt">' + es.tasks.length + '</span></h3><div class="help">O = optimistisch, M = wahrscheinlich, P = pessimistisch. Erwartungswert = (O + 4·M + P) ÷ 6. Beim Tippen werden ähnliche frühere Aufgaben vorgeschlagen.</div>' +
-      es.tasks.map((t, i) => '<div class="task" data-id="' + t.id + '"><div class="row" style="margin-bottom:6px"><label class="f" style="flex:3"><span>' + (i + 1) + '. Aufgabe</span><input data-k="n" value="' + esc(t.n) + '"></label>' +
+      es.tasks.map((t, i) => '<div class="task" data-id="' + t.id + '"><div class="row" style="margin-bottom:6px"><label class="f" style="flex:3"><span>' + (i + 1) + '. Aufgabe</span><input data-k="n" list="dlT" autocomplete="off" value="' + esc(t.n) + '"></label>' +
         (es.stories.length ? '<label class="f"><span>Story</span><select data-k="sid"><option value="">–</option>' + es.stories.map((s, j) => '<option value="' + s.id + '"' + (s.id === t.sid ? ' selected' : '') + '>US' + (j + 1) + '</option>').join('') + '</select></label>' : '') + '</div>' +
         '<label class="f" style="margin-bottom:6px"><span>Beschreibung</span><textarea data-k="d" rows="1">' + esc(t.d) + '</textarea></label>' +
         '<div class="g4"><label class="f" style="min-width:0"><span>O</span><input inputmode="decimal" data-k="o" value="' + esc(t.o) + '"></label><label class="f" style="min-width:0"><span>M</span><input inputmode="decimal" data-k="m" value="' + esc(t.m) + '"></label><label class="f" style="min-width:0"><span>P</span><input inputmode="decimal" data-k="p" value="' + esc(t.p) + '"></label><div class="ev"><b data-ev>' + f1(C.tE(t)) + '</b><small>' + esc(u) + ' erw.</small></div></div>' +
         '<div class="bar" style="margin:8px 0 0;justify-content:flex-end"><button class="sm" data-a="up">↑</button><button class="sm" data-a="lib" title="In Bibliothek">⭐</button><button class="sm" data-a="cp" title="Duplizieren">⧉</button><button class="sm" data-a="rm" title="Löschen">✕</button></div><div data-sug></div></div>').join('') +
-      '<div class="bar" style="margin:0"><button class="btn" id="tAdd">＋ Aufgabe</button><button class="btn sec" id="tReuse">📚 Wiederverwenden</button></div>';
+      '<div class="bar" style="margin:0"><button class="btn" id="tAdd">＋ Aufgabe</button><button class="btn sec" id="tReuse">📚 Wiederverwenden</button></div><datalist id="dlT">' + knownTasks().map(k => '<option value="' + esc(k.t.n) + '">').join('') + '</datalist>';
     $('tAdd').onclick = () => addTask({}); $('tReuse').onclick = reuseSheet;
     $('tkP').querySelectorAll('.task').forEach(box => {
       const t = es.tasks.find(x => x.id === box.dataset.id);
@@ -124,6 +156,22 @@
         const k = inp.dataset.k; t[k] = inp.value; touchE(es);
         if ('omp'.includes(k)) box.querySelector('[data-ev]').textContent = f1(C.tE(t));
         if (k === 'n') suggest(box, t); if (k === 'sid') renderStories(); renderOut();
+        autoLib(t);
+      });
+      // Name aus der Vorschlagsliste gewählt und noch keine Werte: gespeicherte Werte übernehmen
+      box.querySelector('[data-k="n"]').addEventListener('change', () => {
+        if (C.num(t.o) || C.num(t.m) || C.num(t.p)) return;
+        const k = knownTasks().find(x => C.normTxt(x.t.n) === C.normTxt(t.n)); if (!k) return;
+        ['o', 'm', 'p'].forEach(x => t[x] = C.conv(k.t[x], k.unit, es.unit)); if (!t.d && k.t.d) t.d = k.t.d;
+        ['o', 'm', 'p', 'd'].forEach(x => { const el = box.querySelector('[data-k="' + x + '"]'); if (el) el.value = t[x]; });
+        box.querySelector('[data-ev]').textContent = f1(C.tE(t)); touchE(es); renderOut(); box.querySelector('[data-sug]').innerHTML = ''; A.toast('Werte von „' + k.t.n + '“ übernommen');
+      });
+      // Mit Tab ins Story-Feld: erste Story vorauswählen und Liste öffnen
+      const sel = box.querySelector('select[data-k="sid"]');
+      if (sel) sel.addEventListener('focus', () => {
+        if (performance.now() - lastTab > 300) return;
+        if (!t.sid && es.stories.length) { t.sid = es.stories[0].id; sel.value = t.sid; touchE(es); renderStories(); }
+        try { sel.showPicker(); } catch (e) { /* ältere Browser: Liste mit Alt+↓ öffnen */ }
       });
       box.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
         const i = es.tasks.indexOf(t), a = b.dataset.a;
@@ -135,6 +183,22 @@
       });
     });
   }
+  let lastTab = -1e9;
+  document.addEventListener('keydown', e => { if (e.key === 'Tab' && !e.shiftKey) lastTab = performance.now(); }, true);
+  // Bekannte Aufgaben/Stories: Bibliothek zuerst, dann alle Schätzungen (je Name nur einmal)
+  function knownTasks() {
+    const seen = new Set(), out = [];
+    S().lib.tasks.forEach(t => { const k = C.normTxt(t.n); if (k && !seen.has(k)) { seen.add(k); out.push({ t, unit: t.unit }); } });
+    S().estimates.forEach(e => e.tasks.forEach(t => { const k = C.normTxt(t.n); if (k && (C.num(t.m) || C.num(t.p)) && !seen.has(k)) { seen.add(k); out.push({ t, unit: e.unit }); } }));
+    return out;
+  }
+  function knownStories() {
+    const seen = new Set(), out = [];
+    S().lib.stories.concat(...S().estimates.map(e => e.stories)).forEach(x => { const k = C.normTxt(x.want); if (k && !seen.has(k)) { seen.add(k); out.push(x); } });
+    return out;
+  }
+  let libT;
+  function autoLib(t) { clearTimeout(libT); const es = cur(); libT = setTimeout(() => { if (C.libUpsertTask(S(), t, es.unit, true)) A.commit(); }, 800); }
   let sugT;
   function suggest(box, t) {
     clearTimeout(sugT);
@@ -167,10 +231,9 @@
   // Export-Buttons werden nur einmal gebaut, damit ein Klick direkt nach dem Tippen nicht verloren geht
   function wireExport() {
     const es = cur();
-    $('outP').innerHTML = '<h3>Ergebnis</h3><div id="outNums"></div><h3 style="margin-top:12px">Export</h3><div class="bar" style="margin:0"><button class="sm pri" id="xMail">📋 Für E-Mail kopieren</button><button class="sm" id="xXls">📊 Excel</button><button class="sm" id="xPrint">🖨 Drucken / PDF</button></div>';
-    $('xMail').onclick = () => copyRich(reportHTML(cur()), reportText(cur()));
-    $('xXls').onclick = () => exportXlsx(cur());
-    $('xPrint').onclick = () => { const es = cur(), w = window.open('', '_blank'); if (!w) return A.toast('Pop-up blockiert'); w.document.write('<!doctype html><html lang="de"><head><meta charset="utf-8"><title>' + esc(es.title) + '</title></head><body style="margin:24px">' + reportHTML(es) + '<script>setTimeout(()=>print(),300)<\/script></body></html>'); w.document.close(); };
+    const row = (v, label) => '<div class="f" style="margin-bottom:8px"><span>' + label + '</span><div class="bar" style="margin:0"><button class="sm' + (v === 'int' ? ' pri' : '') + '" data-xv="' + v + '" data-xf="mail" id="x' + v + 'Mail">📋 E-Mail</button><button class="sm" data-xv="' + v + '" data-xf="xls" id="x' + v + 'Xls">📊 Excel</button><button class="sm" data-xv="' + v + '" data-xf="print">🖨 PDF</button></div></div>';
+    $('outP').innerHTML = '<h3>Ergebnis</h3><div id="outNums"></div><h3 style="margin-top:12px">Export</h3>' + row('int', '👥 Intern (alle Daten)') + row('cust', '🤝 Kunde (85-%-Wert, ohne O / M / P)');
+    $('outP').querySelectorAll('[data-xv]').forEach(b => b.onclick = () => runExport(cur(), b.dataset.xv, b.dataset.xf));
   }
   function reportText(es) {
     const r = C.calcEstimate(es), u = es.unit, L = ['Schätzung: ' + es.title, 'Projekt: ' + projName(es.pid) + ' · Stand: ' + C.fmtD(es.date) + ' · Status: ' + C.EST_STATUS[es.status] + (es.source ? ' · Quelle: ' + es.source : ''), '',
@@ -194,6 +257,41 @@
       '<tr><td ' + th + ' colspan="7"><b>Gesamt</b></td><td ' + tn + '><b>' + f1(r.total) + '</b></td></tr></table><div style="color:#5a6380;font-size:12px;margin-top:8px">Dreipunktschätzung (PERT): (O + 4·M + P) ÷ 6.</div></div>';
     return h;
   }
+  function custText(es) {
+    const k = C.customerView(es), u = es.unit, L = ['Aufwandsschätzung: ' + es.title, 'Stand: ' + C.fmtD(es.date), '', 'Gesamtaufwand: ' + f1(k.total) + ' ' + u, ''];
+    if (es.idea) L.push('Lösung:', es.idea, '');
+    if (es.stories.length) { L.push('Anforderungen:'); es.stories.forEach((s, i) => { L.push('US' + (i + 1) + ' ' + C.storyText(s)); s.ac.forEach(a => L.push('   ✔ ' + a)); }); L.push(''); }
+    L.push('Aufgaben (' + u + '):'); k.tasks.forEach((t, i) => { L.push((i + 1) + '. ' + (t.n || 'Aufgabe') + ': ' + f1(t.e)); if (t.d) L.push('   ' + t.d); });
+    L.push('Summe Aufgaben: ' + f1(k.base)); k.extras.forEach(x => L.push('+ ' + x.n + (x.pct != null ? ' (' + f1(x.pct) + ' %)' : '') + ': ' + f1(x.amt)));
+    if (k.buffer > 0.05) L.push('+ Puffer für Planungssicherheit: ' + f1(k.buffer)); L.push('Gesamt: ' + f1(k.total) + ' ' + u);
+    return L.join('\n');
+  }
+  function custHTML(es) {
+    const k = C.customerView(es), u = esc(es.unit), td = 'style="border:1px solid #c8cfe0;padding:5px 8px;vertical-align:top"', tn = 'style="border:1px solid #c8cfe0;padding:5px 8px;text-align:right;white-space:nowrap"', th = 'style="border:1px solid #c8cfe0;padding:5px 8px;background:#eef1fb;text-align:left"';
+    let h = '<div style="font-family:Segoe UI,Calibri,Arial,sans-serif;font-size:14px;color:#1b2033"><h2 style="font-size:18px;margin:0 0 4px">Aufwandsschätzung: ' + esc(es.title) + '</h2><div style="color:#5a6380;margin-bottom:10px">Stand: ' + C.fmtD(es.date) + '</div>' +
+      '<table style="border-collapse:collapse;margin-bottom:12px"><tr><td ' + th + '>Gesamtaufwand</td><td ' + tn + '><b>' + f1(k.total) + ' ' + u + '</b></td></tr></table>';
+    if (es.idea) h += '<h3 style="font-size:15px;margin:12px 0 4px">Lösung</h3><div style="white-space:pre-wrap">' + esc(es.idea) + '</div>';
+    if (es.stories.length) h += '<h3 style="font-size:15px;margin:12px 0 4px">Anforderungen</h3><table style="border-collapse:collapse"><tr><th ' + th + '>Nr.</th><th ' + th + '>Anforderung</th><th ' + th + '>Akzeptanzkriterien</th></tr>' + es.stories.map((s, i) => '<tr><td ' + td + '>US' + (i + 1) + '</td><td ' + td + '>' + esc(C.storyText(s)) + '</td><td ' + td + '>' + s.ac.map(esc).join('<br>') + '</td></tr>').join('') + '</table>';
+    h += '<h3 style="font-size:15px;margin:12px 0 4px">Aufgaben</h3><table style="border-collapse:collapse"><tr><th ' + th + '>Nr.</th><th ' + th + '>Aufgabe</th><th ' + th + '>Beschreibung</th>' + (es.stories.length ? '<th ' + th + '>Anforderung</th>' : '') + '<th ' + th + '>Aufwand (' + u + ')</th></tr>' +
+      k.tasks.map((t, i) => '<tr><td ' + td + '>' + (i + 1) + '</td><td ' + td + '>' + esc(t.n) + '</td><td ' + td + '><span style="white-space:pre-wrap">' + esc(t.d) + '</span></td>' + (es.stories.length ? '<td ' + td + '>' + storyNo(es, t.sid) + '</td>' : '') + '<td ' + tn + '>' + f1(t.e) + '</td></tr>').join('');
+    const span = es.stories.length ? 4 : 3;
+    h += '<tr><td ' + td + ' colspan="' + span + '"><b>Summe Aufgaben</b></td><td ' + tn + '><b>' + f1(k.base) + '</b></td></tr>' + k.extras.map(x => '<tr><td ' + td + ' colspan="' + span + '">+ ' + esc(x.n) + (x.pct != null ? ' (' + f1(x.pct) + ' %)' : '') + '</td><td ' + tn + '>' + f1(x.amt) + '</td></tr>').join('') +
+      (k.buffer > 0.05 ? '<tr><td ' + td + ' colspan="' + span + '">+ Puffer für Planungssicherheit</td><td ' + tn + '>' + f1(k.buffer) + '</td></tr>' : '') +
+      '<tr><td ' + th + ' colspan="' + span + '"><b>Gesamt</b></td><td ' + tn + '><b>' + f1(k.total) + '</b></td></tr></table></div>';
+    return h;
+  }
+  function custXlsx(es) {
+    if (!window.XLSX) return A.toast('Excel-Modul nicht geladen');
+    const k = C.customerView(es), R = x => Math.round(C.num(x) * 100) / 100, AO = [['Aufwandsschätzung', es.title], ['Stand', C.fmtD(es.date)], ['Einheit', es.unit], ['Gesamtaufwand', R(k.total)], []];
+    if (es.idea) AO.push(['Lösung', es.idea], []);
+    if (es.stories.length) { AO.push(['Nr.', 'Anforderung', 'Akzeptanzkriterien']); es.stories.forEach((s, i) => AO.push(['US' + (i + 1), C.storyText(s), s.ac.join('\n')])); AO.push([]); }
+    AO.push(['Nr.', 'Aufgabe', 'Beschreibung', 'Anforderung', 'Aufwand']); k.tasks.forEach((t, i) => AO.push([i + 1, t.n, t.d, storyNo(es, t.sid), R(t.e)]));
+    AO.push([], ['', 'Summe Aufgaben', '', '', R(k.base)]); k.extras.forEach(x => AO.push(['', x.n + (x.pct != null ? ' (' + x.pct + ' %)' : ''), '', '', R(x.amt)]));
+    if (k.buffer > 0.05) AO.push(['', 'Puffer für Planungssicherheit', '', '', R(k.buffer)]); AO.push(['', 'Gesamt', '', '', R(k.total)]);
+    const wb = XLSX.utils.book_new(), ws = XLSX.utils.aoa_to_sheet(AO); ws['!cols'] = [{ wch: 8 }, { wch: 40 }, { wch: 50 }, { wch: 12 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Schätzung'); XLSX.writeFile(wb, ('Angebot-Schaetzung-' + es.title).replace(/[^\wäöüÄÖÜß-]+/g, '-').slice(0, 70) + '.xlsx');
+  }
+  Object.assign(A, { custText, custHTML, reportText: es => reportText(es) });
   async function copyRich(html, text) {
     try { if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) { await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]); return A.toast('📋 Kopiert – in Outlook oder Teams einfügen'); } } catch (e) {}
     const d = document.createElement('div'); d.contentEditable = 'true'; d.innerHTML = html; Object.assign(d.style, { position: 'fixed', left: '-9999px', background: '#fff' }); document.body.appendChild(d);
@@ -309,7 +407,8 @@
       '<div class="row"><label class="f"><span>Max. aktive Projekte</span><input id="sWip" inputmode="numeric" value="' + s.settings.wip + '"></label><label class="f"><span>Ohne Update nach (Tagen)</span><input id="sSt" inputmode="numeric" value="' + s.settings.stale + '"></label></div>' +
       '<div class="row"><label class="f"><span>Budget gelb ab %</span><input id="sBy" inputmode="numeric" value="' + s.settings.budgetY + '"></label><label class="f"><span>Budget rot über %</span><input id="sBr" inputmode="numeric" value="' + s.settings.budgetR + '"></label></div>' +
       '<div class="row"><label class="f"><span>„Aktuelles“ veraltet nach (Tagen)</span><input id="sAk" inputmode="numeric" value="' + s.settings.aktStale + '"></label><label class="f"><span>Backup-Erinnerung nach (Tagen)</span><input id="sBd" inputmode="numeric" value="' + s.settings.backupDays + '"></label></div>' +
-      '<label class="f"><span>Phasen/Status, die „fertig“ bedeuten</span><input id="sDn" value="' + esc(s.settings.done) + '"></label></div>' +
+      '<label class="f"><span>Phasen/Status, die „fertig“ bedeuten</span><input id="sDn" value="' + esc(s.settings.done) + '"></label>' +
+      '<div class="row" style="margin-top:10px"><label class="f"><span>weclapp-Adresse (für „↗ weclapp“)</span><input id="sWc" value="' + esc(s.settings.weclappUrl) + '" placeholder="https://firma.weclapp.com"></label><label class="f" style="max-width:180px"><span>„Bald fällig“ (Tage)</span><input id="sSo" inputmode="numeric" value="' + s.settings.soonDays + '"></label></div></div>' +
       '<div class="panel"><h3>🧯 Gefahrenzone</h3><button class="btn red" id="dWipe">Alle Daten löschen</button><div class="help" style="margin-top:8px">Vorher wird eine interne Version angelegt.</div></div></div>';
     $('dBk').onclick = () => A.doBackup();
     if ($('dDir')) $('dDir').onclick = async () => { try { const h = await window.showDirectoryPicker({ mode: 'readwrite', id: 'projekt-cockpit' }); await ST.setDir(h); A.toast('📁 Backups gehen jetzt nach „' + h.name + '“'); A.dataView(); } catch (e) { if (e.name !== 'AbortError') A.toast('Ordner konnte nicht gewählt werden'); } };
@@ -323,9 +422,11 @@
       if (!confirm('Stand vom ' + A.fdt(x.at) + ' („' + x.label + '“) zurückholen? Der jetzige Stand wird vorher als Version gesichert.')) return;
       await A.replaceState(x.data, 'Zurückholen einer Version'); A.toast('🕒 Version vom ' + A.fdt(x.at) + ' wiederhergestellt');
     });
-    const setNum = (id, k, min) => $(id).onchange = e => { s.settings[k] = Math.max(min, parseInt(e.target.value) || C.DEFAULT_SETTINGS[k]); A.commit(); };
+    const setNum = (id, k, min) => $(id).onchange = e => { const v = parseInt(e.target.value, 10); s.settings[k] = Math.max(min, isNaN(v) ? C.DEFAULT_SETTINGS[k] : v); A.commit(); };
     setNum('sWip', 'wip', 1); setNum('sSt', 'stale', 1); setNum('sBy', 'budgetY', 1); setNum('sBr', 'budgetR', 1); setNum('sAk', 'aktStale', 1); setNum('sBd', 'backupDays', 1);
-    $('sMe').onchange = e => { s.me = e.target.value.trim(); A.commit(); }; $('sDn').onchange = e => { s.settings.done = e.target.value; A.commit(); };
+    $('sMe').onchange = e => { s.me = e.target.value.trim(); A.commit(); };
+    $('sWc').onchange = e => { s.settings.weclappUrl = e.target.value.trim() || C.DEFAULT_SETTINGS.weclappUrl; A.commit(); };
+    setNum('sSo', 'soonDays', 0); $('sDn').onchange = e => { s.settings.done = e.target.value; A.commit(); };
     $('dWipe').onclick = async () => { if (!confirm('Wirklich ALLE Projekte, Schätzungen und Einstellungen löschen?') || !confirm('Letzte Rückfrage: löschen?')) return; await A.replaceState(C.empty(), 'Alles löschen'); A.toast('Alles gelöscht – über „Interne Versionen“ zurückholbar'); A.go('home'); };
   };
 

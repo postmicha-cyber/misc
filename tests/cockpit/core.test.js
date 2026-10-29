@@ -226,3 +226,75 @@ test('U70 Interne Versionen: höchstens alle 30 Minuten automatisch, Begrenzung 
   const P = Core.pruneSnapshots(L, 10);
   assert.ok(P.length <= 20); assert.equal(P[0].at, now);
 });
+
+// ---------- Erweiterung 2: Ampel, Budget, Kürzel, weclapp-Link, Aktuelles, Kundenexport, Bibliothek ----------
+test('U43 Ampel ignoriert weclapp-Laufzeit, „Aktuelles“ und fehlenden nächsten Schritt (nur Hinweise)', () => {
+  const p = Core.newProject({ wc: { plan: 100, istab: 10, ist: 10, ende: '2026-01-01', start: '2025-01-01', akt: '' } }, '2026-01-01');
+  const F = Core.flags(p, null, TODAY);
+  assert.equal(Core.severity(F), 'g');
+  assert.ok(F.some(f => f.s === 'n' && /Projektende/.test(f.t)));
+  assert.ok(F.some(f => f.s === 'n' && /Aktuelles/.test(f.t)));
+});
+test('U44 Ampel: Budget sowie eigene Aufgaben und Termine färben', () => {
+  const base = o => Core.newProject(Object.assign({ next: 'x' }, o), TODAY);
+  assert.equal(Core.severity(Core.flags(base({ wc: { plan: 100, istab: 90 } }), null, TODAY)), 'y');
+  assert.equal(Core.severity(Core.flags(base({ wc: { plan: 100, istab: 101 } }), null, TODAY)), 'r');
+  assert.equal(Core.severity(Core.flags(base({ tasks: [{ id: 'a', t: 'x', due: '2026-10-30', done: false }] }), null, TODAY)), 'y');
+  assert.equal(Core.severity(Core.flags(base({ tasks: [{ id: 'a', t: 'x', due: '2026-10-28', done: false }] }), null, TODAY)), 'r');
+  assert.equal(Core.severity(Core.flags(base({ tasks: [{ id: 'a', t: 'x', due: '2026-10-28', done: true }] }), null, TODAY)), 'g');
+  assert.equal(Core.severity(Core.flags(base({ due: '2026-10-20' }), null, TODAY)), 'r');
+  assert.equal(Core.severity(Core.flags(base({ due: '2026-11-15' }), null, TODAY)), 'g');
+  assert.equal(Core.severity(Core.flags(base({ status: 'y' }), null, TODAY)), 'y');
+});
+test('U45 Restbudget absolut und relativ, Summen über alle Projekte', () => {
+  const a = Core.newProject({ wc: { plan: 200, istab: 150, ist: 188 } }), b = Core.newProject({ wc: { plan: 100, istab: 120, ist: 130 } }), c = Core.newProject({});
+  const ba = Core.budget(a);
+  assert.equal(ba.rest, 50); assert.equal(Math.round(ba.restPct), 25); assert.equal(Core.budget(c), null);
+  const T = Core.budgetTotals([a, b, c]);
+  assert.equal(T.count, 2); assert.equal(T.plan, 300); assert.equal(T.used, 270); assert.equal(T.rest, 30); assert.equal(T.over, 1);
+});
+test('U46 Kürzel: erster Buchstabe Vorname + zwei Buchstaben Nachname', () => {
+  assert.equal(Core.initials('Michael Albrecht'), 'MAL'); assert.equal(Core.initials('Benutzer Max Muster'), 'MMU');
+  assert.equal(Core.initials('Anna Maria Beispiel'), 'ABE'); assert.equal(Core.initials('Muster, Max'), 'MMU');
+  assert.equal(Core.initials('Cem'), 'CEM'); assert.equal(Core.initials(''), ''); assert.equal(Core.initials('Jörg Übel'), 'JÜB');
+});
+test('U47 weclapp-Link zur Suche nach der Auftragsnummer', () => {
+  assert.equal(Core.weclappLink('https://tcgprocess.weclapp.com/', 'AUF201581'), 'https://tcgprocess.weclapp.com/app/search?s=AUF201581');
+  assert.equal(Core.weclappLink('', 'A B'), 'https://tcgprocess.weclapp.com/app/search?s=A%20B');
+  assert.equal(Core.weclappLink('https://x.weclapp.com', ''), '');
+});
+test('U48 „Aktuelles“: Präfix wird ergänzt, Schreibweise der vorhandenen Einträge übernommen, neuer Eintrag oben', () => {
+  assert.equal(Core.aktCompose('', 'Kickoff', TODAY), '29.10.2026: Kickoff');
+  assert.equal(Core.aktCompose('#20.10.2026: Alt', 'Neu', TODAY), '#29.10.2026: Neu\n#20.10.2026: Alt');
+  assert.equal(Core.aktCompose('20.10.2026: Alt', 'Neu\nzweite Zeile', TODAY), '29.10.2026: Neu zweite Zeile\n20.10.2026: Alt');
+  assert.equal(Core.aktCompose('Alt', '   ', TODAY), 'Alt');
+  const back = Core.parseAkt(Core.aktCompose('#20.10.2026: Alt', 'Neu', TODAY), TODAY);
+  assert.equal(back.latest.d, TODAY); assert.equal(back.latest.t, 'Neu');
+});
+test('U55 Kundenvariante: Aufgaben + Zuschläge + Puffer ergeben genau den 85-%-Wert', () => {
+  const es = Core.newEstimate({ tasks: [{ n: 'A', o: 2, m: 4, p: 8 }, { n: 'B', o: 1, m: 2, p: 6 }], extras: [{ n: 'PM', type: 'pct', v: 10, on: true }, { n: 'Fix', type: 'fix', v: 1, on: true }] });
+  const k = Core.customerView(es), r = Core.calcEstimate(es);
+  const sum = k.tasks.reduce((a, t) => a + t.e, 0) + k.extras.reduce((a, x) => a + x.amt, 0) + k.buffer;
+  assert.equal(Math.round(sum * 1e6), Math.round(k.total * 1e6)); assert.equal(Math.round(k.total * 1e6), Math.round(r.p85 * 1e6));
+  assert.ok(!('o' in k.tasks[0]) && !('p' in k.tasks[0]));
+});
+test('U56 Bibliothek: Aufgaben werden automatisch gemerkt, bewusst gespeicherte nicht überschrieben', () => {
+  const s = Core.empty();
+  assert.equal(Core.libUpsertTask(s, { n: 'Ohne Werte' }, 'Tage', true), null);
+  Core.libUpsertTask(s, { n: 'Workshop', o: 1, m: 2, p: 3 }, 'Tage', true);
+  Core.libUpsertTask(s, { n: 'workshop', o: 2, m: 3, p: 5 }, 'Tage', true);
+  assert.equal(s.lib.tasks.length, 1); assert.equal(s.lib.tasks[0].m, 3);
+  Core.libUpsertTask(s, { n: 'Workshop', o: 1, m: 1, p: 1 }, 'Tage', false);
+  Core.libUpsertTask(s, { n: 'Workshop', o: 9, m: 9, p: 9 }, 'Tage', true);
+  assert.equal(s.lib.tasks[0].m, 1); assert.equal(s.lib.tasks[0].auto, false);
+  Core.libUpsertStory(s, { role: 'Einkauf', want: 'Bestellungen exportieren', ac: ['x', ''] });
+  Core.libUpsertStory(s, { role: 'Vertrieb', want: 'bestellungen exportieren' });
+  assert.equal(s.lib.stories.length, 1); assert.equal(s.lib.stories[0].role, 'Vertrieb');
+  const n = Core.normalize(JSON.parse(JSON.stringify(s))); assert.equal(n.lib.tasks[0].auto, false);
+});
+test('U57 Neues Feld aktNew übersteht Backup und Reparatur', () => {
+  const s = Core.normalize({ projects: [{ id: 'p', name: 'P', aktNew: 'Entwurf' }] });
+  assert.equal(s.projects[0].aktNew, 'Entwurf');
+  assert.equal(Core.normalize({ projects: [{ id: 'p', name: 'P', aktNew: 7 }] }).projects[0].aktNew, '');
+  assert.equal(Core.normalize({ settings: {} }).settings.weclappUrl, 'https://tcgprocess.weclapp.com');
+});
