@@ -1,0 +1,8 @@
+﻿Projektliste Export
+
+Auftragsnummer;Auftragsdatum;Kunde;Kommission;Aktuelles;Auftrag Typ;Phase;GoLive Ziel;Projektleiter;Consultant;Status;Geplanter abrechenbarer Aufwand (h);Gebuchter Aufwand (h);Gebuchter abrechenbarer Aufwand (h);Projekt Start;Projekt Ende
+1001;15.01.2026;Nordlicht Handels GmbH #1001;Einführung Rechnungsverarbeitung;"#20.10.2026: Abnahmetest läuft
+#05.10.2026: Schnittstelle steht";Projekt;Test & Abnahme;KW 46;Benutzer Max Muster;Anna Beispiel;Auftrag bestätigt;200,0;188,5;150;01.03.2026;30.11.2026
+1002;02.02.2026;Alpenblick Maschinenbau AG;Freigabe-Workflow;01.09.: Wartet auf Kunde;Projekt;Wartend;;Max Muster;Max Muster;Auftrag bestätigt;120;96;90;01.04.2026;15.12.2026
+1003;10.03.2026;Küstenwerk Logistik;Rollout Standorte;;Projekt;Rollout;;Max Muster;Ben Beispiel;Auftrag bestätigt;1.160,5;175;160;01.05.2026;01.10.2026
+1004;11.03.2026;Seeblick Fachhandel;Servicekontingent;#Nach Bedarf;DL-Kontingent;Einsatz nach Bedarf;;Dana Beispiel;Cem Beispiel;Auftrag bestätigt;80;22;20;01.01.2026;31.12.2026

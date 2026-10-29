@@ -482,18 +482,22 @@
   function renderOut() {
     const es = cur(), r = calc(es), u = es.unit;
     updExtraAmounts();
-    $('outP').innerHTML = '<div class="lbl">Ergebnis</div><div class="res">' +
+    // Export-Buttons nur einmal bauen, sonst geht ein Klick direkt nach dem Tippen verloren
+    if (!$('outNums')) {
+      $('outP').innerHTML = '<div class="lbl">Ergebnis</div><div id="outNums"></div><div class="lbl" style="margin-top:12px">Export</div><div class="bar" style="margin-bottom:0"><button class="sm go" id="xMail">📋 Für E-Mail kopieren</button><button class="sm" id="xXls">📊 Excel</button><button class="sm" id="xPrint">🖨 Drucken / PDF</button><button class="sm" id="xShare">📤 Teilen</button></div>';
+      $('xMail').onclick = () => copyRich(reportHTML(cur()), reportText(cur()));
+      $('xXls').onclick = () => exportXlsx(cur());
+      $('xPrint').onclick = () => printReport(cur());
+      $('xShare').onclick = async () => { const e2 = cur(), t = reportText(e2); if (navigator.share) { try { await navigator.share({ title: e2.title, text: t }); } catch (e) {} } else copyRich(reportHTML(e2), t); };
+    }
+    $('outNums').innerHTML = '<div class="res">' +
       '<div class="r hl w"><b>' + f1(r.total) + ' ' + esc(u) + '</b><span>Gesamt (Erwartungswert)</span></div>' +
       '<div class="r"><b>' + f1(r.p85) + '</b><span>mit 85 % Sicherheit</span></div><div class="r"><b>± ' + f1(r.sd) + '</b><span>Standardabweichung</span></div>' +
       '<div class="r"><b>' + f1(r.r68[0]) + ' – ' + f1(r.r68[1]) + '</b><span>Bereich 68 %</span></div><div class="r"><b>' + f1(r.r95[0]) + ' – ' + f1(r.r95[1]) + '</b><span>Bereich 95 %</span></div></div>' +
       '<table class="sumt"><tr><td>Aufgaben (' + es.tasks.length + ')</td><td>' + f1(r.base) + '</td></tr>' + r.ex.map(e => '<tr><td>' + esc(e.x.n) + (e.x.type === 'pct' ? ' (' + f1(n(e.x.v)) + ' %)' : '') + '</td><td>+' + f1(e.amt) + '</td></tr>').join('') +
       '<tr class="tot"><td>Gesamt</td><td>' + f1(r.total) + ' ' + esc(short(u)) + '</td></tr></table>' +
       (r.bad.length ? '<div class="note warn">⚠️ Bei ' + r.bad.length + ' Aufgabe(n) gilt nicht O ≤ M ≤ P: ' + r.bad.map(t => esc(t.n || 'ohne Namen')).join(', ') + '</div>' : '<div class="note">💡 Für Zusagen den 85-%-Wert nehmen, intern mit dem Erwartungswert planen.</div>') +
-      '<div class="lbl" style="margin-top:12px">Export</div><div class="bar" style="margin-bottom:0"><button class="sm go" id="xMail">📋 Für E-Mail kopieren</button><button class="sm" id="xXls">📊 Excel</button><button class="sm" id="xPrint">🖨 Drucken / PDF</button><button class="sm" id="xShare">📤 Teilen</button></div>';
-    $('xMail').onclick = () => copyRich(reportHTML(es), reportText(es));
-    $('xXls').onclick = () => exportXlsx(es);
-    $('xPrint').onclick = () => printReport(es);
-    $('xShare').onclick = async () => { const t = reportText(es); if (navigator.share) { try { await navigator.share({ title: es.title, text: t }); } catch (e) {} } else copyRich(reportHTML(es), t); };
+      '';
   }
   function reportText(es) {
     const r = calc(es), u = es.unit, L = [];

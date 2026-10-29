@@ -1,0 +1,10 @@
+{
+  "name": "misc",
+  "private": true,
+  "description": "Mini-Apps; Projekt-Cockpit mit automatischen Tests",
+  "scripts": {
+    "test": "node --test tests/cockpit/*.test.js",
+    "test:unit": "node --test tests/cockpit/core.test.js",
+    "test:e2e": "node --test tests/cockpit/e2e.test.js"
+  }
+}
