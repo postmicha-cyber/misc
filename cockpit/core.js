@@ -41,7 +41,7 @@
   }
   function newProject(o, today) {
     const t = today || isoDate();
-    return Object.assign({ id: uid(), nr: '', name: 'Neues Projekt', kunde: '', status: 'g', prio: 2, due: '', next: '', notes: '', aktNew: '', tasks: [], log: [{ d: t, t: 'Projekt angelegt' }], risks: [], pinned: false, archived: false, created: t, updated: t, wc: null }, o || {});
+    return Object.assign({ id: uid(), nr: '', name: 'Neues Projekt', kunde: '', status: 'g', prio: 2, due: '', next: '', notes: '', aktNew: '', tasks: [], log: [{ d: t, t: 'Projekt angelegt' }], hist: [], risks: [], pinned: false, archived: false, created: t, updated: t, wc: null }, o || {});
   }
   function newEstimate(o, today) {
     return Object.assign({ id: uid(), pid: '', title: 'Neue Schätzung', status: 'draft', date: today || isoDate(), source: '', unit: 'Tage', idea: '', stories: [], tasks: [], extras: EXTRAS(), tpl: false, created: Date.now(), updated: Date.now() }, o || {});
@@ -63,6 +63,7 @@
         created: validIso(p.created) ? p.created : q.created, updated: validIso(p.updated) ? p.updated : q.updated,
         tasks: arr(p.tasks).filter(isObj).map(t => ({ id: id(t.id), t: str(t.t) || 'Aufgabe', due: validIso(t.due) ? t.due : '', done: !!t.done, who: str(t.who) })),
         log: arr(p.log).filter(isObj).map(l => ({ d: validIso(l.d) ? l.d : q.created, t: str(l.t), src: str(l.src) })).filter(l => l.t),
+        hist: arr(p.hist).filter(x => isObj(x) && str(x.k)).map(x => ({ at: str(x.at), src: x.src === 'weclapp' ? 'weclapp' : 'ich', k: str(x.k), from: hv(x.from), to: hv(x.to), imp: str(x.imp) })).slice(-HIST_MAX),
         risks: arr(p.risks).filter(isObj).map(r => ({ id: id(r.id), n: str(r.n) || 'Risiko', w: clamp(r.w), a: clamp(r.a), m: str(r.m) })),
         wc: isObj(p.wc) ? normWc(p.wc) : null
       });
@@ -90,15 +91,18 @@
     s.tools.cap.members = arr(s.tools.cap.members).filter(isObj);
     s.tools.fc.velos = arr(s.tools.fc.velos);
     if (isObj(src.meta)) s.meta = Object.assign(s.meta, src.meta, { colMap: isObj(src.meta.colMap) ? src.meta.colMap : {} });
+    s.meta.imports = arr(s.meta.imports).filter(x => isObj(x) && str(x.id)).slice(-IMPORTS_MAX);
     return s;
   }
+  const HIST_MAX = 400, IMPORTS_MAX = 100;
+  const hv = v => v == null ? '' : typeof v === 'number' ? v : String(v).slice(0, 2000);
   const clamp = v => Math.max(1, Math.min(5, Math.round(num(v, 3))));
   const numOr = v => v === '' || v == null ? '' : num(v);
   const WC_KEYS = ['nr', 'datum', 'kunde', 'kom', 'akt', 'typ', 'phase', 'golive', 'pl', 'cons', 'status', 'plan', 'ist', 'istab', 'start', 'ende'];
   function normWc(w) {
     const o = {};
     WC_KEYS.forEach(k => { o[k] = ['plan', 'ist', 'istab'].includes(k) ? (w[k] == null || w[k] === '' ? null : num(w[k], null)) : str(w[k]); });
-    o.importedAt = str(w.importedAt); o.missingSince = str(w.missingSince);
+    o.importedAt = str(w.importedAt); o.missingSince = str(w.missingSince); o.imp = str(w.imp); o.newImp = str(w.newImp);
     return o;
   }
 
@@ -219,14 +223,14 @@
 
   const shortKunde = s => String(s || '').replace(/\s*#\d+.*$/, '').trim();
   const wcName = r => [shortKunde(r.kunde), r.kom].filter(Boolean).join(' – ') || r.nr;
-  const rowKey = r => r.nr ? 'nr:' + r.nr.toLowerCase() : 'kk:' + normH(r.kunde) + '|' + normH(r.kom);
-  const projKey = p => p.nr ? 'nr:' + p.nr.toLowerCase() : p.wc ? 'kk:' + normH(p.wc.kunde) + '|' + normH(p.wc.kom) : null;
+  const rowKey = r => str(r.nr) ? 'nr:' + str(r.nr).toLowerCase() : 'kk:' + normH(r.kunde) + '|' + normH(r.kom);
+  const projKey = p => str(p.nr) ? 'nr:' + str(p.nr).toLowerCase() : p.wc ? 'kk:' + normH(p.wc.kunde) + '|' + normH(p.wc.kom) : null;
   const WC_LABEL = { kunde: 'Kunde', kom: 'Kommission', typ: 'Typ', phase: 'Phase', golive: 'GoLive', pl: 'Projektleiter', cons: 'Consultant', status: 'Status', plan: 'Budget (h)', ist: 'Gebucht gesamt (h)', istab: 'Gebucht abrechenbar (h)', start: 'Start', ende: 'Ende', datum: 'Auftragsdatum', akt: 'Aktuelles' };
   // Plan erstellen, ohne etwas zu verändern: was ist neu, was ändert sich, was fehlt im Export
   function planImport(state, rows) {
     const byKey = new Map();
     state.projects.forEach(p => { const k = projKey(p); if (k && !byKey.has(k)) byKey.set(k, p); });
-    const plan = { creates: [], updates: [], unchanged: [], missing: [], dupes: [], reappear: [] }, seen = new Set();
+    const plan = { creates: [], updates: [], unchanged: [], missing: [], dupes: [], reappear: [], done: [] }, seen = new Set();
     rows.forEach(r => {
       const k = rowKey(r);
       if (seen.has(k)) { plan.dupes.push(r.nr || wcName(r)); return; }
@@ -237,37 +241,77 @@
       Object.keys(WC_LABEL).forEach(f => { const a = p.wc ? p.wc[f] : undefined, b = r[f]; if (!same(a, b)) ch.push({ k: f, from: a == null ? '' : a, to: b == null ? '' : b }); });
       if (p.wc && p.wc.missingSince) plan.reappear.push(p.id);
       if (ch.length || !p.wc || p.wc.missingSince) plan.updates.push({ pid: p.id, row: r, changes: ch }); else plan.unchanged.push(p.id);
+      if (p.status !== 'd' && !p.archived && isDoneRow(r, state.settings)) plan.done.push(p.id);
     });
     state.projects.forEach(p => { const k = projKey(p); if (p.wc && k && !seen.has(k) && !p.wc.missingSince) plan.missing.push(p.id); });
     return plan;
   }
   const same = (a, b) => (a == null || a === '' ? '' : String(a)) === (b == null || b === '' ? '' : String(b));
   // Führt den Plan aus. Lokale Felder (Ampel, nächster Schritt, Aufgaben, Notizen, Schätzungen, Risiken …) bleiben unangetastet.
+  // Führt den Plan aus. Lokale Felder (Ampel, nächster Schritt, Aufgaben, Notizen, Schätzungen, Risiken …) bleiben unangetastet.
+  // Ausnahmen: der automatisch erzeugte Name/Kunde folgt weclapp, solange er nicht selbst geändert wurde;
+  // „Fertig“ wird nur gesetzt, wenn info.closeDone ausdrücklich gewählt ist.
+  // Jede Änderung landet strukturiert in p.hist (Feld, vorher, nachher, Import-ID).
   function applyImport(state, plan, info) {
     const s = state, t = info && info.today || isoDate(), at = info && info.at || new Date().toISOString(), file = info && info.file || '';
-    const touchLog = (p, text) => p.log.push({ d: t, t: text, src: 'weclapp' });
-    let created = 0, updated = 0;
+    const imp = info && info.id || 'i' + uid(), H = (p, k, from, to) => addHist(p, { at, src: 'weclapp', k, from, to, imp });
+    let created = 0, updated = 0, closed = 0;
     plan.creates.forEach(r => {
-      const p = newProject({ nr: r.nr, name: wcName(r), kunde: shortKunde(r.kunde), status: isDoneRow(r, s.settings) ? 'd' : 'g', wc: Object.assign(normWc(r), { importedAt: at }), log: [] }, t);
-      touchLog(p, 'Aus weclapp importiert' + (file ? ' (' + file + ')' : ''));
+      const done = isDoneRow(r, s.settings);
+      const p = newProject({ nr: str(r.nr), name: wcName(r), kunde: shortKunde(r.kunde), status: done ? 'd' : 'g', wc: Object.assign(normWc(r), { importedAt: at, imp, newImp: imp }), log: [] }, t);
+      H(p, '_created', '', file);
       s.projects.push(p); created++;
     });
     plan.updates.forEach(u => {
       const p = s.projects.find(x => x.id === u.pid); if (!p) return;
-      const wasMissing = p.wc && p.wc.missingSince;
-      p.wc = Object.assign(normWc(u.row), { importedAt: at, missingSince: '' });
-      if (!p.nr && u.row.nr) p.nr = u.row.nr;
+      const old = p.wc || {}, wasMissing = old.missingSince;
+      // automatisch erzeugten Namen/Kunden mitziehen, eigene Bezeichnungen bleiben
+      if (p.wc && p.name === wcName(old) && wcName(u.row) !== p.name) { H(p, 'name', p.name, wcName(u.row)); p.name = wcName(u.row); }
+      if (p.wc && p.kunde === shortKunde(old.kunde) && shortKunde(u.row.kunde) !== p.kunde) p.kunde = shortKunde(u.row.kunde);
       if (!p.kunde) p.kunde = shortKunde(u.row.kunde);
-      const relevant = u.changes.filter(c => c.k !== 'akt');
-      if (relevant.length) touchLog(p, 'weclapp: ' + relevant.map(c => WC_LABEL[c.k] + ' ' + (c.from === '' ? '–' : fmtVal(c.k, c.from)) + ' → ' + (c.to === '' ? '–' : fmtVal(c.k, c.to))).join(', '));
-      if (u.changes.some(c => c.k === 'akt')) touchLog(p, 'weclapp: „Aktuelles“ aktualisiert');
-      if (wasMissing) touchLog(p, 'Wieder im weclapp-Export enthalten');
+      if (!str(p.nr) && u.row.nr) p.nr = str(u.row.nr);
+      u.changes.forEach(c => c.k === 'akt' ? H(p, 'akt', '', aktDiff(old.akt, u.row.akt, t)) : H(p, c.k === 'status' ? 'status_wc' : c.k, c.from, c.to));
+      if (wasMissing) H(p, '_back', '', '');
+      p.wc = Object.assign(normWc(u.row), { importedAt: at, missingSince: '', imp: u.changes.length ? imp : old.imp || '', newImp: old.newImp || '' });
       if (u.changes.length) updated++;
     });
     plan.unchanged.forEach(id => { const p = s.projects.find(x => x.id === id); if (p && p.wc) p.wc.importedAt = at; });
-    plan.missing.forEach(id => { const p = s.projects.find(x => x.id === id); if (p && p.wc) { p.wc.missingSince = t; touchLog(p, 'Nicht mehr im weclapp-Export (bleibt hier erhalten)'); } });
-    s.meta.lastImport = { file, at, created, updated, unchanged: plan.unchanged.length, missing: plan.missing.length };
-    return { created, updated, unchanged: plan.unchanged.length, missing: plan.missing.length };
+    plan.missing.forEach(id => { const p = s.projects.find(x => x.id === id); if (p && p.wc) { p.wc.missingSince = t; H(p, '_missing', '', ''); } });
+    if (info && info.closeDone) plan.done.forEach(id => { const p = s.projects.find(x => x.id === id); if (p && p.status !== 'd') { H(p, 'status', p.status, 'd'); p.status = 'd'; closed++; } });
+    const res = { id: imp, at, file, created, updated, unchanged: plan.unchanged.length, missing: plan.missing.length, done: plan.done.length, closed };
+    s.meta.lastImport = res;
+    s.meta.imports = arr(s.meta.imports).concat([res]).slice(-IMPORTS_MAX);
+    return res;
+  }
+  function addHist(p, e) { p.hist = arr(p.hist); p.hist.push({ at: e.at || new Date().toISOString(), src: e.src === 'weclapp' ? 'weclapp' : 'ich', k: e.k, from: hv(e.from), to: hv(e.to), imp: str(e.imp) }); if (p.hist.length > HIST_MAX) p.hist.splice(0, p.hist.length - HIST_MAX); }
+  // Eigene Änderung festhalten; mehrere Änderungen am selben Feld innerhalb von 10 Minuten werden zusammengefasst
+  function recordChange(p, k, from, to, at) {
+    const now = at || new Date().toISOString(); p.hist = arr(p.hist);
+    const last = p.hist[p.hist.length - 1];
+    if (last && last.src === 'ich' && last.k === k && Date.parse(now) - Date.parse(last.at) < 10 * 60000) {
+      last.to = hv(to); last.at = now;
+      if (same(last.from, last.to)) p.hist.pop();
+      return;
+    }
+    if (same(from, to)) return;
+    addHist(p, { at: now, src: 'ich', k, from, to });
+  }
+  // Neue Einträge in „Aktuelles“ (gegenüber dem alten Stand) als lesbarer Text
+  function aktDiff(oldText, newText, today) {
+    const key = e => e.d + '|' + e.t, A = parseAkt(oldText, today), B = parseAkt(newText, today), seen = new Set(A.ent.map(key));
+    const fresh = B.ent.filter(e => !seen.has(key(e))).map(e => fmtD(e.d) + ': ' + e.t);
+    if (fresh.length) return fresh.join('\n').slice(0, 2000);
+    return String(newText || '').trim() ? String(newText).trim().split('\n')[0].slice(0, 300) : '(geleert)';
+  }
+  const HIST_LABEL = Object.assign({ status: 'Status', next: 'Nächster Schritt', due: 'Mein Termin', prio: 'Priorität', name: 'Name', _created: 'Aus weclapp importiert', _missing: 'Nicht mehr im weclapp-Export', _back: 'Wieder im weclapp-Export' }, WC_LABEL_PLAIN());
+  function WC_LABEL_PLAIN() { return { kunde: 'Kunde', kom: 'Kommission', typ: 'Typ', phase: 'Phase', golive: 'GoLive', pl: 'Projektleiter', cons: 'Consultant', status_wc: 'Status (weclapp)', plan: 'Budget (h)', ist: 'Gebucht gesamt (h)', istab: 'Gebucht abrechenbar (h)', start: 'Start', ende: 'Ende', datum: 'Auftragsdatum', akt: 'Aktuelles' }; }
+  // Lesbare Darstellung eines Historien-Eintrags
+  function histText(e) {
+    const lbl = HIST_LABEL[e.k] || e.k;
+    const v = x => x === '' || x == null ? '–' : e.k === 'status' && STATUS[x] ? STATUS[x].n : e.k === 'prio' ? ({ 1: 'Hoch', 2: 'Mittel', 3: 'Niedrig' })[x] || x : e.k === 'due' ? fmtD(x) || x : fmtVal(e.k, x);
+    if (e.k.startsWith('_')) return lbl + (e.k === '_created' && e.to ? ' (' + e.to + ')' : '');
+    if (e.k === 'akt') return 'Aktuelles neu: ' + e.to;
+    return lbl + ': ' + v(e.from) + ' → ' + v(e.to);
   }
   const fmtVal = (k, v) => ['start', 'ende', 'datum'].includes(k) ? fmtD(v) || v : ['plan', 'ist', 'istab'].includes(k) ? String(Math.round(num(v) * 10) / 10).replace('.', ',') : v;
   const isDoneRow = (r, settings) => { const w = String((settings || DEFAULT_SETTINGS).done).toLowerCase().split(',').map(x => x.trim()).filter(Boolean), t = (r.phase + ' ' + r.status).toLowerCase(); return w.some(x => t.includes(x)); };
@@ -336,6 +380,7 @@
         else if (A.latest && daysBetween(A.latest.d, t) >= c.aktStale) add('n', '✍️ „Aktuelles“ ' + daysBetween(A.latest.d, t) + ' Tage alt');
       }
     }
+    if (w && !w.missingSince && p.status !== 'd' && isDoneRow(w, c)) add('n', '✅ In weclapp abgeschlossen (' + (w.phase || w.status) + ') – hier noch offen');
     if (w && w.missingSince) add('n', 'ℹ️ Seit ' + fmtD(w.missingSince) + ' nicht mehr im weclapp-Export');
     if (isActive(p)) {
       if (!p.next) add('n', '➜ Kein nächster Schritt festgelegt');
@@ -498,6 +543,7 @@
     empty, normalize, newProject, newEstimate, EXTRAS,
     makeBackup, validateBackup, counts,
     normH, autoMap, findHeader, decode, parseCSV, toISO, toNum, buildRows, readTable, planImport, applyImport, wcName, shortKunde,
+    recordChange, addHist, histText, aktDiff, HIST_LABEL,
     parseAkt, flags, severity, isActive, progress, focusItems, budget, budgetTotals, initials, weclappLink, aktPrefix, aktCompose, customerView, libUpsertTask, libUpsertStory,
     tE, tV, calcEstimate, conv, storyText, cloneEstimate, bestMatch, normTxt,
     migrateFromApps, shouldAutoSnapshot, pruneSnapshots

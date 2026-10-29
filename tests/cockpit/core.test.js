@@ -122,8 +122,9 @@ test('U32 Neuer Export: lokale Daten bleiben vollständig erhalten', () => {
 });
 test('U33 Änderungen aus weclapp werden im Verlauf protokolliert', () => {
   const s = Core.empty(); importFile(s, 'weclapp-1.csv'); importFile(s, 'weclapp-2.csv');
-  const log = s.projects.find(x => x.nr === '1001').log.map(l => l.t).join(' | ');
-  assert.match(log, /Phase Test & Abnahme → Rollout/); assert.match(log, /Budget \(h\) 200 → 240/);
+  const h = s.projects.find(x => x.nr === '1001').hist, txt = h.map(Core.histText).join(' | ');
+  assert.match(txt, /Phase: Test & Abnahme → Rollout/); assert.match(txt, /Budget \(h\): 200 → 240/);
+  assert.ok(h.every(e => e.src === 'weclapp' && e.imp)); assert.equal(new Set(h.filter(e => e.k !== '_created').map(e => e.imp)).size, 1);
 });
 test('U34 Projekt fehlt im neuen Export: wird NICHT gelöscht, sondern markiert; taucht es wieder auf, wird die Markierung entfernt', () => {
   const s = Core.empty(); importFile(s, 'weclapp-1.csv'); s.projects.find(x => x.nr === '1003').notes = 'behalten';
@@ -297,4 +298,52 @@ test('U57 Neues Feld aktNew übersteht Backup und Reparatur', () => {
   assert.equal(s.projects[0].aktNew, 'Entwurf');
   assert.equal(Core.normalize({ projects: [{ id: 'p', name: 'P', aktNew: 7 }] }).projects[0].aktNew, '');
   assert.equal(Core.normalize({ settings: {} }).settings.weclappUrl, 'https://tcgprocess.weclapp.com');
+});
+
+// ---------- Erweiterung 3: Änderungshistorie, Import-Korrektheit ----------
+const base = { nr: 'A1', kunde: 'Kunde #1', kom: 'Projekt X', phase: 'Umsetzung', status: 'Auftrag bestätigt', plan: 100, ist: 10, istab: 10, akt: '#20.10.2026: alt', pl: 'Max Muster', cons: 'Anna Beispiel' };
+const imp = (s, rows, info = {}) => { const pl = Core.planImport(s, rows); return { pl, r: Core.applyImport(s, pl, Object.assign({ today: TODAY }, info)) }; };
+test('U80 Automatischer Name folgt der Kommission aus weclapp, ein selbst vergebener Name bleibt', () => {
+  const s = Core.empty(); imp(s, [base, Object.assign({}, base, { nr: 'B2', kom: 'Projekt Y' })]);
+  const [a, b] = s.projects; b.name = 'Mein Name';
+  imp(s, [Object.assign({}, base, { kom: 'Projekt X neu' }), Object.assign({}, base, { nr: 'B2', kom: 'Projekt Y neu' })]);
+  assert.equal(a.name, 'Kunde – Projekt X neu'); assert.equal(b.name, 'Mein Name');
+  assert.ok(a.hist.some(e => e.k === 'name' && e.to === 'Kunde – Projekt X neu'));
+});
+test('U81 In weclapp abgeschlossene Projekte: erkannt, als Hinweis gezeigt, nur auf Wunsch auf Fertig gesetzt', () => {
+  const s = Core.empty(); imp(s, [base]); const p = s.projects[0];
+  const done = Object.assign({}, base, { phase: 'Abgeschlossen' });
+  let x = imp(s, [done]); assert.deepEqual(x.pl.done, [p.id]); assert.equal(p.status, 'g');
+  assert.ok(Core.flags(p, s.settings, TODAY).some(f => /In weclapp abgeschlossen/.test(f.t)));
+  x = imp(s, [done], { closeDone: true }); assert.equal(p.status, 'd'); assert.equal(x.r.closed, 1);
+  assert.ok(p.hist.some(e => e.k === 'status' && e.to === 'd'));
+});
+test('U82 „Aktuelles“: Historie zeigt nur die neuen Einträge', () => {
+  const s = Core.empty(); imp(s, [base]);
+  imp(s, [Object.assign({}, base, { akt: '#28.10.2026: Abnahme ok\n#20.10.2026: alt' })]);
+  const e = s.projects[0].hist.find(x => x.k === 'akt');
+  assert.equal(e.to, '28.10.2026: Abnahme ok'); assert.equal(Core.histText(e), 'Aktuelles neu: 28.10.2026: Abnahme ok');
+});
+test('U83 Leerer Wert, Zahl als Text, Auftragsnummer mit Leerzeichen/anderer Schreibweise', () => {
+  const s = Core.empty(); imp(s, [base]);
+  let x = imp(s, [Object.assign({}, base, { nr: ' a1 ', plan: '100' })]); assert.equal(x.pl.creates.length, 0); assert.equal(x.r.updated, 0);
+  x = imp(s, [Object.assign({}, base, { plan: null })]); assert.equal(s.projects[0].wc.plan, null);
+  assert.match(Core.histText(s.projects[0].hist.at(-1)), /Budget \(h\): 100 → –/);
+});
+test('U84 Import-Liste und Markierung „geändert im letzten Import“', () => {
+  const s = Core.empty(); const r1 = imp(s, [base, Object.assign({}, base, { nr: 'B2' })]).r;
+  const r2 = imp(s, [Object.assign({}, base, { plan: 120 }), Object.assign({}, base, { nr: 'B2' })]).r;
+  assert.equal(s.meta.imports.length, 2); assert.notEqual(r1.id, r2.id);
+  assert.equal(s.projects[0].wc.imp, r2.id); assert.equal(s.projects[1].wc.imp, r1.id); assert.equal(s.projects[0].wc.newImp, r1.id);
+  const n = Core.normalize(JSON.parse(JSON.stringify(s)));
+  assert.equal(n.meta.imports.length, 2); assert.equal(n.projects[0].hist.length, s.projects[0].hist.length); assert.equal(n.projects[0].wc.imp, r2.id);
+});
+test('U85 Eigene Änderungen: zusammengefasst innerhalb von 10 Minuten, Rücknahme hinterlässt nichts', () => {
+  const p = Core.newProject({}, TODAY), t0 = Date.parse('2026-10-29T10:00:00Z'), at = m => new Date(t0 + m * 60000).toISOString();
+  Core.recordChange(p, 'next', '', 'A', at(0)); Core.recordChange(p, 'next', 'A', 'AB', at(1)); Core.recordChange(p, 'next', 'AB', 'ABC', at(2));
+  assert.equal(p.hist.length, 1); assert.equal(p.hist[0].from, ''); assert.equal(p.hist[0].to, 'ABC');
+  Core.recordChange(p, 'next', 'ABC', 'X', at(30)); assert.equal(p.hist.length, 2);
+  Core.recordChange(p, 'status', 'g', 'y', at(31)); Core.recordChange(p, 'status', 'y', 'g', at(32));
+  assert.equal(p.hist.length, 2);
+  assert.equal(Core.histText({ k: 'status', from: 'g', to: 'r', src: 'ich' }), 'Status: Läuft → Blockiert');
 });
