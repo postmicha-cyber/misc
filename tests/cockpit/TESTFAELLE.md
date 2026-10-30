@@ -63,6 +63,14 @@ Neue Funktionen bekommen einen neuen Testfall. Ein gefundener Fehler bekommt zue
 | U86 | Nächster Schritt füllt den Aktuelles-Entwurf; selbst umformulierter Entwurf bleibt; nach „Eingetragen“ wieder verknüpft; Vorschlag aus jüngstem weclapp-Eintrag | Ein Pflegeschritt statt zwei |
 | U87 | Aufgaben Schätzung → Projekt und Projekt → Schätzung: keine Doppelten, Werte aus der Bibliothek umgerechnet, Fortschritt der geschätzten Aufgaben | Schätzung und Umsetzung hängen zusammen |
 | U88 | Aufgaben-Verknüpfungen überstehen Backup und Reparatur; Verweise auf gelöschte Aufgaben, fremde Projekte und Doppelte werden geleert; alte Backups ohne Verknüpfung | Abwärtskompatibel, keine Geister-Verknüpfungen |
+| U90 | Phasen: Standardphasen, Fortschritt je Phase, Aufgaben ohne Phase, aktuelle Phase, Terminverzug, weclapp-Phase als Rückfall | Einfaches PM im Einzelprojekt |
+| U91 | Phasen und Phasen-Zuordnung der Aufgaben überstehen Reparatur; alte Stände ohne Phasen | Abwärtskompatibel |
+| U92 | Backlog: Wert ÷ Aufwand sortiert, Verschieben zwischen Spalten, Auslastung je Person im „Jetzt“, Teilen als Text | Team-Planung |
+| U93 | Backlog, Team und Kunden-Notizen überstehen Backup und Reparatur; Verweise auf gelöschte Aufträge geleert | Keine Datenverluste |
+| U94 | Kunden: Projekte, Ampel, Budget, Chancen (gewichtet), Themen und Stimmung je Kunde; gewonnene Chance wird Projekt | Key-Account-Sicht |
+| U95 | Wochenbericht: Zeitraum, Bereich (alle/meine/Kunde), nur Änderungen im Zeitraum, überfällig, Text und HTML (escaped), „diese Woche schon erstellt“ | Montags-Überblick |
+| U96 | Kundenliste: nur gewählte Spalten, **nie** Ampel, Notizen, Risiken, Aktuelles, eigener Termin; Status neutral | Kein Abfluss interner Infos |
+| U97 | Chance: Kunde und Wahrscheinlichkeit, Reparatur unplausibler Werte | Schätzungen ohne Auftrag |
 | U70 | Interne Versionen: Takt und Begrenzung | Speicherplatz, Wiederherstellbarkeit |
 
 ## Browser-Tests (`e2e.test.js`, echte Abläufe in Chromium)
@@ -95,6 +103,13 @@ Neue Funktionen bekommen einen neuen Testfall. Ein gefundener Fehler bekommt zue
 | E24 | Dialoge: Tab bleibt im Dialog, Esc schließt und gibt den Fokus zurück; Löschen ohne Rückfrage, aber mit Rückgängig |
 | E25 | Nächster Schritt füllt beim Tippen den Aktuelles-Entwurf mit Datum, eigener Entwurf bleibt, Vorschlag aus weclapp, Übersicht zeigt den Schritt |
 | E26 | Aufgaben aus Schätzung ins Projekt, aus dem Projekt in die Schätzung, gesperrte Doppelte, Fortschritt „x von y erledigt“ in der Schätzung |
+| E27 | Navigation nach Rollen (Überblick, Steuern, Planen, System), alle Bereiche ohne Fehler und Netzwerk; Handy mit „Mehr“ und ohne seitliches Scrollen |
+| E28 | Einzelprojekt: Standardphasen, Aufgaben mit/ohne Phase, Phase abschließen, Zeitplan, aktuelle Phase auf der Karte und in der Historie, Aufgaben teilen |
+| E29 | Kunden: Übersicht mit Zustand, Kundensicht mit Stimmung, Ansprechpartner, Notizen, Themen und neuer Chance; bleibt nach Neuladen |
+| E30 | Chance ohne Auftrag: Kunde, Wahrscheinlichkeit, Filter „Chancen“, „Gewonnen“ legt Projekt mit verknüpften Aufgaben an |
+| E31 | Backlog & Team: erfassen, bewerten, mit ‹ ›, Pfeiltaste und Ziehen planen, Teilaufgaben, Auslastung, Teilen, Filter nach Person |
+| E32 | Bericht: Vorschau, Bereich Kunde, Zeitraum, als E-Mail kopieren; Montags-Hinweis verschwindet danach |
+| E33 | Projektliste für den Kunden: Filter nach Kunde, Spaltenwahl, keine internen Angaben, Excel; Tabellenansicht |
 
 ## Manuelle Prüfung vor dem Einsatz mit echten Daten (einmalig, ca. 10 Minuten)
 

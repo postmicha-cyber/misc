@@ -390,3 +390,102 @@ test('U88 Verknüpfungen überstehen Backup und Reparatur; tote Verweise werden 
   const old = Core.normalize({ projects: [{ id: 'x', name: 'Alt', tasks: [{ id: 't', t: 'alt' }] }] });
   assert.equal(old.projects[0].tasks[0].eid, '');
 });
+
+// ---------- PM-Suite: Phasen, Backlog, Kunden, Bericht, Kundenliste ----------
+test('U90 Phasen: Standardphasen, Fortschritt je Phase, Aufgaben ohne Phase, aktuelle Phase, Verzug', () => {
+  const p = Core.addPhases(Core.newProject({ name: 'P' }, TODAY), Core.STD_PHASES.slice(0, 3));
+  assert.equal(p.phases.length, 3); assert.equal(Core.phaseName(p), 'Vorbereitung');
+  const [a, b] = p.phases; a.done = true; b.end = '2026-10-01';
+  p.tasks.push({ id: 't1', t: 'X', due: '', done: true, who: '', ph: b.id }, { id: 't2', t: 'Y', due: '', done: false, who: '', ph: b.id }, { id: 't3', t: 'Z', due: '', done: false, who: '', ph: '' });
+  const st = Core.phaseStats(p, TODAY);
+  assert.equal(st.length, 4, 'drei Phasen + ohne Phase');
+  assert.equal(st[1].pct, 50); assert.equal(st[1].late, true); assert.equal(st[1].current, true);
+  assert.equal(st[3].ph, null); assert.equal(st[3].open, 1);
+  assert.equal(Core.phaseName(p), 'Konzeption');
+  p.phases.forEach(x => x.done = true); assert.equal(Core.phaseName(p), 'Abgeschlossen');
+  const w = Core.newProject({ wc: { phase: 'Rollout' } }); assert.equal(Core.phaseName(w), 'Rollout', 'ohne eigene Phasen: weclapp-Phase');
+});
+test('U91 Phasen und Aufgaben-Zuordnung überstehen Reparatur; alte Stände ohne Phasen', () => {
+  const s = Core.normalize({ projects: [{ id: 'p', name: 'P', phases: [{ id: 'ph1', n: 'Test', start: '2026-11-01', end: 'kaputt' }, 'x'], tasks: [{ id: 't', t: 'A', ph: 'ph1' }, { id: 'u', t: 'B', ph: 'weg' }] }] });
+  const p = s.projects[0]; assert.equal(p.phases.length, 1); assert.equal(p.phases[0].end, ''); assert.equal(p.tasks[0].ph, 'ph1'); assert.equal(p.tasks[1].ph, '');
+  assert.deepEqual(Core.normalize(JSON.parse(JSON.stringify(s))), s);
+  assert.deepEqual(Core.normalize({ projects: [{ id: 'q', name: 'Q' }] }).projects[0].phases, []);
+});
+test('U92 Backlog: Wert/Aufwand-Priorisierung, Verschieben, Auslastung je Person, Teilen als Text', () => {
+  const s = Core.empty(), p = Core.newProject({ name: 'Portal', kunde: 'Nordlicht' }, TODAY); s.projects.push(p);
+  const a = Core.newBacklogItem({ t: 'Export', val: 5, eff: 1, who: 'Anna', est: 2 }), b = Core.newBacklogItem({ t: 'Redesign', val: 4, eff: 4, who: 'Anna', est: 5, scope: 'proj', ref: p.id }), c = Core.newBacklogItem({ t: 'Kleinkram', val: 1, eff: 2, scope: 'kunde', ref: 'Südwind' });
+  s.backlog.push(c, b, a);
+  assert.deepEqual(Core.blSort(s.backlog).map(x => x.t), ['Export', 'Redesign', 'Kleinkram']);
+  assert.equal(Core.blScore(a), 5); assert.equal(Core.blScopeLabel(s, b), 'Portal'); assert.equal(Core.blKunde(s, b), 'Nordlicht'); assert.equal(Core.blKunde(s, c), 'Südwind');
+  Core.moveItem(a, 'now', TODAY); Core.moveItem(b, 'now', TODAY); Core.moveItem(c, 'quatsch');
+  assert.equal(c.slot, '');
+  assert.deepEqual(Core.teamLoad(s), [{ who: 'Anna', n: 2, est: 7, open: 0 }]);
+  Core.moveItem(a, 'done', TODAY); assert.equal(a.doneAt, TODAY); Core.moveItem(a, 'next', TODAY); assert.equal(a.doneAt, '');
+  b.tasks.push({ id: 'x', t: 'Entwurf', done: true }, { id: 'y', t: 'Review', done: false });
+  const txt = Core.shareText(s, [b], 'Jetzt');
+  assert.match(txt, /• Redesign \(Anna\) – ca\. 5 PT \[Portal\]/); assert.match(txt, /☑ Entwurf/); assert.match(txt, /☐ Review/);
+});
+test('U93 Backlog, Team und Kunden-Notizen überstehen Backup und Reparatur; Verweise auf gelöschte Aufträge werden geleert', () => {
+  const s = Core.normalize({ projects: [{ id: 'p', name: 'P' }], team: [{ n: 'Anna' }, { n: 'anna' }, { n: '' }], customers: [{ n: 'Nordlicht', mood: 'r', notes: 'n' }, { n: 'nordlicht' }, { n: 'X', mood: 'blau' }],
+    backlog: [{ t: 'A', scope: 'proj', ref: 'p', slot: 'now', val: 9, eff: 0, est: '3' }, { t: 'B', scope: 'proj', ref: 'weg' }, { t: '' }, { t: 'C', scope: 'egal', slot: 'egal', tasks: [{ t: 'x' }, { t: '' }] }] });
+  assert.equal(s.team.length, 1); assert.equal(s.customers.length, 2); assert.equal(s.customers[1].mood, '');
+  assert.equal(s.backlog.length, 3); assert.equal(s.backlog[0].val, 5); assert.equal(s.backlog[0].eff, 1); assert.equal(s.backlog[0].est, 3);
+  assert.equal(s.backlog[1].ref, ''); assert.equal(s.backlog[2].scope, 'prod'); assert.equal(s.backlog[2].slot, ''); assert.equal(s.backlog[2].tasks.length, 1);
+  const r = Core.normalize(JSON.parse(JSON.stringify(Core.makeBackup(s).data))); assert.deepEqual(r, s, 'Rundreise und idempotent');
+  const old = Core.normalize({ projects: [] }); assert.deepEqual([old.backlog, old.team, old.customers], [[], [], []]);
+});
+test('U94 Kunden: Projekte, Ampel, Budget, Chancen (gewichtet), Backlog und Stimmung je Kunde', () => {
+  const s = Core.empty();
+  const a = Core.newProject({ name: 'A', kunde: 'Nordlicht', status: 'r', wc: { plan: 100, istab: 40 } }, TODAY), b = Core.newProject({ name: 'B', kunde: 'nordlicht', next: 'x' }, TODAY), c = Core.newProject({ name: 'C', kunde: 'Südwind', next: 'x' }, TODAY);
+  s.projects.push(a, b, c);
+  const ch = Core.newEstimate({ kunde: 'Nordlicht', unit: 'Tage', prob: 50, tasks: [{ id: 't', n: 'X', d: '', sid: '', o: 10, m: 10, p: 10 }], extras: [] }, TODAY);
+  const lost = Core.newEstimate({ kunde: 'Nordlicht', status: 'rejected' }, TODAY);
+  s.estimates.push(ch, lost); s.backlog.push(Core.newBacklogItem({ t: 'Wunsch', scope: 'kunde', ref: 'Südwind' }));
+  Core.customerRec(s, 'Südwind').mood = 'y';
+  const L = Core.customers(s, TODAY), n = L.find(x => x.key === 'nordlicht'), sw = L.find(x => x.key === 'südwind');
+  assert.equal(L[0].key, 'nordlicht', 'rot zuerst'); assert.equal(n.projects.length, 2); assert.equal(n.health, 'r'); assert.equal(n.sev.r, 1);
+  assert.equal(n.budget.rest, 60); assert.equal(n.chances.length, 1); assert.equal(n.chanceHours, 80); assert.equal(n.weightedHours, 40);
+  assert.equal(sw.health, 'y', 'Stimmung färbt'); assert.equal(sw.backlogOpen, 1);
+  assert.equal(Core.customerRec(s, 'SÜDWIND'), s.customers[0], 'gleicher Kunde unabhängig von Schreibweise');
+  const p = Core.estimateToProject(s, ch, TODAY);
+  assert.equal(ch.pid, p.id); assert.equal(ch.status, 'ordered'); assert.equal(p.kunde, 'Nordlicht');
+  assert.equal(Core.customers(s, TODAY).find(x => x.key === 'nordlicht').chances.length, 0, 'gewonnene Chance ist Auftrag');
+});
+test('U95 Wochenbericht: Zeitraum, Bereich (alle, meine, Kunde), Änderungen, überfällig, Text und HTML', () => {
+  const s = Core.empty(); s.me = 'Max Muster';
+  const a = Core.newProject({ name: 'Alpha', kunde: 'Nordlicht', next: 'Abnahme', wc: { pl: 'Max Muster', plan: 100, istab: 50 } }, '2026-10-01');
+  a.hist.push({ at: '2026-10-27T10:00:00Z', src: 'weclapp', k: 'phase', from: 'Test', to: 'Rollout', imp: 'i' }, { at: '2026-09-01T10:00:00Z', src: 'ich', k: 'next', from: '', to: 'alt', imp: '' });
+  a.tasks.push({ id: 't', t: 'Protokoll', due: '2026-10-20', done: false, who: '' });
+  const b = Core.newProject({ name: 'Beta <b>', kunde: 'Südwind', next: 'x', wc: { pl: 'Eva' } }, '2026-10-28');
+  s.projects.push(a, b); s.estimates.push(Core.newEstimate({ title: 'Chance Z', kunde: 'Südwind' }));
+  const R = Core.weekReport(s, { days: 7 }, TODAY);
+  assert.equal(R.from, '2026-10-22'); assert.equal(R.kpi.active, 2); assert.equal(R.kpi.neu, 1);
+  assert.equal(R.rows[0].p.name, 'Alpha', 'rot (überfällig) zuerst'); assert.equal(R.rows[0].overdue.length, 1);
+  assert.deepEqual(R.rows[0].changes, ['Phase: Test → Rollout'], 'nur Änderungen im Zeitraum');
+  assert.equal(Core.weekReport(s, { scope: 'me' }, TODAY).rows.length, 1);
+  const K = Core.weekReport(s, { scope: 'kunde:südwind' }, TODAY); assert.equal(K.rows.length, 1); assert.equal(K.chances.length, 1);
+  assert.equal(Core.weekReport(s, { scope: 'kunde:nordlicht' }, TODAY).chances.length, 0);
+  const txt = Core.reportText(R, 'Montag'); assert.match(txt, /Aktiv: 2/); assert.match(txt, /➜ Abnahme/); assert.match(txt, /⏰ überfällig: Protokoll/);
+  const html = Core.reportHTML(R); assert.ok(html.includes('Beta &lt;b&gt;')); assert.ok(!html.includes('<b>Beta <b>'));
+  assert.equal(Core.reportDue(s, '2026-10-26'), true); s.meta.lastReport = '2026-10-26';
+  assert.equal(Core.reportDue(s, '2026-10-30'), false); assert.equal(Core.reportDue(s, '2026-11-02'), true);
+  assert.equal(Core.isMonday('2026-10-26'), true);
+});
+test('U96 Kundenliste: nur gewählte Spalten, keine internen Angaben (Ampel, Notizen, Risiken, Aktuelles, eigener Termin)', () => {
+  const p = Core.newProject({ nr: 'A-1', name: 'Portal', kunde: 'Nordlicht', status: 'r', due: '2026-11-11', notes: 'GEHEIM Notiz', next: 'Abnahme vorbereiten',
+    risks: [{ id: 'r', n: 'GEHEIM Risiko', w: 5, a: 5, m: '' }], wc: { nr: 'A-1', phase: 'Test', start: '2026-03-01', ende: '2026-11-30', golive: 'KW 46', pl: 'Benutzer Max Muster', akt: 'GEHEIM aktuell', plan: 100, istab: 40 } }, TODAY);
+  const L = Core.customerList([p], Core.CL_DEFAULT);
+  assert.deepEqual(L.head, ['Auftrag', 'Projekt', 'Phase', 'Status', 'Start', 'Ende', 'GoLive']);
+  assert.deepEqual(L.rows[0], ['A-1', 'Portal', 'Test', 'In Arbeit', '01.03.2026', '30.11.2026', 'KW 46'], 'Blockiert wird für den Kunden zu „In Arbeit“');
+  const all = JSON.stringify(Core.customerList([p], Object.keys(Core.CL_COLS)));
+  assert.ok(!/GEHEIM|11\.11\.2026|Blockiert|🔴/.test(all), 'nie interne Angaben');
+  assert.ok(all.includes('Max Muster') && !all.includes('Benutzer'));
+  assert.equal(Core.customerList([p], ['rest']).rows[0][0], 60);
+  const html = Core.listHTML(L, 'Projekte'), txt = Core.listText(L);
+  assert.ok(html.includes('<th') && html.includes('Portal')); assert.equal(txt.split('\n').length, 2);
+});
+test('U97 Chance: Schätzung mit Kunde ohne Auftrag, Wahrscheinlichkeit wird repariert', () => {
+  const s = Core.normalize({ estimates: [{ id: 'e', title: 'CR', kunde: 'Nordlicht', prob: '70' }, { id: 'f', title: 'X', prob: 300 }, { id: 'g', title: 'Y', prob: 'viel' }] });
+  assert.equal(s.estimates[0].kunde, 'Nordlicht'); assert.equal(s.estimates[0].prob, 70); assert.equal(s.estimates[1].prob, 100); assert.equal(s.estimates[2].prob, '');
+  assert.equal(Core.isChance(s.estimates[0]), true);
+});

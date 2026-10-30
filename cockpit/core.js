@@ -34,17 +34,17 @@
   function empty() {
     return {
       app: APP, format: FORMAT, me: '', settings: Object.assign({}, DEFAULT_SETTINGS),
-      projects: [], estimates: [], lib: { tasks: [], stories: [] }, ideas: [],
+      projects: [], estimates: [], lib: { tasks: [], stories: [] }, ideas: [], backlog: [], team: [], customers: [],
       tools: { cap: { days: 10, focus: 70, members: [{ n: 'Person 1', av: 100, off: 0 }], refVel: '', refPt: '' }, fc: { backlog: 100, velos: [20, 22, 18], weeks: 2, start: isoDate(), growth: 0 } },
       meta: { lastBackup: '', changes: 0, lastImport: null, colMap: {}, lastReview: '', created: new Date().toISOString() }
     };
   }
   function newProject(o, today) {
     const t = today || isoDate();
-    return Object.assign({ id: uid(), nr: '', name: 'Neues Projekt', kunde: '', status: 'g', prio: 2, due: '', next: '', notes: '', aktNew: '', tasks: [], log: [{ d: t, t: 'Projekt angelegt' }], hist: [], risks: [], pinned: false, archived: false, created: t, updated: t, wc: null }, o || {});
+    return Object.assign({ id: uid(), nr: '', name: 'Neues Projekt', kunde: '', status: 'g', prio: 2, due: '', next: '', notes: '', aktNew: '', phases: [], tasks: [], log: [{ d: t, t: 'Projekt angelegt' }], hist: [], risks: [], pinned: false, archived: false, created: t, updated: t, wc: null }, o || {});
   }
   function newEstimate(o, today) {
-    return Object.assign({ id: uid(), pid: '', title: 'Neue Schätzung', status: 'draft', date: today || isoDate(), source: '', unit: 'Tage', idea: '', stories: [], tasks: [], extras: EXTRAS(), tpl: false, created: Date.now(), updated: Date.now() }, o || {});
+    return Object.assign({ id: uid(), pid: '', kunde: '', prob: '', title: 'Neue Schätzung', status: 'draft', date: today || isoDate(), source: '', unit: 'Tage', idea: '', stories: [], tasks: [], extras: EXTRAS(), tpl: false, created: Date.now(), updated: Date.now() }, o || {});
   }
 
   // Repariert und vervollständigt einen Stand, egal wie unvollständig er ist. Wirft nie.
@@ -56,12 +56,14 @@
     const id = v => { let x = str(v) || uid(); while (seen.has(x)) x = uid(); seen.add(x); return x; };
     s.projects = arr(src.projects).filter(isObj).map(p => {
       const q = newProject({}, validIso(p.created) ? p.created : undefined);
+      const phases = arr(p.phases).filter(isObj).map(x => ({ id: id(x.id), n: str(x.n) || 'Phase', start: validIso(x.start) ? x.start : '', end: validIso(x.end) ? x.end : '', done: !!x.done }));
+      const phids = new Set(phases.map(x => x.id));
       Object.assign(q, {
         id: id(p.id), nr: str(p.nr), name: str(p.name) || str(p.nr) || 'Ohne Namen', kunde: str(p.kunde),
         status: STATUS[p.status] ? p.status : 'g', prio: [1, 2, 3].includes(p.prio) ? p.prio : 2, due: validIso(p.due) ? p.due : '',
         next: str(p.next), notes: typeof p.notes === 'string' ? p.notes : '', aktNew: typeof p.aktNew === 'string' ? p.aktNew : '', pinned: !!p.pinned, archived: !!p.archived,
         created: validIso(p.created) ? p.created : q.created, updated: validIso(p.updated) ? p.updated : q.updated,
-        tasks: arr(p.tasks).filter(isObj).map(t => ({ id: id(t.id), t: str(t.t) || 'Aufgabe', due: validIso(t.due) ? t.due : '', done: !!t.done, who: str(t.who), eid: str(t.eid), etid: str(t.etid) })),
+        phases, tasks: arr(p.tasks).filter(isObj).map(t => ({ id: id(t.id), t: str(t.t) || 'Aufgabe', due: validIso(t.due) ? t.due : '', done: !!t.done, who: str(t.who), eid: str(t.eid), etid: str(t.etid), ph: phids.has(t.ph) ? t.ph : '' })),
         log: arr(p.log).filter(isObj).map(l => ({ d: validIso(l.d) ? l.d : q.created, t: str(l.t), src: str(l.src) })).filter(l => l.t),
         hist: arr(p.hist).filter(x => isObj(x) && str(x.k)).map(x => ({ at: str(x.at), src: x.src === 'weclapp' ? 'weclapp' : 'ich', k: str(x.k), from: hv(x.from), to: hv(x.to), imp: str(x.imp) })).slice(-HIST_MAX),
         risks: arr(p.risks).filter(isObj).map(r => ({ id: id(r.id), n: str(r.n) || 'Risiko', w: clamp(r.w), a: clamp(r.a), m: str(r.m) })),
@@ -75,7 +77,7 @@
       const stories = arr(e.stories).filter(isObj).map(x => ({ id: id(x.id), role: str(x.role), want: str(x.want), benefit: str(x.benefit), ac: arr(x.ac).map(str).filter(Boolean), prio: PRIO[x.prio] ? x.prio : 'must' }));
       const sids = new Set(stories.map(x => x.id));
       Object.assign(q, {
-        id: id(e.id), pid: pids.has(e.pid) ? e.pid : '', title: str(e.title) || 'Schätzung', status: EST_STATUS[e.status] ? e.status : 'draft',
+        id: id(e.id), pid: pids.has(e.pid) ? e.pid : '', kunde: str(e.kunde), prob: e.prob === '' || e.prob == null || isNaN(+e.prob) ? '' : Math.max(0, Math.min(100, Math.round(+e.prob))), title: str(e.title) || 'Schätzung', status: EST_STATUS[e.status] ? e.status : 'draft',
         date: validIso(e.date) ? e.date : q.date, source: str(e.source), unit: UNITS.includes(e.unit) ? e.unit : 'Tage', idea: typeof e.idea === 'string' ? e.idea : '', tpl: !!e.tpl,
         created: num(e.created, Date.now()), updated: num(e.updated, Date.now()), stories,
         tasks: arr(e.tasks).filter(isObj).map(t => ({ id: id(t.id), n: str(t.n), d: typeof t.d === 'string' ? t.d : '', sid: sids.has(t.sid) ? t.sid : '', o: numOr(t.o), m: numOr(t.m), p: numOr(t.p) })),
@@ -89,11 +91,25 @@
     const lib = isObj(src.lib) ? src.lib : {};
     s.lib.tasks = arr(lib.tasks).filter(isObj).map(t => ({ id: id(t.id), n: str(t.n), d: str(t.d), o: num(t.o), m: num(t.m), p: num(t.p), unit: UNITS.includes(t.unit) ? t.unit : 'Tage', used: num(t.used), auto: !!t.auto })).filter(t => t.n);
     s.lib.stories = arr(lib.stories).filter(isObj).map(x => ({ id: id(x.id), role: str(x.role), want: str(x.want), benefit: str(x.benefit), ac: arr(x.ac).map(str).filter(Boolean), prio: PRIO[x.prio] ? x.prio : 'must' })).filter(x => x.want);
+    s.backlog = arr(src.backlog).filter(x => isObj(x) && str(x.t)).map(x => {
+      const it = newBacklogItem({ created: validIso(x.created) ? x.created : isoDate() });
+      return Object.assign(it, {
+        id: id(x.id), t: str(x.t), d: typeof x.d === 'string' ? x.d : '', scope: BL_SCOPE[x.scope] ? x.scope : 'prod', ref: str(x.ref),
+        slot: x.slot in BL_SLOTS ? x.slot : '', val: clamp(x.val), eff: clamp(x.eff), est: numOr(x.est), who: str(x.who),
+        tasks: arr(x.tasks).filter(t => isObj(t) && str(t.t)).map(t => ({ id: id(t.id), t: str(t.t), done: !!t.done })),
+        updated: validIso(x.updated) ? x.updated : it.created, doneAt: validIso(x.doneAt) ? x.doneAt : ''
+      });
+    }).map(x => { if (x.scope === 'proj' && !pids.has(x.ref)) x.ref = ''; return x; });
+    const tk = new Set();
+    s.team = arr(src.team).filter(x => isObj(x) && str(x.n)).map(x => ({ id: id(x.id), n: str(x.n) })).filter(x => !tk.has(normTxt(x.n)) && tk.add(normTxt(x.n)));
+    const ck = new Set();
+    s.customers = arr(src.customers).filter(x => isObj(x) && str(x.n)).map(x => ({ id: id(x.id), n: str(x.n), notes: typeof x.notes === 'string' ? x.notes : '', contact: str(x.contact), mood: ['g', 'y', 'r'].includes(x.mood) ? x.mood : '' })).filter(x => !ck.has(normTxt(x.n)) && ck.add(normTxt(x.n)));
     s.ideas = arr(src.ideas).filter(isObj).map(i => ({ id: id(i.id), t: str(i.t) })).filter(i => i.t);
     if (isObj(src.tools)) { if (isObj(src.tools.cap)) s.tools.cap = Object.assign(s.tools.cap, src.tools.cap); if (isObj(src.tools.fc)) s.tools.fc = Object.assign(s.tools.fc, src.tools.fc); }
     s.tools.cap.members = arr(s.tools.cap.members).filter(isObj);
     s.tools.fc.velos = arr(s.tools.fc.velos);
     if (isObj(src.meta)) s.meta = Object.assign(s.meta, src.meta, { colMap: isObj(src.meta.colMap) ? src.meta.colMap : {} });
+    s.meta.reportCfg = isObj(s.meta.reportCfg) ? { scope: str(s.meta.reportCfg.scope) || 'all', days: [7, 14, 30].includes(s.meta.reportCfg.days) ? s.meta.reportCfg.days : 7 } : { scope: 'all', days: 7 };
     s.meta.imports = arr(s.meta.imports).filter(x => isObj(x) && str(x.id)).slice(-IMPORTS_MAX);
     return s;
   }
@@ -306,7 +322,7 @@
     if (fresh.length) return fresh.join('\n').slice(0, 2000);
     return String(newText || '').trim() ? String(newText).trim().split('\n')[0].slice(0, 300) : '(geleert)';
   }
-  const HIST_LABEL = Object.assign({ status: 'Status', next: 'Nächster Schritt', due: 'Mein Termin', prio: 'Priorität', name: 'Name', _created: 'Aus weclapp importiert', _missing: 'Nicht mehr im weclapp-Export', _back: 'Wieder im weclapp-Export' }, WC_LABEL_PLAIN());
+  const HIST_LABEL = Object.assign({ status: 'Status', next: 'Nächster Schritt', due: 'Mein Termin', prio: 'Priorität', name: 'Name', ph: 'Eigene Phase', _created: 'Aus weclapp importiert', _missing: 'Nicht mehr im weclapp-Export', _back: 'Wieder im weclapp-Export' }, WC_LABEL_PLAIN());
   function WC_LABEL_PLAIN() { return { kunde: 'Kunde', kom: 'Kommission', typ: 'Typ', phase: 'Phase', golive: 'GoLive', pl: 'Projektleiter', cons: 'Consultant', status_wc: 'Status (weclapp)', plan: 'Budget (h)', ist: 'Gebucht gesamt (h)', istab: 'Gebucht abrechenbar (h)', start: 'Start', ende: 'Ende', datum: 'Auftragsdatum', akt: 'Aktuelles' }; }
   // Lesbare Darstellung eines Historien-Eintrags
   function histText(e) {
@@ -532,6 +548,196 @@
     return { linked: L.length, done: done.length, total: es.tasks.length, doneEff: done.reduce((a, x) => a + tE(x.t), 0), eff: es.tasks.reduce((a, t) => a + tE(t), 0) };
   }
 
+  // ---------------- Phasen (Einzelprojekt) ----------------
+  const STD_PHASES = ['Vorbereitung', 'Konzeption', 'Umsetzung', 'Test & Abnahme', 'Go-Live', 'Abschluss'];
+  function addPhases(p, names) { arr(names).map(str).filter(Boolean).forEach(n => p.phases.push({ id: uid(), n, start: '', end: '', done: false })); return p; }
+  // Fortschritt je Phase plus Gruppe „ohne Phase“ (Aufgaben ohne Phase sind genauso wichtig)
+  function phaseStats(p, today) {
+    const t = today || isoDate(), cur = currentPhase(p);
+    const st = (ph, L) => { const done = L.filter(x => x.done).length; return { ph, tasks: L, open: L.length - done, done, total: L.length, pct: L.length ? Math.round(done / L.length * 100) : (ph && ph.done ? 100 : 0), late: !!(ph && !ph.done && ph.end && ph.end < t), current: !!(ph && cur && ph.id === cur.id) }; };
+    const out = p.phases.map(ph => st(ph, p.tasks.filter(x => x.ph === ph.id)));
+    out.push(st(null, p.tasks.filter(x => !x.ph)));
+    return out;
+  }
+  const currentPhase = p => arr(p.phases).find(x => !x.done) || null;
+  // Phase, wie sie Kunde und Bericht sehen: eigene Phase vor weclapp-Phase
+  const phaseName = p => { const c = currentPhase(p); return c ? c.n : p.phases.length ? 'Abgeschlossen' : (p.wc && p.wc.phase) || ''; };
+  const projectSpan = p => {
+    const w = p.wc || {}, S = p.phases.map(x => x.start).filter(Boolean).sort(), E = p.phases.map(x => x.end).filter(Boolean).sort();
+    return { start: w.start || S[0] || '', end: w.ende || E[E.length - 1] || '' };
+  };
+
+  // ---------------- Backlog & Team-Planung ----------------
+  const BL_SLOTS = { now: 'Jetzt', next: 'Als Nächstes', later: 'Später', '': 'Backlog', done: 'Erledigt' };
+  const BL_SCOPE = { prod: 'Produkt', proj: 'Auftrag', kunde: 'Gesellschaft / Kunde' };
+  function newBacklogItem(o) {
+    const t = isoDate();
+    return Object.assign({ id: uid(), t: '', d: '', scope: 'prod', ref: '', slot: '', val: 3, eff: 3, est: '', who: '', tasks: [], created: t, updated: t, doneAt: '' }, o || {});
+  }
+  // Wert ÷ Aufwand: einfache, nachvollziehbare Priorisierung (hoher Nutzen bei wenig Aufwand zuerst)
+  const blScore = it => Math.round(num(it.val, 3) / Math.max(1, num(it.eff, 3)) * 10) / 10;
+  const blSort = L => arr(L).slice().sort((a, b) => blScore(b) - blScore(a) || num(b.val) - num(a.val) || String(a.created).localeCompare(String(b.created)));
+  function blScopeLabel(state, it) {
+    if (it.scope === 'proj') { const p = state.projects.find(x => x.id === it.ref); return p ? p.name : 'Auftrag (nicht zugeordnet)'; }
+    if (it.scope === 'kunde') return it.ref || 'Kunde (nicht zugeordnet)';
+    return it.ref || 'Produkt';
+  }
+  function blKunde(state, it) {
+    if (it.scope === 'kunde') return it.ref;
+    if (it.scope === 'proj') { const p = state.projects.find(x => x.id === it.ref); return p ? p.kunde : ''; }
+    return '';
+  }
+  function moveItem(it, slot, today) {
+    if (!(slot in BL_SLOTS)) return it;
+    it.slot = slot; it.updated = today || isoDate(); it.doneAt = slot === 'done' ? it.updated : '';
+    return it;
+  }
+  // Auslastung im „Jetzt“: je Person Anzahl Themen und geschätzte Tage
+  function teamLoad(state) {
+    const m = new Map();
+    state.backlog.filter(x => x.slot === 'now').forEach(x => { const k = x.who || ''; const e = m.get(k) || { who: k, n: 0, est: 0, open: 0 }; e.n++; e.est += num(x.est); e.open += x.tasks.filter(t => !t.done).length; m.set(k, e); });
+    return [...m.values()].sort((a, b) => (a.who ? 0 : 1) - (b.who ? 0 : 1) || b.est - a.est);
+  }
+  function shareText(state, items, title) {
+    const L = [title || 'Themen'];
+    arr(items).forEach(it => {
+      L.push('• ' + it.t + (it.who ? ' (' + it.who + ')' : '') + (it.est !== '' && it.est != null ? ' – ca. ' + String(it.est).replace('.', ',') + ' PT' : '') + ' [' + blScopeLabel(state, it) + ']');
+      it.tasks.forEach(t => L.push('   ' + (t.done ? '☑' : '☐') + ' ' + t.t));
+    });
+    return L.join('\n');
+  }
+
+  // ---------------- Kunden (Key Account) ----------------
+  const custKey = n => normTxt(n);
+  const estKunde = (state, e) => { if (e.pid) { const p = state.projects.find(x => x.id === e.pid); if (p) return p.kunde; } return e.kunde; };
+  const toHours = (v, unit) => HOURS[unit] ? num(v) * HOURS[unit] : null;
+  // Chancen = Schätzungen ohne Auftrag (noch nicht beauftragt, nicht abgelehnt)
+  const isChance = e => !e.pid && e.status !== 'rejected' && e.status !== 'ordered';
+  function customers(state, today) {
+    const t = today || isoDate(), M = new Map();
+    const get = n => { const k = custKey(n); if (!k) return null; if (!M.has(k)) M.set(k, { key: k, n: str(n), rec: null, projects: [], estimates: [], backlog: [] }); return M.get(k); };
+    state.customers.forEach(c => { const e = get(c.n); if (e) { e.rec = c; e.n = c.n; } });
+    state.projects.forEach(p => { const e = get(p.kunde); if (e) e.projects.push(p); });
+    state.estimates.forEach(es => { const e = get(estKunde(state, es)); if (e) e.estimates.push(es); });
+    state.backlog.forEach(it => { const e = get(blKunde(state, it)); if (e) e.backlog.push(it); });
+    return [...M.values()].map(c => {
+      const active = c.projects.filter(p => isActive(p)), sev = { r: 0, y: 0, g: 0 };
+      active.forEach(p => sev[severity(flags(p, state.settings, t))]++);
+      const chances = c.estimates.filter(isChance), open = c.estimates.filter(e => e.pid && (e.status === 'draft' || e.status === 'agreed' || e.status === 'offered'));
+      const vol = L => L.reduce((a, e) => { const h = toHours(calcEstimate(e).p85, e.unit); return a + (h || 0); }, 0);
+      const weighted = chances.reduce((a, e) => { const h = toHours(calcEstimate(e).p85, e.unit) || 0; return a + h * (e.prob === '' ? 0.5 : e.prob / 100); }, 0);
+      const mood = c.rec ? c.rec.mood : '', worst = sev.r || mood === 'r' ? 'r' : sev.y || mood === 'y' ? 'y' : active.length || mood === 'g' ? 'g' : 'n';
+      const last = c.projects.map(p => p.updated).concat(c.backlog.map(x => x.updated)).filter(Boolean).sort().pop() || '';
+      return Object.assign(c, { active, sev, health: worst, budget: budgetTotals(active), chances, openOffers: open, chanceHours: vol(chances), weightedHours: weighted, backlogOpen: c.backlog.filter(x => x.slot !== 'done').length, last });
+    }).sort((a, b) => ({ r: 0, y: 1, g: 2, n: 3 })[a.health] - ({ r: 0, y: 1, g: 2, n: 3 })[b.health] || b.active.length - a.active.length || a.n.localeCompare(b.n, 'de'));
+  }
+  function customerRec(state, name) {
+    const k = custKey(name); let c = state.customers.find(x => custKey(x.n) === k);
+    if (!c && k) { c = { id: uid(), n: str(name), notes: '', contact: '', mood: '' }; state.customers.push(c); }
+    return c;
+  }
+  // Chance gewonnen: Projekt anlegen, Schätzung zuordnen und auf „Beauftragt“ setzen
+  function estimateToProject(state, es, today) {
+    const p = newProject({ name: es.title, kunde: es.kunde }, today);
+    p.log.push({ d: p.created, t: 'Aus Chance „' + es.title + '“ angelegt', src: '' });
+    state.projects.push(p); es.pid = p.id; es.status = 'ordered'; es.updated = Date.now();
+    return p;
+  }
+
+  // ---------------- Bericht (Montags-Überblick) ----------------
+  // Tage addieren ohne Sommerzeit-Fehler (setDate statt Millisekunden)
+  const addDays = (iso, n) => { const d = dOf(iso); d.setDate(d.getDate() + n); return isoDate(d); };
+  const escH = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const CUST_STATUS = { g: 'In Arbeit', y: 'In Arbeit', r: 'In Arbeit', p: 'Pausiert', d: 'Abgeschlossen' };
+  function inScope(state, p, scope) {
+    const sc = str(scope) || 'all';
+    if (sc === 'all') return true;
+    if (sc === 'me') return !!state.me && !!p.wc && (p.wc.pl === state.me || p.wc.cons === state.me);
+    if (sc.startsWith('pl:')) return !!p.wc && p.wc.pl === sc.slice(3);
+    if (sc.startsWith('kunde:')) return custKey(p.kunde) === sc.slice(6);
+    return true;
+  }
+  function weekReport(state, o, today) {
+    const t = today || isoDate(), days = num(o && o.days, 7), from = addDays(t, -days), scope = o && o.scope;
+    const P = state.projects.filter(p => !p.archived && inScope(state, p, scope));
+    const act = P.filter(isActive), soon = addDays(t, 14);
+    const rows = act.map(p => {
+      const sev = severity(flags(p, state.settings, t));
+      const changes = p.hist.filter(e => e.at && e.at.slice(0, 10) >= from && e.k !== '_created' && e.k !== '_missing').map(histText)
+        .concat(p.log.filter(l => l.d >= from && !/^weclapp: /.test(l.t)).map(l => l.t)).slice(0, 6);
+      return { p, sev, phase: phaseName(p), next: p.next, budget: budget(p), changes,
+        overdue: p.tasks.filter(x => !x.done && x.due && x.due < t), due: p.tasks.filter(x => !x.done && x.due && x.due >= t && x.due <= soon) };
+    }).sort((a, b) => ({ r: 0, y: 1, g: 2 })[a.sev] - ({ r: 0, y: 1, g: 2 })[b.sev] || a.p.name.localeCompare(b.p.name, 'de'));
+    const kpi = { active: act.length, r: rows.filter(x => x.sev === 'r').length, y: rows.filter(x => x.sev === 'y').length, g: rows.filter(x => x.sev === 'g').length,
+      done: P.filter(p => p.status === 'd' && p.hist.some(e => e.k === 'status' && e.to === 'd' && e.at.slice(0, 10) >= from)).length,
+      neu: P.filter(p => p.created >= from).length };
+    const chances = state.estimates.filter(e => isChance(e) && (!str(scope).startsWith('kunde:') || custKey(e.kunde) === str(scope).slice(6)));
+    return { from, to: t, days, scope: scope || 'all', kpi, budget: budgetTotals(act), rows, chances, now: state.backlog.filter(x => x.slot === 'now') };
+  }
+  const SEV_TXT = { r: '🔴', y: '🟡', g: '🟢' };
+  function reportText(R, title) {
+    const L = [(title || 'Projekt-Überblick') + ' · ' + fmtD(R.to), '', 'Aktiv: ' + R.kpi.active + ' · 🔴 ' + R.kpi.r + ' · 🟡 ' + R.kpi.y + ' · 🟢 ' + R.kpi.g + (R.kpi.neu ? ' · neu: ' + R.kpi.neu : '') + (R.kpi.done ? ' · abgeschlossen: ' + R.kpi.done : '')];
+    if (R.budget.count) L.push('Budget: ' + Math.round(R.budget.used) + ' von ' + Math.round(R.budget.plan) + ' h verbraucht, Rest ' + Math.round(R.budget.rest) + ' h (' + Math.round(R.budget.restPct) + ' %)');
+    L.push('');
+    R.rows.forEach(x => {
+      L.push(SEV_TXT[x.sev] + ' ' + x.p.name + (x.phase ? ' – ' + x.phase : '') + (x.budget ? ' – Rest ' + Math.round(x.budget.restPct) + ' %' : ''));
+      if (x.next) L.push('   ➜ ' + x.next);
+      if (x.overdue.length) L.push('   ⏰ überfällig: ' + x.overdue.map(t => t.t).join(', '));
+      x.changes.slice(0, 3).forEach(c => L.push('   • ' + c));
+    });
+    if (R.chances.length) { L.push('', 'Chancen:'); R.chances.forEach(e => L.push('• ' + e.title + (e.kunde ? ' (' + e.kunde + ')' : '') + ' – ' + EST_STATUS[e.status])); }
+    return L.join('\n');
+  }
+  function reportHTML(R, title) {
+    const c = { r: '#d93a4a', y: '#c98a00', g: '#1f9d61' }, td = 'style="padding:6px 8px;border-bottom:1px solid #dde;vertical-align:top"';
+    let h = '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#17203a"><h2 style="margin:0 0 6px">' + escH(title || 'Projekt-Überblick') + ' · ' + fmtD(R.to) + '</h2>' +
+      '<p style="margin:0 0 10px">Aktiv: <b>' + R.kpi.active + '</b> · <span style="color:' + c.r + '">● ' + R.kpi.r + ' rot</span> · <span style="color:' + c.y + '">● ' + R.kpi.y + ' gelb</span> · <span style="color:' + c.g + '">● ' + R.kpi.g + ' grün</span>' + (R.kpi.neu ? ' · neu: ' + R.kpi.neu : '') + (R.kpi.done ? ' · abgeschlossen: ' + R.kpi.done : '') +
+      (R.budget.count ? '<br>Budget: ' + Math.round(R.budget.used) + ' von ' + Math.round(R.budget.plan) + ' h verbraucht, Rest <b>' + Math.round(R.budget.rest) + ' h (' + Math.round(R.budget.restPct) + ' %)</b>' : '') + '</p>' +
+      '<table style="border-collapse:collapse;width:100%"><tr style="background:#eef1f8"><th ' + td + '></th><th ' + td + ' align="left">Projekt</th><th ' + td + ' align="left">Phase</th><th ' + td + ' align="left">Nächster Schritt</th><th ' + td + ' align="left">Seit ' + fmtD(R.from) + '</th><th ' + td + ' align="right">Rest</th></tr>';
+    R.rows.forEach(x => {
+      h += '<tr><td ' + td + '><span style="color:' + c[x.sev] + ';font-size:16px">●</span></td><td ' + td + '><b>' + escH(x.p.name) + '</b>' + (x.overdue.length ? '<br><span style="color:' + c.r + '">⏰ ' + escH(x.overdue.map(t => t.t).join(', ')) + '</span>' : '') + '</td><td ' + td + '>' + escH(x.phase) + '</td><td ' + td + '>' + escH(x.next) + '</td><td ' + td + '>' + x.changes.slice(0, 3).map(escH).join('<br>') + '</td><td ' + td + ' align="right">' + (x.budget ? Math.round(x.budget.restPct) + ' %' : '–') + '</td></tr>';
+    });
+    h += '</table>';
+    if (R.chances.length) h += '<h3 style="margin:14px 0 4px">Chancen</h3><ul style="margin:0">' + R.chances.map(e => '<li>' + escH(e.title) + (e.kunde ? ' (' + escH(e.kunde) + ')' : '') + ' – ' + EST_STATUS[e.status] + '</li>').join('') + '</ul>';
+    return h + '</div>';
+  }
+  const isMonday = d => dOf(d || isoDate()).getDay() === 1;
+  // Ist der Wochenbericht diese Woche (ab Montag) schon erstellt?
+  const reportDue = (state, today) => { const t = today || isoDate(), mon = addDays(t, -((dOf(t).getDay() + 6) % 7)); return !(state.meta.lastReport && state.meta.lastReport >= mon); };
+
+  // ---------------- Projektliste für den Kunden (ohne interne Angaben) ----------------
+  const CL_COLS = { nr: 'Auftrag', name: 'Projekt', kunde: 'Kunde', phase: 'Phase', status: 'Status', start: 'Start', ende: 'Ende', golive: 'GoLive', pl: 'Projektleitung', next: 'Nächster Schritt', budget: 'Budget (h)', used: 'Verbraucht (h)', rest: 'Rest (h)' };
+  const CL_DEFAULT = ['nr', 'name', 'phase', 'status', 'start', 'ende', 'golive'];
+  function customerList(projects, cols) {
+    const C = arr(cols).filter(k => CL_COLS[k]), R = x => x == null ? '' : Math.round(x * 10) / 10;
+    const val = (p, k) => {
+      const w = p.wc || {}, sp = projectSpan(p), b = budget(p);
+      switch (k) {
+        case 'nr': return p.nr || w.nr || '';
+        case 'name': return p.name;
+        case 'kunde': return p.kunde;
+        case 'phase': return phaseName(p);
+        case 'status': return CUST_STATUS[p.status] || '';
+        case 'start': return sp.start ? fmtD(sp.start) : '';
+        case 'ende': return sp.end ? fmtD(sp.end) : '';
+        case 'golive': return w.golive || '';
+        case 'pl': return str(w.pl).replace(/^Benutzer\s+/i, '');
+        case 'next': return p.next;
+        case 'budget': return b ? R(b.plan) : '';
+        case 'used': return b ? R(b.used) : '';
+        case 'rest': return b ? R(b.rest) : '';
+      }
+      return '';
+    };
+    return { head: C.map(k => CL_COLS[k]), keys: C, rows: arr(projects).map(p => C.map(k => val(p, k))) };
+  }
+  function listHTML(L, title) {
+    const td = 'style="padding:6px 8px;border:1px solid #d8deeb;vertical-align:top"';
+    return '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#17203a">' + (title ? '<h2 style="margin:0 0 8px">' + escH(title) + '</h2>' : '') + '<table style="border-collapse:collapse"><tr style="background:#eef1f8">' + L.head.map(h => '<th ' + td + ' align="left">' + escH(h) + '</th>').join('') + '</tr>' +
+      L.rows.map(r => '<tr>' + r.map(v => '<td ' + td + (typeof v === 'number' ? ' align="right"' : '') + '>' + escH(typeof v === 'number' ? v.toLocaleString('de-DE') : v) + '</td>').join('') + '</tr>').join('') + '</table></div>';
+  }
+  const listText = L => [L.head.join('\t')].concat(L.rows.map(r => r.map(v => typeof v === 'number' ? String(v).replace('.', ',') : String(v).replace(/\s+/g, ' ')).join('\t'))).join('\n');
+
   // ---------------- Übernahme aus den bisherigen Apps ----------------
   // radar = Daten aus „Projekt-Radar“ (projektRadar.v1), pm = Daten aus „PM-Rechner“ (pmRechner.v1)
   function migrateFromApps(state, radar, pm, today) {
@@ -596,6 +802,8 @@
     parseAkt, flags, severity, isActive, progress, focusItems, budget, budgetTotals, initials, weclappLink, aktPrefix, aktCompose, customerView, libUpsertTask, libUpsertStory,
     tE, tV, calcEstimate, conv, storyText, cloneEstimate, bestMatch, normTxt,
     aktLinked, setNext, aktLatest, linkedTask, tasksToProject, tasksToEstimate, estProgress,
+    STD_PHASES, addPhases, phaseStats, currentPhase, phaseName, projectSpan, BL_SLOTS, BL_SCOPE, newBacklogItem, blScore, blSort, blScopeLabel, blKunde, moveItem, teamLoad, shareText,
+    custKey, estKunde, isChance, customers, customerRec, estimateToProject, CUST_STATUS, inScope, weekReport, reportText, reportHTML, isMonday, reportDue, addDays, CL_COLS, CL_DEFAULT, customerList, listHTML, listText, escH,
     migrateFromApps, shouldAutoSnapshot, pruneSnapshots
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Core; else root.Core = Core;

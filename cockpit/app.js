@@ -100,7 +100,7 @@
   const statusTag = p => '<span class="tag">' + C.STATUS[p.status].ic + ' ' + C.STATUS[p.status].n + '</span>';
 
   // ---------- Navigation ----------
-  const NAV_KEYS = ['view', 'pid', 'ptab', 'eid', 'back'];
+  const NAV_KEYS = ['view', 'pid', 'ptab', 'eid', 'back', 'cid'];
   function go(view, o, fromHistory) {
     Object.assign(UI, { view }, o || {}); saveUI();
     // Browser-Zurück/Vorwärts unterstützen
@@ -109,14 +109,23 @@
   }
   window.addEventListener('popstate', e => { if (e.state && e.state.view) { closeSheet(); go(e.state.view, e.state, true); } });
   App.go = go;
-  document.querySelectorAll('#nav button').forEach(b => b.onclick = () => go(b.dataset.v, { pid: null, eid: null }));
-  const TITLES = { home: 'Cockpit', projects: 'Projekte', estimates: 'Schätzungen', estimate: 'Schätzung', tools: 'Werkzeuge', data: 'Daten', changes: 'Änderungen' };
+  document.querySelectorAll('#nav button[data-v]').forEach(b => b.onclick = () => b.dataset.v === 'more' ? moreSheet() : go(b.dataset.v, { pid: null, eid: null }));
+  const TITLES = { home: 'Cockpit', report: 'Bericht', projects: 'Projekte', customers: 'Kunden', customer: 'Kunde', plan: 'Backlog & Planung', estimates: 'Schätzungen & Chancen', estimate: 'Schätzung', tools: 'Werkzeuge', data: 'Daten', changes: 'Änderungen' };
+  const PARENT = { project: 'projects', estimate: 'estimates', customer: 'customers' };
+  // Handy: weitere Bereiche über „Mehr“
+  function moreSheet() {
+    const L = [['report', '📊', 'Bericht', 'Montags-Überblick, Reports'], ['estimates', '🧮', 'Schätzungen & Chancen', 'PERT, Angebote, Chancen'], ['changes', '🕘', 'Änderungen', 'Import- und eigene Änderungen'], ['tools', '🛠', 'Werkzeuge', 'Kapazität, Prognose'], ['data', '💾', 'Daten', 'Backup, Import, Einstellungen']];
+    sheet('<h4>Mehr</h4><div class="list">' + L.map(([v, i, n, d]) => '<button class="it" data-mv="' + v + '" style="width:100%;text-align:left"><span style="font-size:20px">' + i + '</span><div class="t"><b>' + n + '</b><small>' + d + '</small></div></button>').join('') + '</div>', () => {
+      $('sheet').querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { closeSheet(); go(b.dataset.mv, { pid: null, eid: null }); });
+    });
+  }
   function render() {
     const pp = UI.view === 'project' && byId(UI.pid);
     document.title = (pp ? pp.name : TITLES[UI.view] || 'Cockpit') + ' – Projekt-Cockpit';
-    document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === UI.view || (UI.view === 'project' && b.dataset.v === 'projects') || (UI.view === 'estimate' && b.dataset.v === 'estimates')));
+    const cur = PARENT[UI.view] || UI.view, inMore = ['report', 'estimates', 'changes', 'tools', 'data'].includes(cur);
+    document.querySelectorAll('#nav button[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === cur || (b.dataset.v === 'more' && inMore)));
     headerState();
-    const V = { home, projects, project, estimates: () => App.estimatesView(), estimate: () => App.estimateEditor(), tools: () => App.toolsView(), data: () => App.dataView(), changes: () => App.changesView() };
+    const V = { home, projects, project, customers: () => App.customersView(), customer: () => App.customerView(), plan: () => App.planView(), report: () => App.reportView(), estimates: () => App.estimatesView(), estimate: () => App.estimateEditor(), tools: () => App.toolsView(), data: () => App.dataView(), changes: () => App.changesView() };
     try { (V[UI.view] || home)(); } catch (e) { console.error(e); $('view').innerHTML = '<div class="note r">Diese Ansicht konnte nicht angezeigt werden: ' + esc(e.message) + '<br><button class="btn sec" onclick="App.go(\'home\')">Zum Cockpit</button></div>'; }
   }
   App.render = render;
@@ -148,14 +157,15 @@
     const fod = F.od.filter(x => inSel(x.p)), fwk = F.wk.filter(x => inSel(x.p)), fnx = F.nx.filter(x => inSel(x.p));
     const openEst = S.estimates.filter(e => e.status === 'draft' || e.status === 'offered').length;
     const bt = C.budgetTotals(selP);
-    let h = '<h2>Guten ' + (new Date().getHours() < 11 ? 'Morgen' : new Date().getHours() < 18 ? 'Tag' : 'Abend') + (S.me ? ', ' + esc(S.me.split(' ')[0]) : '') + '<span class="sp"></span><button class="sm" id="rvBtn">🔁 Wochenreview</button></h2>';
+    let h = '<h2>Guten ' + (new Date().getHours() < 11 ? 'Morgen' : new Date().getHours() < 18 ? 'Tag' : 'Abend') + (S.me ? ', ' + esc(S.me.split(' ')[0]) : '') + '<span class="sp"></span><button class="sm" id="rvBtn">🔁 Wochenreview</button><button class="sm" data-go="report">📊 Bericht</button></h2>';
     const lb = S.meta.lastBackup, age = lb ? C.daysBetween(lb.slice(0, 10), today()) : null;
+    if (C.reportDue(S, today()) && (C.isMonday(today()) || !S.meta.lastReport)) h += '<div class="note">📊 <b>' + (C.isMonday(today()) ? 'Montag:' : 'Tipp:') + '</b> Der Wochen-Überblick für die Firma ist in einer Minute fertig. <button class="sm pri" id="repNow">Bericht erstellen</button></div>';
     if (!lb || age >= S.settings.backupDays) h += '<div class="note y">💾 ' + (lb ? 'Letztes Backup vor ' + age + ' Tagen.' : 'Du hast noch kein Backup erstellt.') + ' Ein Klick sichert alles als Datei. <button class="sm pri" id="bkNow">Backup jetzt</button></div>';
     if (act.length > S.settings.wip) h += '<div class="note y">⚠️ <b>' + act.length + ' aktive Projekte</b> bei einem Limit von ' + S.settings.wip + '. Pausiere oder schließe etwas ab, sonst leidet der Fokus.</div>';
     h += '<div class="kpis"><div class="kpi"><b>' + act.length + '</b><span>aktive Projekte</span></div>' +
       '<button class="kpi fk' + (hs === 'r' ? ' on' : '') + '" data-hs="r" aria-pressed="' + (hs === 'r') + '"><b style="color:var(--r)">' + red.length + '</b><span>rot · Filter</span></button>' +
       '<button class="kpi fk' + (hs === 'y' ? ' on' : '') + '" data-hs="y" aria-pressed="' + (hs === 'y') + '"><b style="color:var(--y)">' + yel.length + '</b><span>gelb · Filter</span></button>' +
-      '<div class="kpi"><b style="color:' + (fod.length ? 'var(--r)' : 'inherit') + '">' + fod.length + '</b><span>überfällige Aufgaben</span></div><div class="kpi"><b>' + fwk.length + '</b><span>fällig in 7 Tagen</span></div><div class="kpi"><b>' + openEst + '</b><span>offene Schätzungen</span></div></div>';
+      '<div class="kpi"><b style="color:' + (fod.length ? 'var(--r)' : 'inherit') + '">' + fod.length + '</b><span>überfällige Aufgaben</span></div><div class="kpi"><b>' + fwk.length + '</b><span>fällig in 7 Tagen</span></div><button class="kpi fk" data-go="estimates"><b>' + openEst + '</b><span>offene Schätzungen · ' + S.estimates.filter(C.isChance).length + ' Chancen</span></button></div>';
     if (hs) h += '<div class="note ' + hs + '" id="hsBar">Filter aktiv: nur <b>' + (hs === 'r' ? 'rote' : 'gelbe') + '</b> Projekte (' + selP.length + '). <button class="sm" id="hsReset">✕ Filter zurücksetzen</button></div>';
     const att = (hs ? sev.filter(x => x.s === hs) : red.concat(yel)).sort((a, b) => sevOrd[a.s] - sevOrd[b.s] || a.p.prio - b.p.prio).slice(0, 15);
     const budP = selP.map(p => ({ p, b: C.budget(p) })).filter(x => x.b).sort((a, b) => a.b.restPct - b.b.restPct);
@@ -170,10 +180,12 @@
       (fod.length + fwk.length ? fod.concat(fwk).slice(0, 20).map(x => '<div class="it"><button class="ck" data-ck="' + x.p.id + '|' + x.t.id + '" aria-label="Erledigt"></button><div class="t">' + esc(x.t.t) + '<small style="color:' + (x.d < 0 ? 'var(--r)' : 'inherit') + '">' + esc(x.p.name) + ' · ' + (x.d < 0 ? 'seit ' + (-x.d) + ' T überfällig' : x.d === 0 ? 'heute' : 'in ' + x.d + ' T') + '</small></div></div>').join('') : '<div class="help">Nichts fällig in den nächsten 7 Tagen.</div>') + '</div></div>' +
       '<div class="panel"><h3>➜ Nächste Schritte<span class="sp"></span><span class="cnt">' + fnx.length + '</span></h3><div class="list">' +
       (fnx.length ? fnx.slice(0, 15).map(x => '<div class="it"><button class="ck" data-nx="' + x.p.id + '" title="Erledigt" aria-label="Erledigt"></button><div class="t" data-open="' + x.p.id + '" style="cursor:pointer">' + esc(x.p.next) + '<small>' + esc(x.p.name) + '</small></div></div>').join('') : '<div class="help">Keine nächsten Schritte festgelegt.</div>') + '</div></div>' +
-      ideasPanel() + '</div></div>';
+      planPanel() + ideasPanel() + '</div></div>';
     $('view').innerHTML = h;
     wireIdeas();
     if ($('bkNow')) $('bkNow').onclick = () => App.doBackup();
+    if ($('repNow')) $('repNow').onclick = () => go('report');
+    $('view').querySelectorAll('[data-go]').forEach(el => el.onclick = () => go(el.dataset.go));
     $('rvBtn').onclick = review;
     $('view').querySelectorAll('[data-hs]').forEach(b => b.onclick = () => { UI.homeSev = UI.homeSev === b.dataset.hs ? '' : b.dataset.hs; saveUI(); home(); });
     if ($('hsReset')) $('hsReset').onclick = () => { UI.homeSev = ''; saveUI(); home(); };
@@ -189,14 +201,20 @@
     $('fr1').onclick = () => $('fileImport').click(); $('fr2').onclick = () => newProjectSheet(); $('fr4').onclick = () => $('fileRestore').click();
     if ($('fr3')) $('fr3').onclick = () => App.migrateLegacy();
   }
+  // Team-Plan „Jetzt“ auf dem Cockpit
+  function planPanel() {
+    const L = S.backlog.filter(x => x.slot === 'now'); if (!L.length && !S.backlog.length) return '';
+    return '<div class="panel"><h3>🔥 Team – Jetzt<span class="sp"></span><button class="sm" data-go="plan">Planung ›</button></h3><div class="list">' + (L.length ? L.slice(0, 8).map(x => '<div class="it"><div class="t">' + esc(x.t) + '<small>' + esc(C.blScopeLabel(S, x)) + '</small></div>' + (x.who ? avatar(x.who, 'pl') : '') + '</div>').join('') : '<div class="help">Im „Jetzt“ ist nichts geplant.</div>') + '</div></div>';
+  }
   function ideasPanel() {
     return '<div class="panel"><h3>💡 Ideen-Parkplatz<span class="sp"></span><span class="cnt">' + S.ideas.length + '</span></h3><div class="row" style="margin-bottom:6px"><input id="ideaIn" placeholder="Später vielleicht … (Enter)"></div><div class="list">' +
-      S.ideas.map(i => '<div class="it"><div class="t">' + esc(i.t) + '</div><button class="sm" data-ip="' + i.id + '">→ Projekt</button><button class="x" data-ix="' + i.id + '" aria-label="Löschen">✕</button></div>').join('') + '</div></div>';
+      S.ideas.map(i => '<div class="it"><div class="t">' + esc(i.t) + '</div><button class="sm" data-ib="' + i.id + '" title="Ins Backlog">→ Backlog</button><button class="sm" data-ip="' + i.id + '">→ Projekt</button><button class="x" data-ix="' + i.id + '" aria-label="Löschen">✕</button></div>').join('') + '</div></div>';
   }
   function wireIdeas() {
     const inp = $('ideaIn'); if (!inp) return;
     inp.onkeydown = e => { if (e.key === 'Enter' && inp.value.trim()) { S.ideas.unshift({ id: C.uid(), t: inp.value.trim() }); commit(); render(); $('ideaIn').focus(); } };
     $('view').querySelectorAll('[data-ix]').forEach(b => b.onclick = () => { S.ideas = S.ideas.filter(i => i.id !== b.dataset.ix); commit(); render(); });
+    $('view').querySelectorAll('[data-ib]').forEach(b => b.onclick = () => { const i = S.ideas.find(x => x.id === b.dataset.ib); S.backlog.push(C.newBacklogItem({ t: i.t })); S.ideas = S.ideas.filter(x => x !== i); commit(); render(); toast('🗂 Ins Backlog übernommen'); });
     $('view').querySelectorAll('[data-ip]').forEach(b => b.onclick = () => { const i = S.ideas.find(x => x.id === b.dataset.ip); newProjectSheet({ name: i.t }, () => { S.ideas = S.ideas.filter(x => x !== i); }); });
   }
   function nextDone(p) {
@@ -258,40 +276,56 @@
       if (UI.pl === '__me' ? !(S.me && p.wc && p.wc.pl === S.me) : UI.pl && !(p.wc && p.wc.pl === UI.pl)) return false;
       if (UI.cons === '__me' ? !(S.me && p.wc && p.wc.cons === S.me) : UI.cons && !(p.wc && p.wc.cons === UI.cons)) return false;
       if (UI.src === 'wc' && !p.wc) return false; if (UI.src === 'own' && p.wc) return false;
+      if (UI.kd && C.custKey(p.kunde) !== UI.kd) return false;
       if (q && !C.normTxt([p.name, p.kunde, p.nr, p.next, p.notes, p.wc && p.wc.cons, p.wc && p.wc.phase].join(' ')).includes(q)) return false;
       return true;
     });
     const sorts = { sev: (a, b) => sevOrd[projSev(a)] - sevOrd[projSev(b)] || a.prio - b.prio || a.name.localeCompare(b.name), name: (a, b) => a.name.localeCompare(b.name), due: (a, b) => (a.due || '9999').localeCompare(b.due || '9999'), upd: (a, b) => b.updated.localeCompare(a.updated) };
     L.sort((a, b) => (b.pinned - a.pinned) || (sorts[UI.sort] || sorts.sev)(a, b));
     const cnt = k => S.projects.filter(p => k === 'changed' ? li && p.wc && (p.wc.imp === li || p.wc.newImp === li) : k === 'missing' ? p.wc && p.wc.missingSince : k === 'archived' ? p.archived : !p.archived && (k === 'active' ? C.isActive(p) : k === 'paused' ? p.status === 'p' : k === 'done' ? p.status === 'd' : true)).length;
-    let h = '<h2>Projekte<span class="sp"></span><button class="sm" id="impBtn">📥 weclapp-Import</button></h2>' +
+    const kds = C.customers(S, today()).filter(c => c.projects.length);
+    let h = '<div class="ph"><div><h2>Projekte</h2><p class="sub">Alle Aufträge mit Ampel, Phase, nächstem Schritt und Budget. Filter wirken auch auf die Kundenliste.</p></div><span class="sp"></span>' +
+      '<div class="seg" role="group" aria-label="Darstellung"><button id="pvC" class="' + (UI.pview !== 'table' ? 'on' : '') + '" aria-pressed="' + (UI.pview !== 'table') + '">▦ Karten</button><button id="pvT" class="' + (UI.pview === 'table' ? 'on' : '') + '" aria-pressed="' + (UI.pview === 'table') + '">☰ Tabelle</button></div>' +
+      '<button class="sm" id="clBtn">📤 Kundenliste</button><button class="sm" id="impBtn">📥 weclapp-Import</button></div>' +
       '<div class="panel"><div class="row" style="margin-bottom:8px"><label class="f" style="flex:2"><span>Suche</span><input id="pq" value="' + esc(UI.q) + '" placeholder="Name, Kunde, Auftragsnr., Notizen …"></label>' +
       '<label class="f"><span>Projektleiter</span><select id="ppl"><option value="">Alle</option>' + (S.me ? '<option value="__me"' + (UI.pl === '__me' ? ' selected' : '') + '>Meine (' + esc(S.me) + ')</option>' : '') + pls.map(n => '<option' + (UI.pl === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></label>' +
       '<label class="f"><span>Consultant</span><select id="pcons"><option value="">Alle</option>' + (S.me ? '<option value="__me"' + (UI.cons === '__me' ? ' selected' : '') + '>Ich (' + esc(S.me) + ')</option>' : '') + conss.map(n => '<option' + (UI.cons === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></label>' +
+      '<label class="f"><span>Kunde</span><select id="pkd"><option value="">Alle</option>' + kds.map(c => '<option value="' + esc(c.key) + '"' + (UI.kd === c.key ? ' selected' : '') + '>' + esc(c.n) + '</option>').join('') + '</select></label>' +
       '<label class="f"><span>Quelle</span><select id="psrc"><option value="">Alle</option><option value="wc"' + (UI.src === 'wc' ? ' selected' : '') + '>aus weclapp</option><option value="own"' + (UI.src === 'own' ? ' selected' : '') + '>eigene</option></select></label>' +
       '<label class="f"><span>Sortierung</span><select id="psort">' + [['sev', 'Ampel'], ['name', 'Name'], ['due', 'Termin'], ['upd', 'Zuletzt geändert']].map(([k, n]) => '<option value="' + k + '"' + (UI.sort === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label></div>' +
       '<div class="chips">' + [['active', 'Aktiv'], ['paused', 'Pausiert'], ['done', 'Fertig'], ['changed', '✎ Letzter Import'], ['missing', 'Nicht mehr in weclapp'], ['archived', 'Archiv'], ['all', 'Alle']].map(([k, n]) => '<button data-sh="' + k + '" class="' + (UI.show === k ? 'on' : '') + '">' + n + ' ' + cnt(k) + '</button>').join('') + '</div></div>';
-    h += L.length ? '<div class="grid">' + L.map(card).join('') + '</div>' : '<div class="empty"><div class="e">📁</div>Keine Projekte in dieser Ansicht.</div>';
+    h += !L.length ? '<div class="empty"><div class="e">📁</div>Keine Projekte in dieser Ansicht.</div>' : UI.pview === 'table' ? table(L) : '<div class="grid">' + L.map(card).join('') + '</div>';
     $('view').innerHTML = h;
     const qi = $('pq'); qi.oninput = () => { UI.q = qi.value; saveUI(); const p = qi.selectionStart; projects(); const n = $('pq'); n.focus(); n.setSelectionRange(p, p); };
     $('ppl').onchange = e => { UI.pl = e.target.value; saveUI(); projects(); };
     $('pcons').onchange = e => { UI.cons = e.target.value; saveUI(); projects(); };
     $('psrc').onchange = e => { UI.src = e.target.value; saveUI(); projects(); };
+    $('pkd').onchange = e => { UI.kd = e.target.value; saveUI(); projects(); };
+    $('pvC').onclick = () => { UI.pview = 'cards'; saveUI(); projects(); }; $('pvT').onclick = () => { UI.pview = 'table'; saveUI(); projects(); };
+    $('clBtn').onclick = () => App.custListSheet(L, UI.kd ? 'Projektübersicht ' + ((kds.find(c => c.key === UI.kd) || {}).n || '') : 'Projektübersicht');
+    $('view').querySelectorAll('tr[data-id]').forEach(tr => { const o = () => go('project', { pid: tr.dataset.id, ptab: 'over' }); tr.onclick = e => { if (!e.target.closest('a')) o(); }; tr.onkeydown = e => { if (e.key === 'Enter') o(); }; });
     $('psort').onchange = e => { UI.sort = e.target.value; saveUI(); projects(); };
     $('impBtn').onclick = () => $('fileImport').click();
     $('view').querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { UI.show = b.dataset.sh; saveUI(); projects(); });
     wireCards($('view'));
   }
+  // Portfolio-Tabelle für den Multiprojektleiter: alles Wichtige in einer Zeile
+  function table(L) {
+    return '<div class="panel tw"><table class="t pt"><thead><tr><th></th><th>Projekt</th><th>Kunde</th><th>Phase</th><th>Team</th><th>Nächster Schritt</th><th class="n">Rest</th><th class="n">Aufgaben</th></tr></thead><tbody>' +
+      L.map(p => { const sv = projSev(p), b = C.budget(p), open = p.tasks.filter(t => !t.done).length, od = p.tasks.filter(t => !t.done && t.due && t.due < today()).length;
+        return '<tr data-id="' + p.id + '" tabindex="0" class="sv-' + sv + '"><td><span class="sdot ' + sv + '" title="' + esc(projFlags(p).filter(f => f.s !== 'n').map(f => f.t).join(' · ') || C.STATUS[p.status].n) + '"></span></td><td><b>' + (p.pinned ? '📌 ' : '') + esc(p.name) + '</b><small>' + esc([p.nr, C.STATUS[p.status].n].filter(Boolean).join(' · ')) + '</small></td><td>' + esc(p.kunde) + '</td><td>' + esc(C.phaseName(p)) + '</td><td>' + people(p) + '</td><td>' + (p.next ? esc(p.next) : '<span class="muted">–</span>') + '</td>' +
+          '<td class="n">' + (b ? '<b class="' + bCls(b.pct) + '">' + f0(b.restPct) + ' %</b><small>' + f0(b.rest) + ' h</small>' : '–') + '</td><td class="n">' + open + (od ? ' <span class="tag r">' + od + ' ⏰</span>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  }
   function card(p) {
     const fl = projFlags(p).filter(f => f.s !== 'n'), sv = projSev(p), w = p.wc, pr = C.progress(p), b = C.budget(p);
     const li = S.meta.lastImport && S.meta.lastImport.id, mark = li && w ? (w.newImp === li ? '<span class="tag new">🆕 neu</span>' : w.imp === li ? '<span class="tag chg" title="' + esc(lastChanges(p, li)) + '">✎ geändert</span>' : '') : '';
     return '<div class="card ' + sv + '" data-id="' + p.id + '" role="button" tabindex="0" aria-label="' + esc(p.name) + '"><div class="h"><b>' + (p.pinned ? '📌 ' : '') + esc(p.name) + '</b>' + mark + people(p) + '</div>' +
-      '<div class="sub">' + [statusTag(p), p.nr ? esc(p.nr) : '', w && w.phase ? esc(w.phase) : '', p.due ? '🏁 ' + C.fmtD(p.due) : '', wcLink(p)].filter(Boolean).join(' · ') + '</div>' +
+      '<div class="sub">' + [statusTag(p), p.nr ? esc(p.nr) : '', C.phaseName(p) ? esc(C.phaseName(p)) : '', p.due ? '🏁 ' + C.fmtD(p.due) : '', wcLink(p)].filter(Boolean).join(' · ') + '</div>' +
       (p.next ? '<div class="nx">➜ ' + esc(p.next) + '</div>' : C.isActive(p) ? '<div class="nx none">Kein nächster Schritt</div>' : '') +
       (b ? budgetLine(b) : pr != null ? '<div class="meter" title="Aufgaben ' + pr + ' %"><i style="width:' + pr + '%"></i></div>' : '') +
       (fl.length ? '<div class="fl">' + fl.slice(0, 3).map(f => '<span class="tag ' + f.s + '">' + esc(f.t) + '</span>').join('') + (fl.length > 3 ? '<span class="tag">+' + (fl.length - 3) + '</span>' : '') + '</div>' : '') + '</div>';
   }
-  App.card = card;
+  App.card = card; App.wireCards = r => wireCards(r);
   const lastChanges = (p, imp) => p.hist.filter(e => e.imp === imp && e.k !== '_created').map(C.histText).join('\n');
   // Karten sind divs (damit der weclapp-Link darin gültig ist): Klick und Enter öffnen das Projekt
   function wireCards(root) {
@@ -305,11 +339,12 @@
   // ---------- Projekt-Detail ----------
   function project() {
     const p = byId(UI.pid); if (!p) return go('projects');
-    const T = [['over', 'Überblick'], ['tasks', 'Aufgaben (' + p.tasks.filter(t => !t.done).length + ')'], ['est', 'Schätzungen (' + S.estimates.filter(e => e.pid === p.id).length + ')'], ['risks', 'Risiken (' + p.risks.length + ')'], ['log', 'Verlauf & Notizen']];
-    $('view').innerHTML = '<div class="bar"><button class="sm" id="pBack">‹ Projekte</button></div><h2>' + esc(p.name) + ' ' + statusTag(p) + people(p) + '<span class="sp"></span>' + (wcLink(p) ? wcLink(p).replace('class="wl"', 'class="sm"') : '') + '<button class="sm" id="pPin">' + (p.pinned ? '📌 Angeheftet' : '📌 Anheften') + '</button></h2>' +
+    const T = [['over', 'Überblick'], ['tasks', (p.phases.length ? 'Plan' : 'Aufgaben') + ' (' + p.tasks.filter(t => !t.done).length + ')'], ['est', 'Schätzungen (' + S.estimates.filter(e => e.pid === p.id).length + ')'], ['risks', 'Risiken (' + p.risks.length + ')'], ['log', 'Verlauf & Notizen']];
+    $('view').innerHTML = '<div class="bar"><button class="sm" id="pBack">‹ Projekte</button></div><h2>' + esc(p.name) + ' ' + statusTag(p) + people(p) + '<span class="sp"></span>' + (p.kunde ? '<button class="sm" id="pCu" title="Kundensicht öffnen">🏢 ' + esc(p.kunde) + '</button>' : '') + (wcLink(p) ? wcLink(p).replace('class="wl"', 'class="sm"') : '') + '<button class="sm" id="pPin">' + (p.pinned ? '📌 Angeheftet' : '📌 Anheften') + '</button></h2>' +
       '<div class="tabs">' + T.map(([k, n]) => '<button data-pt="' + k + '" class="' + (UI.ptab === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div><div id="pBody"></div>';
     $('pBack').onclick = () => go('projects');
     $('pPin').onclick = () => { p.pinned = !p.pinned; touch(p); project(); };
+    if ($('pCu')) $('pCu').onclick = () => go('customer', { cid: C.custKey(p.kunde) });
     $('view').querySelectorAll('[data-pt]').forEach(b => b.onclick = () => { UI.ptab = b.dataset.pt; saveUI(); project(); });
     ({ over: pOver, tasks: pTasks, est: pEst, risks: pRisks, log: pLog })[UI.ptab in { over: 1, tasks: 1, est: 1, risks: 1, log: 1 } ? UI.ptab : 'over'](p);
   }
@@ -370,26 +405,75 @@
     if (!p.next.trim()) { const l = C.aktLatest(p, today()); return l ? 'Vorschlag aus weclapp-„Aktuelles“: <button class="sm" id="oXa">➜ ' + esc(l.length > 60 ? l.slice(0, 60) + '…' : l) + '</button>' : 'Wird auch als neuer Eintrag für „Aktuelles“ vorgemerkt.'; }
     return C.aktLinked(p) ? '🔗 Wird als neuer Eintrag für „Aktuelles“ vorgemerkt (rechts kopieren).' : '✍️ Der Aktuelles-Entwurf ist eigenständig formuliert und folgt dem Schritt nicht mehr. Nach „✓ Eingetragen“ ist er wieder verknüpft.';
   }
+  // Plan des Einzelprojekts: Phasen mit ihren Aufgaben, dazu Aufgaben ohne Phase; Themen aus dem Backlog des Auftrags
   function pTasks(p) {
-    const ests = S.estimates.filter(e => e.pid === p.id && e.tasks.some(t => t.n));
+    const ests = S.estimates.filter(e => e.pid === p.id && e.tasks.some(t => t.n)), ph = p.phases, bl = S.backlog.filter(x => x.scope === 'proj' && x.ref === p.id && x.slot !== 'done');
     const estRef = t => { const e = t.eid && S.estimates.find(x => x.id === t.eid), et = e && e.tasks.find(x => x.id === t.etid); return et ? '<a href="#" class="eref" data-eo="' + e.id + '" title="Verknüpfte Aufgabe der Schätzung öffnen">🧮 ' + esc(e.title) + ' · ' + f1(C.tE(et)) + ' ' + esc(e.unit) + '</a>' : ''; };
-    const open = p.tasks.filter(t => !t.done).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999')), done = p.tasks.filter(t => t.done);
-    const row = t => '<div class="it ' + (t.done ? 'done' : '') + '"><button class="ck ' + (t.done ? 'on' : '') + '" data-tc="' + t.id + '">' + (t.done ? '✓' : '') + '</button><div class="t">' + esc(t.t) + '<small>' + [t.due ? (t.done ? '' : t.due < today() ? '⏰ überfällig · ' : '') + C.fmtD(t.due) : '', t.who ? '👤 ' + esc(t.who) : '', estRef(t)].filter(Boolean).join(' · ') + '</small></div><button class="x" data-te="' + t.id + '" aria-label="Bearbeiten">✏️</button><button class="x" data-tx="' + t.id + '" aria-label="Löschen">✕</button></div>';
-    $('pBody').innerHTML = '<div class="panel"><div class="row"><label class="f" style="flex:3"><span>Neue Aufgabe</span><input id="tN" placeholder="Was ist zu tun? (Enter)"></label><label class="f"><span>Fällig</span><input type="date" id="tD"></label><label class="f"><span>Wer</span><input id="tW" placeholder="optional"></label><button class="btn" id="tAdd">＋</button></div>' +
-      (ests.length ? '<div class="bar" style="margin:0 0 8px"><button class="sm" id="tFromE">🧮 Aus Schätzung übernehmen</button></div>' : '') +
-      '<div class="list">' + (open.length ? open.map(row).join('') : '<div class="help">Keine offenen Aufgaben.</div>') + '</div>' + (done.length ? '<details style="margin-top:10px"><summary>Erledigt (' + done.length + ')</summary><div class="list">' + done.map(row).join('') + '</div></details>' : '') + '</div>';
-    const add = () => { const t = $('tN').value.trim(); if (!t) return $('tN').focus(); p.tasks.push({ id: C.uid(), t, due: $('tD').value, done: false, who: $('tW').value.trim() }); touch(p); project(); $('tN').focus(); };
+    const byDue = (a, b) => (a.due || '9999').localeCompare(b.due || '9999');
+    const row = t => '<div class="it ' + (t.done ? 'done' : '') + '"><button class="ck ' + (t.done ? 'on' : '') + '" data-tc="' + t.id + '" aria-label="' + (t.done ? 'Wieder öffnen' : 'Erledigt') + '">' + (t.done ? '✓' : '') + '</button><div class="t">' + esc(t.t) + '<small>' + [t.due ? (t.done ? '' : t.due < today() ? '⏰ überfällig · ' : '') + C.fmtD(t.due) : '', t.who ? '👤 ' + esc(t.who) : '', estRef(t)].filter(Boolean).join(' · ') + '</small></div><button class="x" data-te="' + t.id + '" aria-label="Bearbeiten">✏️</button><button class="x" data-tx="' + t.id + '" aria-label="Löschen">✕</button></div>';
+    const group = L => { const open = L.filter(t => !t.done).sort(byDue), done = L.filter(t => t.done); return '<div class="list">' + (open.length ? open.map(row).join('') : '<div class="help">Keine offenen Aufgaben.</div>') + '</div>' + (done.length ? '<details style="margin-top:6px"><summary>Erledigt (' + done.length + ')</summary><div class="list">' + done.map(row).join('') + '</div></details>' : ''); };
+    let h = '<div class="panel"><div class="row"><label class="f" style="flex:3"><span>Neue Aufgabe</span><input id="tN" placeholder="Was ist zu tun? (Enter)"></label>' +
+      (ph.length ? '<label class="f"><span>Phase</span><select id="tP"><option value="">Ohne Phase</option>' + ph.map(x => '<option value="' + x.id + '"' + (UI.tph === x.id ? ' selected' : '') + '>' + esc(x.n) + '</option>').join('') + '</select></label>' : '') +
+      '<label class="f"><span>Fällig</span><input type="date" id="tD"></label><label class="f"><span>Wer</span><input id="tW" list="dlTeam" placeholder="optional"><datalist id="dlTeam">' + S.team.map(m => '<option value="' + esc(m.n) + '">').join('') + '</datalist></label><button class="btn" id="tAdd">＋</button></div>' +
+      '<div class="bar" style="margin:0 0 8px"><button class="sm" id="phAdd">＋ Phase</button>' + (ph.length ? '' : '<button class="sm" id="phStd">🧭 Standardphasen anlegen</button>') + (ests.length ? '<button class="sm" id="tFromE">🧮 Aus Schätzung übernehmen</button>' : '') + (p.tasks.some(t => !t.done) ? '<button class="sm" id="tShare">📋 Offene Aufgaben teilen</button>' : '') + '</div>';
+    if (!ph.length) h += group(p.tasks) + '</div>';
+    else {
+      h += '</div>' + phaseBar(p);
+      C.phaseStats(p, today()).forEach(g => {
+        if (!g.ph && !g.total) return;
+        h += '<div class="panel phase' + (g.current ? ' cur' : '') + (g.ph && g.ph.done ? ' ok' : '') + '"><h3>' + (g.ph ? (g.ph.done ? '✅ ' : g.current ? '▶ ' : '○ ') + esc(g.ph.n) : '📌 Ohne Phase') +
+          (g.ph && (g.ph.start || g.ph.end) ? '<span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">' + [C.fmtD(g.ph.start), C.fmtD(g.ph.end)].filter(Boolean).join(' – ') + '</span>' : '') + (g.late ? '<span class="tag r">Termin überschritten</span>' : '') + (g.current ? '<span class="tag new">aktuell</span>' : '') +
+          '<span class="sp"></span><span class="cnt">' + g.done + '/' + g.total + '</span>' + (g.ph ? '<button class="sm" data-pd="' + g.ph.id + '">' + (g.ph.done ? '↺ Wieder öffnen' : '✓ Phase abschließen') + '</button><button class="x" data-pe="' + g.ph.id + '" aria-label="Phase bearbeiten">✏️</button>' : '') + '</h3>' +
+          (g.total ? '<div class="meter" style="margin:-4px 0 8px"><i style="width:' + g.pct + '%"></i></div>' : '') + group(g.tasks) + '</div>';
+      });
+    }
+    h += '<div class="panel"><h3>🗂 Themen im Backlog dieses Auftrags<span class="sp"></span><span class="cnt">' + bl.length + '</span><button class="sm" data-go="plan">Planung ›</button></h3><div class="row" style="margin-bottom:6px"><input id="pbIn" placeholder="Thema / Wunsch des Kunden erfassen (Enter)"></div>' +
+      (bl.length ? '<div class="list">' + C.blSort(bl).map(x => '<div class="it" data-bl="' + x.id + '" style="cursor:pointer"><span class="tag">' + C.BL_SLOTS[x.slot] + '</span><div class="t">' + esc(x.t) + '<small>⚡ ' + f1(C.blScore(x)) + (x.who ? ' · ' + esc(x.who) : '') + '</small></div></div>').join('') + '</div>' : '<div class="help">Wünsche und Ideen zu diesem Auftrag sammeln, bewerten und im Team einplanen.</div>') + '</div>';
+    $('pBody').innerHTML = h;
+    const curName = () => C.phaseName(p), setPh = (fn) => { const was = curName(); fn(); track(p, 'ph', was, curName()); touch(p); project(); };
+    const add = () => { const t = $('tN').value.trim(); if (!t) return $('tN').focus(); const phv = $('tP') ? $('tP').value : ''; UI.tph = phv; saveUI(); p.tasks.push({ id: C.uid(), t, due: $('tD').value, done: false, who: $('tW').value.trim(), eid: '', etid: '', ph: phv }); touch(p); project(); $('tN').focus(); };
     $('pBody').querySelectorAll('[data-eo]').forEach(a => a.onclick = e => { e.preventDefault(); go('estimate', { eid: a.dataset.eo, back: { view: 'project', pid: p.id, ptab: 'tasks' } }); });
+    $('pBody').querySelectorAll('[data-go]').forEach(el => el.onclick = () => { UI.blScope = 'proj'; go(el.dataset.go); });
     if ($('tFromE')) $('tFromE').onclick = () => App.pickTasks('toProject', ests, p);
+    if ($('tShare')) $('tShare').onclick = () => copyText(shareTasks(p), '📋 Offene Aufgaben kopiert – in Teams oder E-Mail einfügen');
+    if ($('phStd')) $('phStd').onclick = () => setPh(() => C.addPhases(p, C.STD_PHASES));
+    $('phAdd').onclick = () => phaseSheet(p, null, setPh);
+    $('pBody').querySelectorAll('[data-pe]').forEach(b => b.onclick = () => phaseSheet(p, ph.find(x => x.id === b.dataset.pe), setPh));
+    $('pBody').querySelectorAll('[data-pd]').forEach(b => b.onclick = () => setPh(() => { const x = ph.find(y => y.id === b.dataset.pd); x.done = !x.done; if (x.done) log(p, '✅ Phase „' + x.n + '“ abgeschlossen'); }));
+    $('pbIn').onkeydown = e => { if (e.key === 'Enter' && e.target.value.trim()) { S.backlog.push(C.newBacklogItem({ t: e.target.value.trim(), scope: 'proj', ref: p.id })); commit(); project(); $('pbIn').focus(); } };
+    $('pBody').querySelectorAll('.it[data-bl]').forEach(el => el.onclick = () => App.itemSheet(S.backlog.find(x => x.id === el.dataset.bl), project));
     $('tAdd').onclick = add; $('tN').onkeydown = e => { if (e.key === 'Enter') add(); };
     $('pBody').querySelectorAll('[data-tc]').forEach(b => b.onclick = () => { const t = p.tasks.find(x => x.id === b.dataset.tc); t.done = !t.done; if (t.done) log(p, '✔ ' + t.t); touch(p); project(); });
     $('pBody').querySelectorAll('[data-tx]').forEach(b => b.onclick = () => { const i = p.tasks.findIndex(x => x.id === b.dataset.tx), t = p.tasks[i]; p.tasks.splice(i, 1); touch(p); project(); toast('Aufgabe gelöscht', 'Rückgängig', () => { p.tasks.splice(i, 0, t); touch(p); project(); }); });
     $('pBody').querySelectorAll('[data-te]').forEach(b => b.onclick = () => {
       const t = p.tasks.find(x => x.id === b.dataset.te);
-      sheet('<h4>Aufgabe bearbeiten</h4><label class="f"><span>Aufgabe</span><input id="teN" value="' + esc(t.t) + '" autofocus></label><div class="row" style="margin-top:10px"><label class="f"><span>Fällig</span><input type="date" id="teD" value="' + esc(t.due) + '"></label><label class="f"><span>Wer</span><input id="teW" value="' + esc(t.who) + '"></label></div><div class="acts"><button class="btn sec" id="teC">Abbrechen</button><button class="btn" id="teOk">Speichern</button></div>', () => {
-        $('teC').onclick = closeSheet; $('teOk').onclick = () => { t.t = $('teN').value.trim() || t.t; t.due = $('teD').value; t.who = $('teW').value.trim(); touch(p); closeSheet(); project(); };
+      sheet('<h4>Aufgabe bearbeiten</h4><label class="f"><span>Aufgabe</span><input id="teN" value="' + esc(t.t) + '" autofocus></label><div class="row" style="margin-top:10px">' + (ph.length ? '<label class="f"><span>Phase</span><select id="teP"><option value="">Ohne Phase</option>' + ph.map(x => '<option value="' + x.id + '"' + (t.ph === x.id ? ' selected' : '') + '>' + esc(x.n) + '</option>').join('') + '</select></label>' : '') + '<label class="f"><span>Fällig</span><input type="date" id="teD" value="' + esc(t.due) + '"></label><label class="f"><span>Wer</span><input id="teW" list="dlTeam" value="' + esc(t.who) + '"></label></div><div class="acts"><button class="btn sec" id="teC">Abbrechen</button><button class="btn" id="teOk">Speichern</button></div>', () => {
+        $('teC').onclick = closeSheet; $('teOk').onclick = () => { t.t = $('teN').value.trim() || t.t; t.due = $('teD').value; t.who = $('teW').value.trim(); if ($('teP')) t.ph = $('teP').value; touch(p); closeSheet(); project(); };
       });
     });
+  }
+  // Zeitstrahl der Phasen (nur wenn Termine gepflegt sind)
+  function phaseBar(p) {
+    const D = p.phases.filter(x => x.start && x.end && x.end >= x.start); if (!D.length) return '';
+    const a = D.map(x => x.start).sort()[0], z = D.map(x => x.end).sort().pop(), span = Math.max(1, C.daysBetween(a, z) + 1), t = today();
+    const pos = d => Math.max(0, Math.min(100, C.daysBetween(a, d) / span * 100));
+    return '<div class="panel"><h3>🗓 Zeitplan<span class="sp"></span><span class="muted" style="text-transform:none;letter-spacing:0">' + C.fmtD(a) + ' – ' + C.fmtD(z) + '</span></h3><div class="gantt">' +
+      D.map(x => '<div class="gr"><span>' + esc(x.n) + '</span><div class="gt"><i class="' + (x.done ? 'ok' : x.end < t ? 'late' : '') + '" style="left:' + pos(x.start) + '%;width:' + Math.max(1.5, (C.daysBetween(x.start, x.end) + 1) / span * 100) + '%"></i>' + (t >= a && t <= z ? '<b style="left:' + pos(t) + '%" title="Heute"></b>' : '') + '</div></div>').join('') + '</div></div>';
+  }
+  function phaseSheet(p, x, setPh) {
+    const isNew = !x;
+    sheet('<h4>' + (isNew ? '＋ Neue Phase' : 'Phase bearbeiten') + '</h4><label class="f"><span>Name</span><input id="phN" value="' + esc(x ? x.n : '') + '" autofocus placeholder="z. B. Konzeption"></label><div class="row" style="margin-top:10px"><label class="f"><span>Start</span><input type="date" id="phS" value="' + esc(x ? x.start : '') + '"></label><label class="f"><span>Ende</span><input type="date" id="phE" value="' + esc(x ? x.end : '') + '"></label></div>' +
+      '<div class="acts">' + (isNew ? '' : '<button class="btn red" id="phX">🗑 Löschen</button><span style="flex:1"></span>') + '<button class="btn sec" id="phC">Abbrechen</button><button class="btn" id="phOk">Speichern</button></div>', () => {
+      $('phC').onclick = closeSheet;
+      $('phOk').onclick = () => { const n = $('phN').value.trim(); if (!n) return $('phN').focus(); closeSheet(); setPh(() => { const v = { n, start: $('phS').value, end: $('phE').value }; if (isNew) p.phases.push(Object.assign({ id: C.uid(), done: false }, v)); else Object.assign(x, v); }); };
+      if ($('phX')) $('phX').onclick = () => { const i = p.phases.indexOf(x), T = p.tasks.filter(t => t.ph === x.id); closeSheet(); setPh(() => { p.phases.splice(i, 1); T.forEach(t => t.ph = ''); }); toast('Phase gelöscht, Aufgaben bleiben (ohne Phase)', 'Rückgängig', () => setPh(() => { p.phases.splice(i, 0, x); T.forEach(t => t.ph = x.id); })); };
+    });
+  }
+  // Offene Aufgaben als Text zum Teilen (nach Phase gruppiert)
+  function shareTasks(p) {
+    const L = ['Offene Aufgaben – ' + p.name + ' (' + C.fmtD(today()) + ')'];
+    C.phaseStats(p, today()).forEach(g => { const o = g.tasks.filter(t => !t.done).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999')); if (!o.length) return; if (p.phases.length) L.push('', g.ph ? g.ph.n : 'Ohne Phase'); o.forEach(t => L.push('☐ ' + t.t + [t.who ? ' – ' + t.who : '', t.due ? ' – bis ' + C.fmtD(t.due) : ''].join(''))); });
+    return L.join('\n');
   }
   function pEst(p) {
     const L = S.estimates.filter(e => e.pid === p.id).sort((a, b) => b.updated - a.updated);

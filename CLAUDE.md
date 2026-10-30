@@ -3,7 +3,8 @@
 ## Projekt-Cockpit (`cockpit/`)
 
 - Daten bleiben **ausschließlich lokal im Browser** (IndexedDB + localStorage-Kopie). Keine Netzwerkzugriffe, kein `sync.js`, keine externen Skripte oder Schriften. Test E01 prüft das.
-- Kernlogik gehört nach `cockpit/core.js` (ohne DOM, in Node testbar). Oberfläche in `app.js` / `app2.js`, Speicher in `store.js`.
+- Kernlogik gehört nach `cockpit/core.js` (ohne DOM, in Node testbar). Oberfläche in `app.js` (Grundgerüst, Cockpit, Projekte), `app2.js` (Schätzungen, Daten, Import) und `app3.js` (Kunden, Backlog & Team, Bericht, Kundenliste), Speicher in `store.js`.
+- Kundenliste (`Core.customerList`) und Kundenexport der Schätzung enthalten **nie** interne Angaben (Ampel, Hinweise, Notizen, Risiken, Aktuelles, eigene Termine). Test U96 prüft das.
 - weclapp-Import darf lokale Felder (Ampel, nächster Schritt, Notizen, Aufgaben, Risiken, Schätzungen, selbst vergebener Name) **nie** verändern und Projekte **nie** löschen, nur markieren. Ausnahmen: Der automatisch erzeugte Name folgt weclapp; „Fertig“ nur, wenn in der Import-Vorschau ausdrücklich angehakt.
 - Jede Änderung (weclapp und eigene Kernfelder) landet strukturiert in `p.hist` (Feld, vorher, nachher, Quelle, Import-ID). Neue Kernfelder dort mitschreiben (`App.track`).
 - Jede neue Datenstruktur braucht eine Reparatur in `Core.normalize` und bleibt abwärtskompatibel zu alten Backups. Formatwechsel nur mit Erhöhung von `FORMAT` und Migration.

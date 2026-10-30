@@ -1,6 +1,26 @@
 # Projekt-Cockpit
 
-Kleine Projektmanagement-Suite für Projektleiter: Projekte mit Ampel und nächstem Schritt, Aufgaben, Risiken, Schätzungen (PERT, User Stories, Zuschläge) und Import der weclapp-Projektliste.
+Kleine Projektmanagement-Suite für Projektleiter, Multiprojektleiter, Key Account Consultants und Teamleiter: Projekte mit Ampel, Phasen und nächstem Schritt, Kundensicht, Backlog mit Team-Planung, Schätzungen und Chancen, Montagsbericht, Kundenliste und Import der weclapp-Projektliste.
+
+## Was finde ich wo?
+
+| Ich will … | Bereich |
+|---|---|
+| morgens sehen, was brennt | **🏠 Cockpit** |
+| der Firma montags einen Überblick geben, Reports erstellen | **📊 Bericht** (als E-Mail, Text für Teams, PDF) |
+| alle Projekte steuern (Multiprojekt) | **📁 Projekte**, Karten oder ☰ Tabelle, Filter nach PL, Consultant, Kunde |
+| wissen, wie es beim Kunden steht (Key Account) | **🏢 Kunden**: Zustand, Budget, Chancen, Themen, Stimmung, Notizen |
+| ein Projekt führen (Phasen und Aufgaben) | Projekt → **Plan**: Phasen mit Zeitplan, Aufgaben mit und ohne Phase |
+| Themen sammeln und im Team planen | **🗂 Backlog & Team**: Produkt, Auftrag oder Kunde; Jetzt · Als Nächstes · Später |
+| schätzen, auch ohne Auftrag | **🧮 Schätzungen & Chancen**; gewonnene Chance → ein Klick legt das Projekt an |
+| dem Kunden eine Projektliste schicken | Projekte oder Kunde → **📤 Kundenliste** (ohne interne Angaben) |
+
+## Kurz erklärt
+
+- **Bericht:** Bereich wählen (alle, meine, ein Projektleiter, ein Kunde) und Zeitraum (7/14/30 Tage). Enthält Ampel, Phase, nächsten Schritt, Änderungen im Zeitraum, Überfälliges, Budget und Chancen. Montags erinnert das Cockpit daran.
+- **Phasen:** „🧭 Standardphasen“ legt Vorbereitung bis Abschluss an; jede Phase kann Start/Ende haben (Zeitplan). Aufgaben ohne Phase bleiben eine eigene Gruppe. Die aktuelle Phase erscheint auf Karte, Tabelle, Bericht und Kundenliste.
+- **Backlog:** Jedes Thema bekommt Wert und Aufwand (1–5); sortiert wird nach Wert ÷ Aufwand (⚡). Verschieben per Ziehen, mit ‹ › oder den Pfeiltasten. Teilaufgaben und Zuständige sind optional. „📋 Jetzt teilen“ kopiert den Plan für Teams/E-Mail.
+- **Kundenliste:** Spalten frei wählbar. Ampel, Hinweise, Notizen, Risiken, Aktuelles und deine eigenen Termine sind nie enthalten; Budget und nächster Schritt nur, wenn du sie bewusst anhakst (⚠️).
 
 ## Wo liegen die Daten?
 
@@ -44,7 +64,7 @@ Du pflegst nur noch den **nächsten Schritt**. Bei weclapp-Projekten wird er aut
 
 ## Tastenkürzel
 
-`Strg`+`K` oder `/` Schnellsuche · `N` neues Projekt · `G` dann `C`/`P`/`S`/`A` Cockpit/Projekte/Schätzungen/Änderungen · `?` Hilfe · `Esc` Dialog schließen. Die Zurück-Taste des Browsers funktioniert.
+`Strg`+`K` oder `/` Schnellsuche (Projekte, Kunden, Themen, Schätzungen) · `N` neues Projekt · `G` dann `C`/`B`/`P`/`K`/`L`/`S`/`A` Cockpit/Bericht/Projekte/Kunden/Planung/Schätzungen/Änderungen · `?` Hilfe · `Esc` Dialog schließen. Die Zurück-Taste des Browsers funktioniert.
 
 ## Tests
 
