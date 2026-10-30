@@ -347,3 +347,46 @@ test('U85 Eigene Änderungen: zusammengefasst innerhalb von 10 Minuten, Rücknah
   assert.equal(p.hist.length, 2);
   assert.equal(Core.histText({ k: 'status', from: 'g', to: 'r', src: 'ich' }), 'Status: Läuft → Blockiert');
 });
+
+// ---------- Nächster Schritt ↔ Aktuelles, Aufgaben Projekt ↔ Schätzung ----------
+test('U86 Nächster Schritt füllt den Aktuelles-Entwurf, bis dieser selbst umformuliert wird', () => {
+  const p = Core.newProject({ wc: { akt: '' } }, TODAY);
+  Core.setNext(p, 'A'); Core.setNext(p, 'Ab'); Core.setNext(p, 'Abnahme planen ');
+  assert.equal(p.aktNew, 'Abnahme planen'); assert.equal(p.next, 'Abnahme planen ');
+  Core.setNext(p, ''); assert.equal(p.aktNew, ''); Core.setNext(p, 'Go-Live'); assert.equal(p.aktNew, 'Go-Live');
+  p.aktNew = 'Kunde hat Termin bestätigt'; assert.equal(Core.aktLinked(p), false);
+  Core.setNext(p, 'Schulung'); assert.equal(p.aktNew, 'Kunde hat Termin bestätigt', 'eigener Entwurf bleibt');
+  p.aktNew = ''; Core.setNext(p, 'Schulung vorbereiten'); assert.equal(p.aktNew, 'Schulung vorbereiten', 'nach „Eingetragen“ wieder verknüpft');
+  const own = Core.newProject({}, TODAY); Core.setNext(own, 'X'); assert.equal(own.aktNew, '', 'eigene Projekte ohne weclapp: kein Entwurf');
+  const w = Core.newProject({ wc: { akt: '28.10.2026: Workshop gehalten\n15.10.2026: Kickoff' } }, TODAY);
+  assert.equal(Core.aktLatest(w, TODAY), 'Workshop gehalten');
+});
+test('U87 Aufgaben aus der Schätzung ins Projekt und zurück, ohne Doppelte, Fortschritt', () => {
+  const s = Core.empty(), p = Core.newProject({ name: 'P' }, TODAY); s.projects.push(p);
+  p.tasks.push({ id: 'pt1', t: 'Datenmigration', due: '', done: false, who: '' });
+  s.lib.tasks.push({ id: 'l1', n: 'Datenmigration', d: 'Altdaten', o: 8, m: 16, p: 32, unit: 'Stunden', used: 0, auto: false });
+  const es = Core.newEstimate({ pid: p.id, unit: 'Tage' }, TODAY); s.estimates.push(es);
+  es.tasks.push({ id: 'et1', n: 'Schnittstelle', d: '', sid: '', o: 1, m: 2, p: 3 }, { id: 'et2', n: '', d: '', sid: '', o: '', m: '', p: '' });
+  assert.equal(Core.tasksToProject(s, es, ['et1', 'et2']), 1, 'leere Aufgabe wird nicht übernommen');
+  assert.equal(Core.tasksToProject(s, es, ['et1']), 0, 'keine Doppelten');
+  const lt = Core.linkedTask(s, es, 'et1'); assert.equal(lt.t, 'Schnittstelle'); assert.equal(lt.eid, es.id);
+  assert.equal(Core.tasksToEstimate(s, es, ['pt1', lt.id]), 1, 'schon verknüpfte Projektaufgabe wird übersprungen');
+  const nt = es.tasks[es.tasks.length - 1]; assert.equal(nt.n, 'Datenmigration'); assert.deepEqual([nt.o, nt.m, nt.p], [1, 2, 4], 'Werte aus der Bibliothek, umgerechnet');
+  assert.equal(Core.linkedTask(s, es, nt.id).id, 'pt1');
+  lt.done = true; const pr = Core.estProgress(s, es);
+  assert.equal(pr.linked, 2); assert.equal(pr.done, 1); assert.equal(pr.doneEff, 2);
+  const none = Core.newEstimate({}, TODAY); assert.equal(Core.tasksToProject(s, none, ['x']), 0, 'ohne Projekt nichts');
+});
+test('U88 Verknüpfungen überstehen Backup und Reparatur; tote Verweise werden geleert', () => {
+  const s = Core.empty(), p = Core.newProject({ name: 'P' }, TODAY), q = Core.newProject({ name: 'Q' }, TODAY); s.projects.push(p, q);
+  const es = Core.newEstimate({ pid: p.id }, TODAY); es.tasks.push({ id: 'et1', n: 'A', d: '', sid: '', o: 1, m: 1, p: 1 }); s.estimates.push(es);
+  p.tasks.push({ id: 'a', t: 'A', due: '', done: false, who: '', eid: es.id, etid: 'et1' }, { id: 'b', t: 'B', due: '', done: false, who: '', eid: es.id, etid: 'weg' }, { id: 'c', t: 'A2', due: '', done: false, who: '', eid: es.id, etid: 'et1' });
+  q.tasks.push({ id: 'd', t: 'D', due: '', done: false, who: '', eid: es.id, etid: 'et1' });
+  const r = Core.normalize(JSON.parse(JSON.stringify(Core.makeBackup(s).data || s)));
+  const pp = r.projects.find(x => x.name === 'P'), qq = r.projects.find(x => x.name === 'Q');
+  assert.equal(pp.tasks[0].etid, 'et1'); assert.equal(pp.tasks[1].etid, '', 'gelöschte Aufgabe'); assert.equal(pp.tasks[2].etid, '', 'doppelte Verknüpfung');
+  assert.equal(qq.tasks[0].eid, '', 'Schätzung gehört zu anderem Projekt');
+  assert.deepEqual(Core.normalize(r), r, 'idempotent');
+  const old = Core.normalize({ projects: [{ id: 'x', name: 'Alt', tasks: [{ id: 't', t: 'alt' }] }] });
+  assert.equal(old.projects[0].tasks[0].eid, '');
+});

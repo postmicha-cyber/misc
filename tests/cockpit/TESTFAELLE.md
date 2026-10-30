@@ -60,6 +60,9 @@ Neue Funktionen bekommen einen neuen Testfall. Ein gefundener Fehler bekommt zue
 | U83 | Leerer Wert, Zahl als Text, Auftragsnummer mit Leerzeichen/anderer Schreibweise | Keine Doppelten, keine Scheinänderungen |
 | U84 | Import-Liste und Markierung „geändert/neu im letzten Import“ überstehen Backup und Reparatur | Änderungshistorie dauerhaft |
 | U85 | Eigene Änderungen: innerhalb von 10 Minuten zusammengefasst, zurückgenommene Änderung hinterlässt nichts | Historie ohne Rauschen |
+| U86 | Nächster Schritt füllt den Aktuelles-Entwurf; selbst umformulierter Entwurf bleibt; nach „Eingetragen“ wieder verknüpft; Vorschlag aus jüngstem weclapp-Eintrag | Ein Pflegeschritt statt zwei |
+| U87 | Aufgaben Schätzung → Projekt und Projekt → Schätzung: keine Doppelten, Werte aus der Bibliothek umgerechnet, Fortschritt der geschätzten Aufgaben | Schätzung und Umsetzung hängen zusammen |
+| U88 | Aufgaben-Verknüpfungen überstehen Backup und Reparatur; Verweise auf gelöschte Aufgaben, fremde Projekte und Doppelte werden geleert; alte Backups ohne Verknüpfung | Abwärtskompatibel, keine Geister-Verknüpfungen |
 | U70 | Interne Versionen: Takt und Begrenzung | Speicherplatz, Wiederherstellbarkeit |
 
 ## Browser-Tests (`e2e.test.js`, echte Abläufe in Chromium)
@@ -90,6 +93,8 @@ Neue Funktionen bekommen einen neuen Testfall. Ein gefundener Fehler bekommt zue
 | E22 | Browser-Zurück/Vorwärts zwischen Ansichten |
 | E23 | Markierung „neu/geändert“ nach Import mit Tooltip, Filter „Letzter Import“, Speicherstatus |
 | E24 | Dialoge: Tab bleibt im Dialog, Esc schließt und gibt den Fokus zurück; Löschen ohne Rückfrage, aber mit Rückgängig |
+| E25 | Nächster Schritt füllt beim Tippen den Aktuelles-Entwurf mit Datum, eigener Entwurf bleibt, Vorschlag aus weclapp, Übersicht zeigt den Schritt |
+| E26 | Aufgaben aus Schätzung ins Projekt, aus dem Projekt in die Schätzung, gesperrte Doppelte, Fortschritt „x von y erledigt“ in der Schätzung |
 
 ## Manuelle Prüfung vor dem Einsatz mit echten Daten (einmalig, ca. 10 Minuten)
 

@@ -200,9 +200,9 @@
     $('view').querySelectorAll('[data-ip]').forEach(b => b.onclick = () => { const i = S.ideas.find(x => x.id === b.dataset.ip); newProjectSheet({ name: i.t }, () => { S.ideas = S.ideas.filter(x => x !== i); }); });
   }
   function nextDone(p) {
-    const old = p.next; log(p, '✔ ' + old); track(p, 'next', old, ''); p.next = ''; touch(p); render();
+    const old = p.next; log(p, '✔ ' + old); track(p, 'next', old, ''); C.setNext(p, ''); touch(p); render();
     sheet('<h4>Nächster Schritt für „' + esc(p.name) + '“?</h4><input id="nxIn" autofocus placeholder="Was passiert als Nächstes?"><div class="acts"><button class="btn sec" id="nxL">Später</button><button class="btn" id="nxOk">Speichern</button></div>', () => {
-      $('nxL').onclick = closeSheet; const ok = () => { const v = $('nxIn').value.trim(); track(p, 'next', p.next, v); p.next = v; touch(p); closeSheet(); render(); };
+      $('nxL').onclick = closeSheet; const ok = () => { const v = $('nxIn').value.trim(); track(p, 'next', p.next, v); C.setNext(p, v); touch(p); closeSheet(); render(); };
       $('nxOk').onclick = ok; $('nxIn').onkeydown = e => { if (e.key === 'Enter') ok(); };
     });
   }
@@ -219,7 +219,7 @@
         $('rvS').querySelectorAll('button').forEach(b => b.onclick = () => { st = b.dataset.k; $('rvS').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
         $('rvX').onclick = () => { closeSheet(); render(); };
         $('rvO').onclick = () => { closeSheet(); go('project', { pid: p.id, ptab: 'over' }); };
-        $('rvOk').onclick = () => { if (st !== p.status) { track(p, 'status', p.status, st); p.status = st; } const v = $('rvN').value.trim(); track(p, 'next', p.next, v); p.next = v; touch(p); i++; step(); };
+        $('rvOk').onclick = () => { if (st !== p.status) { track(p, 'status', p.status, st); p.status = st; } const v = $('rvN').value.trim(); track(p, 'next', p.next, v); C.setNext(p, v); touch(p); i++; step(); };
       });
     };
     step();
@@ -318,7 +318,8 @@
     let h = '<div class="cols"><div><div class="panel"><h3>Stammdaten</h3><div class="row"><label class="f" style="flex:2"><span>Name</span><input id="oN" value="' + esc(p.name) + '"></label><label class="f"><span>Kunde</span><input id="oK" value="' + esc(p.kunde) + '"></label></div>' +
       '<div class="f" style="margin-bottom:10px"><span>Status</span><div class="chips" id="oS">' + Object.entries(C.STATUS).map(([k, v]) => '<button data-k="' + k + '" class="' + (p.status === k ? 'on' : '') + '">' + v.ic + ' ' + v.n + '</button>').join('') + '</div></div>' +
       '<div class="row"><label class="f"><span>Priorität</span><select id="oP">' + [[1, '★★★ Hoch'], [2, '★★ Mittel'], [3, '★ Niedrig']].map(([k, n]) => '<option value="' + k + '"' + (p.prio === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label><label class="f"><span>Mein Termin</span><input type="date" id="oD" value="' + esc(p.due) + '"></label></div>' +
-      '<label class="f"><span>➜ Nächster Schritt</span><input id="oX" value="' + esc(p.next) + '" placeholder="Was ist der nächste konkrete Schritt?"></label></div>' +
+      '<label class="f"><span>➜ Nächster Schritt</span><input id="oX" value="' + esc(p.next) + '" placeholder="Was ist der nächste konkrete Schritt?"></label>' +
+      (w ? '<div class="help" id="oXh" style="margin:4px 0 0">' + nextHint(p) + '</div>' : '') + '</div>' +
       (w && p.status !== 'd' && fl.some(f => /In weclapp abgeschlossen/.test(f.t)) ? '<div class="note g">✅ In weclapp ist dieses Projekt abgeschlossen. <button class="sm pri" id="oClose">Hier auch abschließen</button></div>' : '') +
       (fl.length ? '<div class="panel"><h3>Hinweise</h3>' + fl.map(f => '<div class="note ' + (f.s === 'n' ? '' : f.s) + '" style="margin-bottom:6px;padding:7px 10px">' + esc(f.t) + '</div>').join('') + '</div>' : '<div class="note g">✅ Keine Auffälligkeiten.</div>') + '</div><div>';
     if (w) {
@@ -339,12 +340,17 @@
     h += '<div class="panel"><h3>Verwalten</h3><div class="bar" style="margin:0"><button class="sm" id="oArc">' + (p.archived ? '📤 Aus Archiv holen' : '🗄 Archivieren') + '</button><button class="sm" id="oEst">🧮 Neue Schätzung</button><button class="sm" id="oDel" style="color:var(--r)">🗑 Löschen</button></div></div></div></div>';
     $('pBody').innerHTML = h;
     const bind = (id, k, num) => $(id).onchange = $(id).oninput = e => { const v = num ? +e.target.value : e.target.value; if (k !== 'kunde') track(p, k, p[k], v); p[k] = v; touch(p); };
-    bind('oN', 'name'); bind('oK', 'kunde'); bind('oP', 'prio', true); bind('oD', 'due'); bind('oX', 'next');
+    bind('oN', 'name'); bind('oK', 'kunde'); bind('oP', 'prio', true); bind('oD', 'due');
+    // Nächster Schritt schreibt (solange verknüpft) auch den Entwurf für „Aktuelles“ mit
+    $('oX').oninput = $('oX').onchange = e => { const v = e.target.value, was = C.aktLinked(p); track(p, 'next', p.next, v); C.setNext(p, v); touch(p); if (was && $('akIn')) { $('akIn').value = p.aktNew; $('akIn').oninput.call($('akIn'), { sync: 1 }); } hint(); };
+    // Vorschlag übernimmt nur den Schritt; der Text steht ja schon in weclapp und wird nicht erneut vorgemerkt
+    const hint = () => { if (!$('oXh')) return; $('oXh').innerHTML = nextHint(p); if ($('oXa')) $('oXa').onclick = () => { const v = C.aktLatest(p, today()); track(p, 'next', p.next, v); p.next = v; touch(p); project(); toast('➜ Als nächster Schritt übernommen'); }; };
+    hint();
     $('oN').onblur = () => { if (!p.name.trim()) { p.name = p.nr || 'Ohne Namen'; touch(p); } project(); };
     $('oS').querySelectorAll('button').forEach(b => b.onclick = () => { if (p.status === b.dataset.k) return; track(p, 'status', p.status, b.dataset.k); p.status = b.dataset.k; touch(p); project(); if (p.status === 'd') toast('🎉 Projekt abgeschlossen'); });
     if ($('akIn')) {
       const pv = () => { $('akPv').textContent = C.aktCompose(w.akt, $('akIn').value, today()) || '(leer)'; };
-      $('akIn').oninput = () => { p.aktNew = $('akIn').value; commit(); pv(); }; pv();
+      $('akIn').oninput = e => { p.aktNew = $('akIn').value; commit(); pv(); if (!(e && e.sync)) hint(); }; pv();
       const noted = t => { if (!p.log.some(l => l.d === today() && l.t === 'Aktuelles: ' + t)) { log(p, 'Aktuelles: ' + t); touch(p); } };
       $('akCpAll').onclick = () => { const t = $('akIn').value.trim(); if (!t) return $('akIn').focus(); copyText(C.aktCompose(w.akt, t, today()), '📋 Ganzes Feld „Aktuelles“ kopiert – in weclapp ersetzen'); noted(t); };
       $('akCpNew').onclick = () => { const t = $('akIn').value.trim(); if (!t) return $('akIn').focus(); const line = C.aktPrefix(w.akt, today()) + t.replace(/\s*\n\s*/g, ' '); copyText(line, '📋 „' + line + '“ kopiert'); noted(t); };
@@ -360,12 +366,21 @@
       toast('🗑 „' + p.name + '“ gelöscht', 'Rückgängig', () => { S.projects.splice(idx, 0, p); est.forEach(e => e.pid = p.id); commit(); go('project', { pid: p.id }); });
     };
   }
+  function nextHint(p) {
+    if (!p.next.trim()) { const l = C.aktLatest(p, today()); return l ? 'Vorschlag aus weclapp-„Aktuelles“: <button class="sm" id="oXa">➜ ' + esc(l.length > 60 ? l.slice(0, 60) + '…' : l) + '</button>' : 'Wird auch als neuer Eintrag für „Aktuelles“ vorgemerkt.'; }
+    return C.aktLinked(p) ? '🔗 Wird als neuer Eintrag für „Aktuelles“ vorgemerkt (rechts kopieren).' : '✍️ Der Aktuelles-Entwurf ist eigenständig formuliert und folgt dem Schritt nicht mehr. Nach „✓ Eingetragen“ ist er wieder verknüpft.';
+  }
   function pTasks(p) {
+    const ests = S.estimates.filter(e => e.pid === p.id && e.tasks.some(t => t.n));
+    const estRef = t => { const e = t.eid && S.estimates.find(x => x.id === t.eid), et = e && e.tasks.find(x => x.id === t.etid); return et ? '<a href="#" class="eref" data-eo="' + e.id + '" title="Verknüpfte Aufgabe der Schätzung öffnen">🧮 ' + esc(e.title) + ' · ' + f1(C.tE(et)) + ' ' + esc(e.unit) + '</a>' : ''; };
     const open = p.tasks.filter(t => !t.done).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999')), done = p.tasks.filter(t => t.done);
-    const row = t => '<div class="it ' + (t.done ? 'done' : '') + '"><button class="ck ' + (t.done ? 'on' : '') + '" data-tc="' + t.id + '">' + (t.done ? '✓' : '') + '</button><div class="t">' + esc(t.t) + '<small>' + [t.due ? (t.done ? '' : t.due < today() ? '⏰ überfällig · ' : '') + C.fmtD(t.due) : '', t.who ? '👤 ' + esc(t.who) : ''].filter(Boolean).join(' · ') + '</small></div><button class="x" data-te="' + t.id + '" aria-label="Bearbeiten">✏️</button><button class="x" data-tx="' + t.id + '" aria-label="Löschen">✕</button></div>';
+    const row = t => '<div class="it ' + (t.done ? 'done' : '') + '"><button class="ck ' + (t.done ? 'on' : '') + '" data-tc="' + t.id + '">' + (t.done ? '✓' : '') + '</button><div class="t">' + esc(t.t) + '<small>' + [t.due ? (t.done ? '' : t.due < today() ? '⏰ überfällig · ' : '') + C.fmtD(t.due) : '', t.who ? '👤 ' + esc(t.who) : '', estRef(t)].filter(Boolean).join(' · ') + '</small></div><button class="x" data-te="' + t.id + '" aria-label="Bearbeiten">✏️</button><button class="x" data-tx="' + t.id + '" aria-label="Löschen">✕</button></div>';
     $('pBody').innerHTML = '<div class="panel"><div class="row"><label class="f" style="flex:3"><span>Neue Aufgabe</span><input id="tN" placeholder="Was ist zu tun? (Enter)"></label><label class="f"><span>Fällig</span><input type="date" id="tD"></label><label class="f"><span>Wer</span><input id="tW" placeholder="optional"></label><button class="btn" id="tAdd">＋</button></div>' +
+      (ests.length ? '<div class="bar" style="margin:0 0 8px"><button class="sm" id="tFromE">🧮 Aus Schätzung übernehmen</button></div>' : '') +
       '<div class="list">' + (open.length ? open.map(row).join('') : '<div class="help">Keine offenen Aufgaben.</div>') + '</div>' + (done.length ? '<details style="margin-top:10px"><summary>Erledigt (' + done.length + ')</summary><div class="list">' + done.map(row).join('') + '</div></details>' : '') + '</div>';
     const add = () => { const t = $('tN').value.trim(); if (!t) return $('tN').focus(); p.tasks.push({ id: C.uid(), t, due: $('tD').value, done: false, who: $('tW').value.trim() }); touch(p); project(); $('tN').focus(); };
+    $('pBody').querySelectorAll('[data-eo]').forEach(a => a.onclick = e => { e.preventDefault(); go('estimate', { eid: a.dataset.eo, back: { view: 'project', pid: p.id, ptab: 'tasks' } }); });
+    if ($('tFromE')) $('tFromE').onclick = () => App.pickTasks('toProject', ests, p);
     $('tAdd').onclick = add; $('tN').onkeydown = e => { if (e.key === 'Enter') add(); };
     $('pBody').querySelectorAll('[data-tc]').forEach(b => b.onclick = () => { const t = p.tasks.find(x => x.id === b.dataset.tc); t.done = !t.done; if (t.done) log(p, '✔ ' + t.t); touch(p); project(); });
     $('pBody').querySelectorAll('[data-tx]').forEach(b => b.onclick = () => { const i = p.tasks.findIndex(x => x.id === b.dataset.tx), t = p.tasks[i]; p.tasks.splice(i, 1); touch(p); project(); toast('Aufgabe gelöscht', 'Rückgängig', () => { p.tasks.splice(i, 0, t); touch(p); project(); }); });

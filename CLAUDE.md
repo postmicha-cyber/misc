@@ -7,6 +7,7 @@
 - weclapp-Import darf lokale Felder (Ampel, nächster Schritt, Notizen, Aufgaben, Risiken, Schätzungen, selbst vergebener Name) **nie** verändern und Projekte **nie** löschen, nur markieren. Ausnahmen: Der automatisch erzeugte Name folgt weclapp; „Fertig“ nur, wenn in der Import-Vorschau ausdrücklich angehakt.
 - Jede Änderung (weclapp und eigene Kernfelder) landet strukturiert in `p.hist` (Feld, vorher, nachher, Quelle, Import-ID). Neue Kernfelder dort mitschreiben (`App.track`).
 - Jede neue Datenstruktur braucht eine Reparatur in `Core.normalize` und bleibt abwärtskompatibel zu alten Backups. Formatwechsel nur mit Erhöhung von `FORMAT` und Migration.
+- Nächsten Schritt nur über `Core.setNext` setzen (füllt den verknüpften Aktuelles-Entwurf). Aufgaben-Verknüpfung liegt nur an der Projektaufgabe (`eid`, `etid`), nicht doppelt.
 - Vor riskanten Aktionen (Import, Wiederherstellen, Löschen) eine interne Version anlegen.
 
 ## Tests – bei jeder Änderung
