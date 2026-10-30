@@ -9,25 +9,26 @@
   const touchE = es => { es.updated = Date.now(); A.commit(); };
 
   // ================= Schätzungen =================
-  A.newEstimate = pid => {
+  A.newEstimate = (pid, kunde) => {
     const tpls = S().estimates.filter(x => x.tpl);
     A.sheet('<h4>＋ Neue Schätzung</h4><label class="f"><span>Titel</span><input id="neT" autofocus placeholder="z. B. Change Request Lieferantenportal"></label>' +
-      '<div class="row" style="margin-top:10px"><label class="f"><span>Projekt</span><select id="neP">' + projOpts(pid) + '</select></label><label class="f"><span>Einheit</span><select id="neU">' + C.UNITS.map(u => '<option' + (u === 'Tage' ? ' selected' : '') + '>' + u + '</option>').join('') + '</select></label></div>' +
+      '<div class="row" style="margin-top:10px"><label class="f"><span>Auftrag</span><select id="neP">' + projOpts(pid) + '</select></label><label class="f" id="neKw"' + (pid ? ' style="display:none"' : '') + '><span>Kunde (für Chancen)</span><input id="neK" list="dlKd" value="' + esc(kunde || '') + '"><datalist id="dlKd">' + C.customers(S(), today()).map(c => '<option value="' + esc(c.n) + '">').join('') + '</datalist></label><label class="f"><span>Einheit</span><select id="neU">' + C.UNITS.map(u => '<option' + (u === 'Tage' ? ' selected' : '') + '>' + u + '</option>').join('') + '</select></label></div>' +
       '<label class="f"><span>Anfrage von / Quelle</span><input id="neS" placeholder="z. B. Mail von Frau Meier vom 28.10."></label>' +
       (tpls.length ? '<label class="f" style="margin-top:10px"><span>Starten mit</span><select id="neB"><option value="">Leer</option>' + tpls.map(t => '<option value="' + t.id + '">Vorlage: ' + esc(t.title) + '</option>').join('') + '</select></label>' : '') +
       '<div class="acts"><button class="btn sec" id="neC">Abbrechen</button><button class="btn" id="neOk">Anlegen</button></div>', () => {
       $('neC').onclick = A.closeSheet;
+      $('neP').onchange = e => { $('neKw').style.display = e.target.value ? 'none' : ''; };
       $('neOk').onclick = () => {
         const base = $('neB') && $('neB').value ? S().estimates.find(x => x.id === $('neB').value) : null;
         const es = base ? C.cloneEstimate(base) : C.newEstimate({}, today());
-        Object.assign(es, { title: $('neT').value.trim() || (base ? base.title : 'Neue Schätzung'), pid: $('neP').value, source: $('neS').value.trim(), date: today(), status: 'draft', tpl: false });
+        Object.assign(es, { title: $('neT').value.trim() || (base ? base.title : 'Neue Schätzung'), pid: $('neP').value, kunde: $('neP').value ? '' : $('neK').value.trim(), source: $('neS').value.trim(), date: today(), status: 'draft', tpl: false });
         if (!base) es.unit = $('neU').value; else if ($('neU').value !== es.unit) convertEst(es, $('neU').value);
         S().estimates.push(es); A.commit(); A.closeSheet();
-        A.go('estimate', { eid: es.id, back: pid ? { view: 'project', pid, ptab: 'est' } : { view: 'estimates' } });
+        A.go('estimate', { eid: es.id, back: pid ? { view: 'project', pid, ptab: 'est' } : kunde ? { view: 'customer', cid: C.custKey(kunde) } : { view: 'estimates' } });
       };
     });
   };
-  const projOpts = sel => '<option value="">Ohne Projekt</option>' + S().projects.filter(p => !p.archived || p.id === sel).slice().sort((a, b) => a.name.localeCompare(b.name)).map(p => '<option value="' + p.id + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('');
+  const projOpts = sel => '<option value="">Ohne Auftrag (Chance)</option>' + S().projects.filter(p => !p.archived || p.id === sel).slice().sort((a, b) => a.name.localeCompare(b.name)).map(p => '<option value="' + p.id + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('');
   function convertEst(es, to) {
     es.tasks.forEach(t => { ['o', 'm', 'p'].forEach(k => { if (t[k] !== '') t[k] = C.conv(t[k], es.unit, to); }); });
     es.extras.forEach(x => { if (x.type === 'fix') x.v = C.conv(x.v, es.unit, to); });
@@ -35,17 +36,23 @@
   }
   A.estimatesView = () => {
     const q = C.normTxt(UI.estQ || '');
-    const L = S().estimates.filter(e => !q || C.normTxt([e.title, e.source, e.idea, projName(e.pid), ...e.tasks.map(t => t.n + ' ' + t.d), ...e.stories.map(C.storyText)].join(' ')).includes(q)).sort((a, b) => b.updated - a.updated);
-    const groups = new Map(); L.forEach(e => { const k = e.pid || ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(e); });
-    let h = '<h2>Schätzungen<span class="sp"></span><button class="sm" id="libBtn">📚 Bibliothek</button><button class="sm pri" id="esNew">＋ Neue Schätzung</button></h2>' +
-      '<div class="panel"><input id="esQ" value="' + esc(UI.estQ || '') + '" placeholder="🔎 Schätzungen, Aufgaben, Stories durchsuchen …"></div>';
+    const tab = UI.estTab || 'all';
+    const L = S().estimates.filter(e => tab === 'all' || (tab === 'chance' ? C.isChance(e) : !!e.pid)).filter(e => !q || C.normTxt([e.title, e.source, e.idea, e.kunde, projName(e.pid), ...e.tasks.map(t => t.n + ' ' + t.d), ...e.stories.map(C.storyText)].join(' ')).includes(q)).sort((a, b) => b.updated - a.updated);
+    // Gruppen: je Auftrag, Chancen je Kunde
+    const groups = new Map(); L.forEach(e => { const k = e.pid ? 'p:' + e.pid : 'k:' + (e.kunde || ''); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(e); });
+    const gName = k => k.startsWith('p:') ? '📁 ' + projName(k.slice(2)) : '🎯 Chancen' + (k.length > 2 ? ' · ' + k.slice(2) : ' ohne Kunde');
+    const all = S().estimates, chances = all.filter(C.isChance), vol = chances.reduce((a, e) => a + (C.HOURS[e.unit] ? C.calcEstimate(e).p85 * C.HOURS[e.unit] : 0), 0);
+    let h = '<div class="ph"><div><h2>Schätzungen & Chancen</h2><p class="sub">Schätzungen zu bestehenden Aufträgen und zu Chancen ohne Auftrag. Gewonnene Chance? Ein Klick legt das Projekt an.</p></div><span class="sp"></span><button class="sm" id="libBtn">📚 Bibliothek</button><button class="sm pri" id="esNew">＋ Neue Schätzung</button></div>' +
+      (chances.length ? '<div class="kpis"><div class="kpi"><b>' + chances.length + '</b><span>offene Chancen</span></div><div class="kpi"><b>' + f1(vol / 8) + ' PT</b><span>Volumen (85 %)</span></div><div class="kpi"><b>' + all.filter(e => e.status === 'offered').length + '</b><span>angeboten</span></div></div>' : '') +
+      '<div class="panel"><div class="row" style="margin:0"><input id="esQ" value="' + esc(UI.estQ || '') + '" placeholder="🔎 Schätzungen, Aufgaben, Stories durchsuchen …" style="flex:2;min-width:200px"><div class="chips" id="esTab">' + [['all', 'Alle ' + all.length], ['proj', '📁 Zu Aufträgen ' + all.filter(e => e.pid).length], ['chance', '🎯 Chancen ' + chances.length]].map(([k, n]) => '<button data-t="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div></div></div>';
     if (!S().estimates.length) h += '<div class="empty"><div class="e">🧮</div>Noch keine Schätzung. Lege eine an – am besten direkt im Projekt unter „Schätzungen“.</div>';
-    h += '<div class="grid">' + [...groups.entries()].map(([pid, es]) => '<div class="panel"><h3>📁 ' + esc(projName(pid)) + '<span class="sp"></span><span class="cnt">' + es.length + '</span></h3><div class="list">' +
-      es.map(e => { const r = C.calcEstimate(e); return '<div class="it"><div class="t" data-e="' + e.id + '" style="cursor:pointer"><b>' + (e.tpl ? '📌 ' : '') + esc(e.title) + '</b><small>' + C.EST_STATUS[e.status] + ' · ' + C.fmtD(e.date) + ' · ' + f1(r.total) + ' ' + esc(short(e.unit)) + ' · 85 %: ' + f1(r.p85) + '</small></div>' +
+    h += '<div class="grid">' + [...groups.entries()].map(([gk, es]) => '<div class="panel"><h3>' + esc(gName(gk)) + '<span class="sp"></span><span class="cnt">' + es.length + '</span></h3><div class="list">' +
+      es.map(e => { const r = C.calcEstimate(e); return '<div class="it"><div class="t" data-e="' + e.id + '" style="cursor:pointer"><b>' + (e.tpl ? '📌 ' : '') + esc(e.title) + '</b><small>' + C.EST_STATUS[e.status] + (e.prob !== '' ? ' · ' + e.prob + ' %' : '') + ' · ' + C.fmtD(e.date) + ' · ' + f1(r.total) + ' ' + esc(short(e.unit)) + ' · 85 %: ' + f1(r.p85) + '</small></div>' +
         '<span class="acts-row"><button class="sm" data-eo="' + e.id + '" title="Öffnen">✏️ Öffnen</button><button class="sm" data-ex="' + e.id + '" title="Exportieren">📤 Export</button><button class="x" data-ed="' + e.id + '" title="Löschen" aria-label="Löschen">🗑</button></span></div>'; }).join('') + '</div></div>').join('') + '</div>';
     $('view').innerHTML = h;
     const qi = $('esQ'); qi.oninput = () => { UI.estQ = qi.value; const p = qi.selectionStart; A.estimatesView(); const n = $('esQ'); n.focus(); n.setSelectionRange(p, p); };
     $('esNew').onclick = () => A.newEstimate(''); $('libBtn').onclick = libSheet;
+    $('esTab').querySelectorAll('button').forEach(b => b.onclick = () => { UI.estTab = b.dataset.t; A.estimatesView(); });
     const open = id => A.go('estimate', { eid: id, back: { view: 'estimates' } }), find = id => S().estimates.find(x => x.id === id);
     $('view').querySelectorAll('[data-e]').forEach(el => el.onclick = () => open(el.dataset.e));
     $('view').querySelectorAll('[data-eo]').forEach(el => el.onclick = () => open(el.dataset.eo));
@@ -81,7 +88,8 @@
     const es = cur(); if (!es) return A.go('estimates');
     $('view').innerHTML = '<div class="bar"><button class="sm" id="eBack">‹ Zurück</button></div><h2>🧮 ' + esc(es.title) + '</h2>' +
       '<div class="cols"><div>' +
-      '<div class="panel"><div class="row"><label class="f" style="flex:2"><span>Titel</span><input id="eT" value="' + esc(es.title) + '"></label><label class="f"><span>Projekt</span><select id="eP">' + projOpts(es.pid) + '</select></label></div>' +
+      '<div class="panel"><div class="row"><label class="f" style="flex:2"><span>Titel</span><input id="eT" value="' + esc(es.title) + '"></label><label class="f"><span>Auftrag</span><select id="eP">' + projOpts(es.pid) + '</select></label></div>' +
+      (es.pid ? '' : '<div class="row" style="margin:10px 0 0"><label class="f" style="flex:2"><span>🎯 Chance für Kunde</span><input id="eK" list="dlKd2" value="' + esc(es.kunde) + '" placeholder="Kunde / Gesellschaft"><datalist id="dlKd2">' + C.customers(S(), today()).map(c => '<option value="' + esc(c.n) + '">').join('') + '</datalist></label><label class="f"><span>Wahrscheinlichkeit %</span><input id="eW" inputmode="numeric" value="' + esc(es.prob) + '" placeholder="z. B. 50"></label><button class="btn" id="eWon" title="Projekt anlegen und Schätzung zuordnen">🏆 Gewonnen → Projekt</button></div>') +
       '<div class="row" style="margin:0"><label class="f"><span>Status</span><select id="eS">' + Object.entries(C.EST_STATUS).map(([k, v]) => '<option value="' + k + '"' + (k === es.status ? ' selected' : '') + '>' + v + '</option>').join('') + '</select></label><label class="f"><span>Anfrage von / Quelle</span><input id="eQ" value="' + esc(es.source) + '"></label><label class="f"><span>Stand</span><input type="date" id="eD" value="' + esc(es.date) + '"></label><label class="f"><span>Einheit</span><select id="eU">' + C.UNITS.map(u => '<option' + (u === es.unit ? ' selected' : '') + '>' + u + '</option>').join('') + '</select></label></div></div>' +
       '<div class="panel"><h3>💡 Lösungsidee / grobes Design</h3><textarea id="eI" rows="3" placeholder="Was ist gefordert, wie lösen wir es grob? Annahmen und Abgrenzungen.">' + esc(es.idea) + '</textarea></div>' +
       '<div class="panel" id="stP"></div><div class="panel" id="tkP"></div><div class="panel" id="exP"></div>' +
@@ -89,7 +97,16 @@
       '</div><div style="position:sticky;top:70px"><div class="panel" id="outP"></div></div></div>';
     $('eBack').onclick = () => A.go(UI.back && UI.back.view || 'estimates', UI.back || {});
     const bind = (id, k, re) => $(id).oninput = $(id).onchange = e => { es[k] = e.target.value; touchE(es); if (re) A.estimateEditor(); else renderOut(); };
-    bind('eT', 'title'); bind('eQ', 'source'); bind('eD', 'date'); bind('eI', 'idea'); bind('eS', 'status'); bind('eP', 'pid');
+    bind('eT', 'title'); bind('eQ', 'source'); bind('eD', 'date'); bind('eI', 'idea'); bind('eS', 'status'); bind('eP', 'pid', true);
+    if ($('eK')) {
+      $('eK').oninput = e => { es.kunde = e.target.value.trim(); touchE(es); };
+      $('eW').oninput = e => { const v = e.target.value.trim(); es.prob = v === '' || isNaN(+v) ? '' : Math.max(0, Math.min(100, Math.round(+v))); touchE(es); };
+      $('eWon').onclick = () => {
+        const p = C.estimateToProject(S(), es, today()), n = es.tasks.filter(t => t.n).length;
+        if (n) C.tasksToProject(S(), es, es.tasks.map(t => t.id));
+        A.commit(); A.go('project', { pid: p.id, ptab: n ? 'tasks' : 'over' }); A.toast('🏆 Projekt „' + p.name + '“ angelegt' + (n ? ' mit ' + n + ' Aufgaben aus der Schätzung' : ''));
+      };
+    }
     $('eU').onchange = e => { const to = e.target.value; if (es.tasks.length && C.HOURS[es.unit] && C.HOURS[to] && confirm('Werte von ' + es.unit + ' in ' + to + ' umrechnen (1 Tag = 8 h, 1 Woche = 5 Tage)?')) convertEst(es, to); else es.unit = to; touchE(es); A.estimateEditor(); };
     $('eDup').onclick = () => { const c = C.cloneEstimate(es); Object.assign(c, { title: es.title + ' (Kopie)', tpl: false, status: 'draft', date: today() }); S().estimates.push(c); A.commit(); A.go('estimate', { eid: c.id }); A.toast('Kopie angelegt'); };
     $('eTpl').onclick = () => { es.tpl = !es.tpl; touchE(es); A.estimateEditor(); A.toast(es.tpl ? '📌 Steht bei „Neue Schätzung“ als Vorlage bereit' : 'Keine Vorlage mehr'); };
@@ -306,6 +323,7 @@
     const rg = document.createRange(); rg.selectNodeContents(d); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} sel.removeAllRanges(); d.remove();
     if (ok) A.toast('📋 Kopiert – in Outlook oder Teams einfügen'); else A.copyText(text);
   }
+  A.copyRich = (h, t) => copyRich(h, t);
   function exportXlsx(es) {
     if (!window.XLSX) return A.toast('Excel-Modul nicht geladen');
     const r = C.calcEstimate(es), u = es.unit, R = x => Math.round(C.num(x) * 100) / 100;
@@ -566,9 +584,12 @@
   function paletteItems() {
     const I = [];
     S().projects.forEach(p => I.push({ ic: p.archived ? '🗄' : C.STATUS[p.status].ic, t: p.name, sub: [p.nr, p.wc && p.wc.pl, p.wc && p.wc.cons, p.kunde].filter(Boolean).join(' · '), run: () => A.go('project', { pid: p.id, ptab: 'over' }), w: C.isActive(p) ? 2 : 1 }));
-    S().estimates.forEach(e => I.push({ ic: '🧮', t: e.title, sub: 'Schätzung · ' + ((A.byId(e.pid) || {}).name || 'ohne Projekt'), run: () => A.go('estimate', { eid: e.id, back: { view: 'estimates' } }), w: 1 }));
+    C.customers(S(), A.today()).forEach(c => I.push({ ic: '🏢', t: c.n, sub: 'Kunde · ' + c.active.length + ' aktive Projekte', run: () => A.go('customer', { cid: c.key }), w: 1 }));
+    S().backlog.filter(x => x.slot !== 'done').forEach(x => I.push({ ic: '🗂', t: x.t, sub: 'Thema · ' + C.BL_SLOTS[x.slot] + ' · ' + C.blScopeLabel(S(), x), run: () => { A.go('plan'); A.itemSheet(x, A.planView); }, w: 1 }));
+    S().estimates.forEach(e => I.push({ ic: C.isChance(e) ? '🎯' : '🧮', t: e.title, sub: (C.isChance(e) ? 'Chance · ' + (e.kunde || 'ohne Kunde') : 'Schätzung · ' + ((A.byId(e.pid) || {}).name || 'ohne Projekt')), run: () => A.go('estimate', { eid: e.id, back: { view: 'estimates' } }), w: 1 }));
     [['＋', 'Neues Projekt', () => A.newProjectSheet()], ['🧮', 'Neue Schätzung', () => A.newEstimate('')], ['📥', 'weclapp-Export importieren', () => $('fileImport').click()], ['💾', 'Backup erstellen', () => A.doBackup()],
-      ['🏠', 'Cockpit', () => A.go('home')], ['📁', 'Projekte', () => A.go('projects')], ['🕘', 'Änderungen', () => A.go('changes')], ['🛠', 'Werkzeuge', () => A.go('tools')], ['💾', 'Daten & Einstellungen', () => A.go('data')], ['⌨️', 'Tastenkürzel', () => help()]]
+      ['🗂', 'Neues Thema (Backlog)', () => { A.go('plan'); A.itemSheet(null, A.planView); }], ['📊', 'Bericht erstellen', () => A.go('report')],
+      ['🏠', 'Cockpit', () => A.go('home')], ['📁', 'Projekte', () => A.go('projects')], ['🏢', 'Kunden', () => A.go('customers')], ['🗂', 'Backlog & Planung', () => A.go('plan')], ['🧮', 'Schätzungen & Chancen', () => A.go('estimates')], ['🕘', 'Änderungen', () => A.go('changes')], ['🛠', 'Werkzeuge', () => A.go('tools')], ['💾', 'Daten & Einstellungen', () => A.go('data')], ['⌨️', 'Tastenkürzel', () => help()]]
       .forEach(([ic, t, run]) => I.push({ ic, t, sub: 'Aktion', run, w: 0 }));
     return I;
   }
@@ -596,7 +617,7 @@
   }
   A.palette = palette;
   function help() {
-    A.sheet('<h4>⌨️ Tastenkürzel</h4><table class="t"><tr><td><kbd>Strg</kbd> + <kbd>K</kbd> oder <kbd>/</kbd></td><td>Schnellsuche: Projekte, Schätzungen, Aktionen</td></tr><tr><td><kbd>N</kbd></td><td>Neues Projekt</td></tr><tr><td><kbd>G</kbd> dann <kbd>C</kbd> / <kbd>P</kbd> / <kbd>S</kbd> / <kbd>A</kbd></td><td>Gehe zu Cockpit / Projekte / Schätzungen / Änderungen</td></tr><tr><td><kbd>Esc</kbd></td><td>Dialog schließen</td></tr><tr><td><kbd>?</kbd></td><td>Diese Hilfe</td></tr><tr><td>Browser-Zurück</td><td>Vorherige Ansicht</td></tr></table><div class="acts"><button class="btn" id="hX">OK</button></div>', () => { $('hX').onclick = A.closeSheet; });
+    A.sheet('<h4>⌨️ Tastenkürzel</h4><table class="t"><tr><td><kbd>Strg</kbd> + <kbd>K</kbd> oder <kbd>/</kbd></td><td>Schnellsuche: Projekte, Schätzungen, Aktionen</td></tr><tr><td><kbd>N</kbd></td><td>Neues Projekt</td></tr><tr><td><kbd>G</kbd> dann <kbd>C</kbd> / <kbd>B</kbd> / <kbd>P</kbd> / <kbd>K</kbd> / <kbd>L</kbd> / <kbd>S</kbd> / <kbd>A</kbd></td><td>Gehe zu Cockpit / Bericht / Projekte / Kunden / Backlog & Planung / Schätzungen / Änderungen</td></tr><tr><td><kbd>←</kbd> <kbd>→</kbd> auf einem Thema</td><td>Im Board eine Spalte weiter schieben</td></tr><tr><td><kbd>Esc</kbd></td><td>Dialog schließen</td></tr><tr><td><kbd>?</kbd></td><td>Diese Hilfe</td></tr><tr><td>Browser-Zurück</td><td>Vorherige Ansicht</td></tr></table><div class="acts"><button class="btn" id="hX">OK</button></div>', () => { $('hX').onclick = A.closeSheet; });
   }
   A.help = help;
   let gPending = 0;
@@ -606,7 +627,7 @@
     if (typing || open || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === '/') { e.preventDefault(); return palette(); }
     if (e.key === '?') { e.preventDefault(); return help(); }
-    if (Date.now() - gPending < 1200) { const v = { c: 'home', p: 'projects', s: 'estimates', a: 'changes' }[e.key.toLowerCase()]; gPending = 0; if (v) { e.preventDefault(); return A.go(v); } }
+    if (Date.now() - gPending < 1200) { const v = { c: 'home', b: 'report', p: 'projects', k: 'customers', l: 'plan', s: 'estimates', a: 'changes' }[e.key.toLowerCase()]; gPending = 0; if (v) { e.preventDefault(); return A.go(v); } }
     if (e.key.toLowerCase() === 'g') { gPending = Date.now(); return; }
     if (e.key.toLowerCase() === 'n') { e.preventDefault(); return A.newProjectSheet(); }
   });

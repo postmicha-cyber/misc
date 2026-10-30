@@ -420,3 +420,149 @@ test('E26 Aufgaben verknüpfen: Schätzung → Projekt und Projekt → Schätzun
   assert.equal(pr.tasks.filter(x => x.eid === 'e1').length, 3, 'alle drei verknüpft');
   assert.deepEqual(t.errors, []); await t.close();
 });
+
+// ---------- PM-Suite: Kunden, Phasen, Backlog & Team, Bericht, Kundenliste ----------
+test('E27 Navigation nach Rollen: alle Bereiche öffnen ohne Fehler und ohne Netzwerk; Handy mit „Mehr“ und ohne seitliches Scrollen', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  assert.deepEqual(await p.$$eval('#nav .ng', e => e.map(x => x.textContent)), ['Überblick', 'Steuern', 'Planen', 'System']);
+  for (const v of ['report', 'projects', 'customers', 'plan', 'estimates', 'changes', 'tools', 'data', 'home']) { await p.click('#nav button[data-v="' + v + '"]'); await p.waitForFunction(v => App.UI.view === v, v); }
+  assert.deepEqual(t.errors, []); assert.deepEqual(t.external, []); await t.close();
+  const m = await open({ ctx: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } }), q = m.page; await seed(q);
+  for (const v of ['home', 'projects', 'customers', 'plan', 'report', 'estimates', 'data']) {
+    await q.evaluate(v => App.go(v), v);
+    assert.equal(await q.evaluate(() => document.documentElement.scrollWidth), 390, 'kein seitliches Scrollen in ' + v);
+  }
+  await q.click('#nav button[data-v="more"]'); await q.click('[data-mv="report"]'); await q.waitForSelector('#rpPv');
+  assert.ok(await q.locator('#nav button[data-v="more"].on').count());
+  assert.deepEqual(m.errors, []); await m.close();
+});
+test('E28 Einzelprojekt: Standardphasen, Aufgabe mit und ohne Phase, Phase abschließen, aktuelle Phase in Karte und Historie, Aufgaben teilen', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  const pid = (await state(p)).projects.find(x => x.nr === '1001').id;
+  await p.evaluate(id => App.go('project', { pid: id, ptab: 'tasks' }), pid);
+  await p.click('#phStd'); await p.waitForSelector('#tP');
+  assert.equal(await p.locator('.phase').count(), 6);
+  const ph = await p.evaluate(id => App.S().projects.find(x => x.id === id).phases.map(x => x.id), pid);
+  await p.selectOption('#tP', ph[0]); await p.fill('#tN', 'Kickoff planen'); await p.press('#tN', 'Enter');
+  await p.selectOption('#tP', ''); await p.fill('#tN', 'Rechnung prüfen'); await p.press('#tN', 'Enter');
+  assert.match(await p.textContent('.phase.cur'), /Vorbereitung[\s\S]*Kickoff planen/);
+  assert.match(await p.locator('.phase').last().textContent(), /Ohne Phase[\s\S]*Rechnung prüfen/);
+  await p.click('[data-pd="' + ph[0] + '"]');
+  assert.match(await p.textContent('.phase.cur'), /Konzeption/);
+  const pr = (await state(p)).projects.find(x => x.id === pid);
+  assert.ok(pr.hist.some(e => e.k === 'ph' && e.to === 'Konzeption'), 'Phasenwechsel in der Historie (innerhalb 10 Minuten zusammengefasst)');
+  await p.click('#tShare'); await p.waitForFunction(() => /kopiert/.test(document.getElementById('toastT').textContent));
+  const clip = await p.evaluate(() => navigator.clipboard.readText());
+  assert.match(clip, /Ohne Phase\n☐ Rechnung prüfen/); assert.match(clip, /Vorbereitung\n☐ Kickoff planen/);
+  // Phase mit Termin: Zeitplan erscheint
+  await p.click('[data-pe="' + ph[1] + '"]'); await p.fill('#phS', '2026-10-01'); await p.fill('#phE', '2026-12-31'); await p.click('#phOk');
+  await p.waitForSelector('.gantt .gr');
+  await p.click('#nav button[data-v="projects"]'); assert.match(await p.locator('.card', { hasText: 'Einführung Rechnungsverarbeitung' }).textContent(), /Konzeption/);
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E29 Kunden: Übersicht mit Zustand, Kundensicht mit Stimmung, Notizen, Themen und Chance; bleibt nach Neuladen', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  await p.evaluate(() => { App.S().projects.find(x => x.nr === '1002').status = 'r'; App.commit(); });
+  await p.click('#nav button[data-v="customers"]');
+  assert.equal(await p.locator('.ccard').count(), 4);
+  assert.match(await p.locator('.ccard').first().textContent(), /Alpenblick[\s\S]*Kritisch/);
+  await p.locator('.ccard', { hasText: 'Nordlicht' }).click(); await p.waitForSelector('#cuM');
+  await p.click('#cuM [data-m="y"]'); await p.fill('#cuN', 'Wechsel der IT-Leitung im Dezember'); await p.fill('#cuC', 'Frau Meier, IT');
+  await p.fill('#cuB', 'Rollenkonzept'); await p.press('#cuB', 'Enter');
+  assert.match(await p.textContent('#view'), /Rollenkonzept/);
+  await p.click('#cuCh'); assert.equal(await p.inputValue('#neK'), 'Nordlicht Handels GmbH'); await p.fill('#neT', 'CR Mahnwesen'); await p.click('#neOk');
+  await p.waitForSelector('#eK'); assert.equal(await p.inputValue('#eK'), 'Nordlicht Handels GmbH');
+  await p.click('#eBack'); await p.waitForSelector('#cuM'); assert.match(await p.textContent('#view'), /🎯 Chance[\s\S]*CR Mahnwesen/);
+  await p.evaluate(() => App.flush()); await p.reload(); await p.waitForFunction(() => App.ready);
+  const s = await state(p), c = s.customers.find(x => x.n === 'Nordlicht Handels GmbH');
+  assert.equal(c.mood, 'y'); assert.equal(c.notes, 'Wechsel der IT-Leitung im Dezember'); assert.equal(c.contact, 'Frau Meier, IT');
+  assert.ok(s.backlog.some(x => x.t === 'Rollenkonzept' && x.scope === 'kunde'));
+  // Schnellsuche findet Kunden und Themen
+  await p.keyboard.press('Control+k'); await p.waitForSelector('#pal'); await p.keyboard.type('nordlicht');
+  assert.match(await p.textContent('#palL'), /Kunde · 1 aktive Projekte/); await p.keyboard.press('Escape');
+  await p.keyboard.press('Control+k'); await p.keyboard.type('rollenkonzept'); await p.keyboard.press('Enter'); await p.waitForSelector('#biT');
+  assert.equal(await p.inputValue('#biT'), 'Rollenkonzept');
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E30 Chance ohne Auftrag: Kunde und Wahrscheinlichkeit, Filter „Chancen“, gewonnen → Projekt mit verknüpften Aufgaben', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  await p.click('#nav button[data-v="estimates"]'); await p.click('#esNew');
+  await p.fill('#neT', 'Lieferantenportal'); await p.fill('#neK', 'Südwind AG'); await p.click('#neOk'); await p.waitForSelector('#eK');
+  await p.fill('#eW', '60'); await p.click('#tAdd'); const box = p.locator('.task').last();
+  await box.locator('[data-k="n"]').fill('Portal aufsetzen'); await box.locator('[data-k="o"]').fill('2'); await box.locator('[data-k="m"]').fill('3'); await box.locator('[data-k="p"]').fill('6');
+  await p.click('#eBack'); await p.click('#esTab [data-t="chance"]');
+  assert.match(await p.textContent('#view'), /🎯 Chancen · Südwind AG[\s\S]*Lieferantenportal[\s\S]*60 %/);
+  assert.equal(await p.locator('#view .it').count(), 1);
+  await p.click('[data-eo]'); await p.click('#eWon'); await p.waitForFunction(() => App.UI.view === 'project');
+  const s = await state(p), pr = s.projects.find(x => x.name === 'Lieferantenportal'), es = s.estimates.find(x => x.title === 'Lieferantenportal');
+  assert.equal(pr.kunde, 'Südwind AG'); assert.equal(es.pid, pr.id); assert.equal(es.status, 'ordered');
+  assert.equal(pr.tasks.length, 1); assert.equal(pr.tasks[0].etid, es.tasks[0].id);
+  assert.match(await p.textContent('#pBody'), /Portal aufsetzen[\s\S]*🧮 Lieferantenportal/);
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E31 Backlog & Team: erfassen, bewerten, mit ‹ ›, Pfeiltaste und Ziehen planen, Teilaufgaben, Auslastung, teilen', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  await p.click('#nav button[data-v="plan"]');
+  for (const n of ['Export CSV', 'Dark Mode', 'Rollen']) { await p.fill('#blIn', n); await p.press('#blIn', 'Enter'); }
+  assert.equal(await p.locator('.bcol[data-slot=""] .bi').count(), 3);
+  // bewerten: hoher Wert, wenig Aufwand rückt nach oben
+  await p.locator('.bi', { hasText: 'Rollen' }).click(); await p.waitForSelector('#biT');
+  await p.click('#biV [data-i="5"]'); await p.click('#biE [data-i="1"]'); await p.fill('#biW', 'Anna Beispiel'); await p.fill('#biX', '2,5');
+  await p.fill('#biTn', 'Entwurf'); await p.press('#biTn', 'Enter'); await p.fill('#biTn', 'Review'); await p.press('#biTn', 'Enter');
+  await p.click('#biTl [data-ti="0"]'); await p.click('#biOk');
+  assert.equal(await p.locator('.bcol[data-slot=""] .bi').first().locator('.bt').textContent(), 'Rollen');
+  assert.match(await p.locator('.bi', { hasText: 'Rollen' }).textContent(), /⚡ 5[\s\S]*2,5 PT[\s\S]*☑ 1\/2/);
+  // ‹ › und Pfeiltaste: Backlog → Später → Als Nächstes → Jetzt
+  await p.locator('.bi', { hasText: 'Rollen' }).locator('[data-mv="1"]').click();
+  await p.locator('.bi', { hasText: 'Rollen' }).locator('[data-mv="1"]').click();
+  await p.locator('.bi', { hasText: 'Rollen' }).focus(); await p.keyboard.press('ArrowRight');
+  assert.equal(await p.locator('.bcol[data-slot="now"] .bi').count(), 1);
+  assert.match(await p.textContent('.load'), /Anna Beispiel\s*1 im „Jetzt“ · 2,5 PT/);
+  // Ziehen & Ablegen nach „Jetzt“
+  await p.locator('.bi', { hasText: 'Export CSV' }).dragTo(p.locator('.bcol[data-slot="now"]'));
+  await p.waitForFunction(() => App.S().backlog.find(x => x.t === 'Export CSV').slot === 'now');
+  await p.click('#blShare'); await p.waitForFunction(() => /kopiert/.test(document.getElementById('toastT').textContent));
+  const clip = await p.evaluate(() => navigator.clipboard.readText());
+  assert.match(clip, /• Rollen \(Anna Beispiel\) – ca\. 2,5 PT/); assert.match(clip, /☑ Entwurf/); assert.match(clip, /• Export CSV/);
+  // Filter nach Person, Team gemerkt
+  await p.click('.lp'); assert.equal(await p.locator('.bi').count(), 1);
+  await p.evaluate(() => App.flush()); await p.reload(); await p.waitForFunction(() => App.ready);
+  const s = await state(p); assert.ok(s.team.some(m => m.n === 'Anna Beispiel')); assert.equal(s.backlog.find(x => x.t === 'Rollen').tasks.length, 2);
+  // Cockpit zeigt „Team – Jetzt“
+  await p.evaluate(() => { App.UI.blWho = ''; App.go('home'); }); assert.match(await p.textContent('#view'), /Team – Jetzt[\s\S]*Rollen/);
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E32 Bericht: Vorschau, Bereich Kunde, Zeitraum, als E-Mail kopieren; Montags-Hinweis verschwindet danach', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  await p.evaluate(() => { App.S().projects.find(x => x.nr === '1001').next = 'Abnahme planen'; App.commit(); App.go('home'); });
+  assert.ok(await p.locator('#repNow').count(), 'Hinweis „Bericht erstellen“ beim ersten Mal');
+  await p.click('#repNow'); await p.waitForSelector('#rpPv');
+  assert.match(await p.textContent('#rpPv'), /Projekt-Überblick[\s\S]*Aktiv: 4[\s\S]*Abnahme planen/);
+  await p.selectOption('#rpS', { label: 'Nordlicht Handels GmbH' });
+  assert.match(await p.textContent('#rpPv'), /Aktiv: 1/);
+  await p.click('#rpD [data-d="30"]'); assert.match(await p.textContent('#rpPv'), /Seit/);
+  await p.click('#rpMail'); await p.waitForFunction(() => /Kopiert/.test(document.getElementById('toastT').textContent));
+  const html = await p.evaluate(async () => { const it = (await navigator.clipboard.read())[0]; return await (await it.getType('text/html')).text(); });
+  assert.match(html, /<table/); assert.match(html, /Einführung Rechnungsverarbeitung/);
+  const s = await state(p); assert.equal(s.meta.reportCfg.days, 30); assert.ok(s.meta.reportCfg.scope.startsWith('kunde:')); assert.ok(s.meta.lastReport);
+  await p.click('#nav button[data-v="home"]'); assert.equal(await p.locator('#repNow').count(), 0);
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E33 Projektliste für den Kunden: gefiltert nach Kunde, Spaltenwahl, keine internen Angaben, Excel; Tabellenansicht', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  await p.evaluate(() => { const x = App.S().projects.find(y => y.nr === '1001'); x.notes = 'GEHEIM'; x.status = 'r'; App.commit(); });
+  await p.click('#nav button[data-v="projects"]'); await p.click('#pvT');
+  assert.equal(await p.locator('table.pt tbody tr').count(), 4);
+  await p.locator('#pkd').selectOption({ label: 'Nordlicht Handels GmbH' }); assert.equal(await p.locator('table.pt tbody tr').count(), 1);
+  await p.click('#clBtn'); await p.waitForSelector('#clPv');
+  assert.match(await p.textContent('#clPv'), /Projektübersicht Nordlicht Handels GmbH[\s\S]*1001[\s\S]*In Arbeit/);
+  assert.doesNotMatch(await p.textContent('#clPv'), /GEHEIM|Blockiert/);
+  await p.click('#clC [data-col="rest"]'); assert.match(await p.textContent('#clPv'), /Rest \(h\)[\s\S]*50/);
+  await p.click('#clCopy'); await p.waitForFunction(() => /Kopiert/.test(document.getElementById('toastT').textContent));
+  const html = await p.evaluate(async () => { const it = (await navigator.clipboard.read())[0]; return await (await it.getType('text/html')).text(); });
+  assert.match(html, /Einführung Rechnungsverarbeitung/); assert.doesNotMatch(html, /GEHEIM/);
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#clXls')]);
+  assert.match(dl.suggestedFilename(), /\.xlsx$/);
+  await p.keyboard.press('Escape'); await p.locator('table.pt tbody tr').first().click(); await p.waitForFunction(() => App.UI.view === 'project');
+  assert.deepEqual(t.errors, []); await t.close();
+});
