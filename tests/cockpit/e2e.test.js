@@ -367,3 +367,56 @@ test('E24 Dialoge: Tab bleibt im Dialog, Esc schließt und gibt den Fokus zurüc
   await p.click('#toastB'); await p.waitForFunction(() => App.S().projects.length === 1);
   assert.deepEqual(t.errors, []); await t.close();
 });
+
+// ---------- Verknüpfungen ----------
+test('E25 Nächster Schritt füllt „Aktuelles“: Entwurf folgt beim Tippen, eigener Text bleibt, Vorschlag aus weclapp', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  const pid = (await state(p)).projects.find(x => x.nr === '1001').id;
+  await p.evaluate(id => App.go('project', { pid: id, ptab: 'over' }), pid);
+  // ohne nächsten Schritt: jüngster weclapp-Eintrag als Vorschlag, wird nicht erneut für „Aktuelles“ vorgemerkt
+  await p.click('#oXa'); assert.equal(await p.inputValue('#oX'), 'Abnahmetest läuft'); assert.equal(await p.inputValue('#akIn'), '');
+  await p.fill('#oX', 'Abnahme mit Kunde planen');
+  assert.equal(await p.inputValue('#akIn'), 'Abnahme mit Kunde planen');
+  const today = await p.evaluate(() => App.C.fmtD(App.C.isoDate()));
+  assert.ok((await p.textContent('#akPv')).startsWith('#' + today + ': Abnahme mit Kunde planen'));
+  assert.match(await p.textContent('#oXh'), /vorgemerkt/);
+  // Entwurf selbst umformuliert: Schritt ändert ihn nicht mehr
+  await p.fill('#akIn', 'Abnahmetermin am 5.11. vereinbart'); await p.fill('#oX', 'Abnahmeprotokoll vorbereiten');
+  assert.equal(await p.inputValue('#akIn'), 'Abnahmetermin am 5.11. vereinbart'); assert.match(await p.textContent('#oXh'), /eigenständig/);
+  // Nach „Eingetragen“ wieder verknüpft
+  await p.click('#akDone'); await p.fill('#oX', 'Schulung vorbereiten'); assert.equal(await p.inputValue('#akIn'), 'Schulung vorbereiten');
+  // Übersicht zeigt weiter den konkreten Schritt
+  await p.click('#nav button[data-v="projects"]'); assert.match(await p.textContent('#view'), /➜ Schulung vorbereiten/);
+  await p.evaluate(() => App.flush()); await p.reload(); await p.waitForFunction(() => App.ready);
+  const pr = (await state(p)).projects.find(x => x.nr === '1001'); assert.equal(pr.next, 'Schulung vorbereiten'); assert.equal(pr.aktNew, 'Schulung vorbereiten');
+  assert.deepEqual(t.errors, []); await t.close();
+});
+test('E26 Aufgaben verknüpfen: Schätzung → Projekt und Projekt → Schätzung, Fortschritt in der Schätzung', { skip }, async () => {
+  const t = await open(), p = t.page; await seed(p);
+  const pid = await p.evaluate(() => {
+    const s = App.S(), pr = s.projects.find(x => x.nr === '1001');
+    pr.tasks.push({ id: 'pt1', t: 'Testdaten aufbereiten', due: '', done: false, who: '', eid: '', etid: '' });
+    s.estimates.push(App.C.newEstimate({ id: 'e1', pid: pr.id, title: 'CR Portal', tasks: [{ id: 'a', n: 'Schnittstelle bauen', d: '', sid: '', o: 1, m: 2, p: 3 }, { id: 'b', n: 'Doku', d: '', sid: '', o: 1, m: 1, p: 1 }] }));
+    App.commit(); return pr.id;
+  });
+  await p.evaluate(id => App.go('project', { pid: id, ptab: 'tasks' }), pid);
+  await p.click('#tFromE'); await p.locator('#pkL label', { hasText: 'Schnittstelle bauen' }).locator('input').check(); await p.click('#pkOk');
+  await p.waitForSelector('.eref'); assert.match(await p.textContent('#pBody'), /Schnittstelle bauen[\s\S]*🧮 CR Portal · 2 Tage/);
+  // zweites Mal: schon übernommene Aufgabe ist gesperrt
+  await p.click('#tFromE'); assert.equal(await p.locator('#pkL label', { hasText: 'Schnittstelle bauen' }).locator('input').isDisabled(), true); await p.keyboard.press('Escape');
+  // Aufgabe im Projekt erledigen, dann in der Schätzung den Fortschritt sehen
+  await p.locator('.it', { hasText: 'Schnittstelle bauen' }).locator('[data-tc]').click();
+  await p.click('#pBody details summary'); await p.click('.eref'); await p.waitForSelector('#tkP');
+  assert.match(await p.textContent('#estProg'), /1 von 1 verknüpften Aufgaben erledigt · 2 von 3/);
+  assert.match(await p.textContent('#tkP'), /🔗 Projektaufgabe ✓ erledigt/);
+  // Projektaufgabe in die Schätzung übernehmen
+  await p.click('#tFromP'); await p.locator('#pkL label', { hasText: 'Testdaten aufbereiten' }).locator('input').check(); await p.click('#pkOk');
+  await p.waitForFunction(() => App.S().estimates[0].tasks.length === 3);
+  assert.equal(await p.locator('.task').last().locator('[data-k="n"]').inputValue(), 'Testdaten aufbereiten');
+  // Ins Projekt übernehmen aus der Schätzung heraus
+  await p.click('#tToP'); await p.locator('#pkL label', { hasText: 'Doku' }).locator('input').check(); await p.click('#pkOk');
+  await p.evaluate(() => App.flush()); await p.reload(); await p.waitForFunction(() => App.ready);
+  const s = await state(p), pr = s.projects.find(x => x.id === pid);
+  assert.equal(pr.tasks.filter(x => x.eid === 'e1').length, 3, 'alle drei verknüpft');
+  assert.deepEqual(t.errors, []); await t.close();
+});

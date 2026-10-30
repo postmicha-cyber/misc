@@ -140,15 +140,17 @@
     const L = $('tkP').querySelectorAll('input[data-k="n"]'), el = L[L.length - 1]; el.focus(); el.scrollIntoView({ block: 'center' });
   }
   function renderTasks() {
-    const es = cur(), u = short(es.unit);
+    const es = cur(), u = short(es.unit), pr = A.byId(es.pid);
     $('tkP').innerHTML = '<h3>🔧 Aufgaben<span class="sp"></span><span class="cnt">' + es.tasks.length + '</span></h3><div class="help">O = optimistisch, M = wahrscheinlich, P = pessimistisch. Erwartungswert = (O + 4·M + P) ÷ 6. Beim Tippen werden ähnliche frühere Aufgaben vorgeschlagen.</div>' +
       es.tasks.map((t, i) => '<div class="task" data-id="' + t.id + '"><div class="row" style="margin-bottom:6px"><label class="f" style="flex:3"><span>' + (i + 1) + '. Aufgabe</span><input data-k="n" list="dlT" autocomplete="off" value="' + esc(t.n) + '"></label>' +
         (es.stories.length ? '<label class="f"><span>Story</span><select data-k="sid"><option value="">–</option>' + es.stories.map((s, j) => '<option value="' + s.id + '"' + (s.id === t.sid ? ' selected' : '') + '>US' + (j + 1) + '</option>').join('') + '</select></label>' : '') + '</div>' +
         '<label class="f" style="margin-bottom:6px"><span>Beschreibung</span><textarea data-k="d" rows="1">' + esc(t.d) + '</textarea></label>' +
         '<div class="g4"><label class="f" style="min-width:0"><span>O</span><input inputmode="decimal" data-k="o" value="' + esc(t.o) + '"></label><label class="f" style="min-width:0"><span>M</span><input inputmode="decimal" data-k="m" value="' + esc(t.m) + '"></label><label class="f" style="min-width:0"><span>P</span><input inputmode="decimal" data-k="p" value="' + esc(t.p) + '"></label><div class="ev"><b data-ev>' + f1(C.tE(t)) + '</b><small>' + esc(u) + ' erw.</small></div></div>' +
-        '<div class="bar" style="margin:8px 0 0;justify-content:flex-end"><button class="sm" data-a="up">↑</button><button class="sm" data-a="lib" title="In Bibliothek">⭐</button><button class="sm" data-a="cp" title="Duplizieren">⧉</button><button class="sm" data-a="rm" title="Löschen">✕</button></div><div data-sug></div></div>').join('') +
-      '<div class="bar" style="margin:0"><button class="btn" id="tAdd">＋ Aufgabe</button><button class="btn sec" id="tReuse">📚 Wiederverwenden</button></div><datalist id="dlT">' + knownTasks().map(k => '<option value="' + esc(k.t.n) + '">').join('') + '</datalist>';
+        '<div class="bar" style="margin:8px 0 0;justify-content:flex-end">' + linkBadge(es, t) + '<span class="sp"></span><button class="sm" data-a="up">↑</button><button class="sm" data-a="lib" title="In Bibliothek">⭐</button><button class="sm" data-a="cp" title="Duplizieren">⧉</button><button class="sm" data-a="rm" title="Löschen">✕</button></div><div data-sug></div></div>').join('') +
+      '<div class="bar" style="margin:0"><button class="btn" id="tAdd">＋ Aufgabe</button><button class="btn sec" id="tReuse">📚 Wiederverwenden</button>' + (pr ? '<button class="btn sec" id="tFromP">📋 Aus Projektaufgaben</button><button class="btn sec" id="tToP">➜ Ins Projekt übernehmen</button>' : '') + '</div><datalist id="dlT">' + knownTasks().map(k => '<option value="' + esc(k.t.n) + '">').join('') + '</datalist>';
     $('tAdd').onclick = () => addTask({}); $('tReuse').onclick = reuseSheet;
+    if (pr) { $('tFromP').onclick = () => A.pickTasks('toEstimate', [es], pr); $('tToP').onclick = () => A.pickTasks('toProject', [es], pr, A.estimateEditor); }
+    $('tkP').querySelectorAll('[data-po]').forEach(a => a.onclick = e => { e.preventDefault(); A.go('project', { pid: es.pid, ptab: 'tasks' }); });
     $('tkP').querySelectorAll('.task').forEach(box => {
       const t = es.tasks.find(x => x.id === box.dataset.id);
       box.querySelectorAll('[data-k]').forEach(inp => inp.oninput = inp.onchange = () => {
@@ -182,6 +184,7 @@
       });
     });
   }
+  const linkBadge = (es, t) => { const lt = C.linkedTask(S(), es, t.id); return lt ? '<a href="#" class="eref" data-po title="Im Projekt öffnen">🔗 Projektaufgabe ' + (lt.done ? '✓ erledigt' : 'offen') + '</a>' : ''; };
   let lastTab = -1e9;
   document.addEventListener('keydown', e => { if (e.key === 'Tab' && !e.shiftKey) lastTab = performance.now(); }, true);
   // Bekannte Aufgaben/Stories: Bibliothek zuerst, dann alle Schätzungen (je Name nur einmal)
@@ -225,7 +228,13 @@
     if ($('exP')) $('exP').querySelectorAll('.xr').forEach(row => { const x = es.extras.find(y => y.id === row.dataset.id); row.querySelector('[data-amt]').textContent = x.on ? '+' + f1(x.type === 'pct' ? r.base * C.num(x.v) / 100 : C.num(x.v)) : '–'; });
     $('outNums').innerHTML = '<div class="res"><div class="hl"><b id="resTotal">' + f1(r.total) + ' ' + esc(u) + '</b><span>Gesamt (Erwartungswert)</span></div><div><b>' + f1(r.p85) + '</b><span>mit 85 % Sicherheit</span></div><div><b>± ' + f1(r.sd) + '</b><span>Standardabw.</span></div><div><b>' + f1(r.r68[0]) + '–' + f1(r.r68[1]) + '</b><span>Bereich 68 %</span></div><div><b>' + f1(r.r95[0]) + '–' + f1(r.r95[1]) + '</b><span>Bereich 95 %</span></div></div>' +
       '<table class="t" style="margin-top:10px"><tr><td>Aufgaben (' + es.tasks.length + ')</td><td class="n">' + f1(r.base) + '</td></tr>' + r.ex.map(e => '<tr><td>' + esc(e.x.n) + (e.x.type === 'pct' ? ' (' + f1(e.x.v) + ' %)' : '') + '</td><td class="n">+' + f1(e.amt) + '</td></tr>').join('') + '<tr><td><b>Gesamt</b></td><td class="n"><b>' + f1(r.total) + ' ' + esc(short(u)) + '</b></td></tr></table>' +
-      (r.bad.length ? '<div class="note y" style="margin-top:10px">⚠️ Nicht O ≤ M ≤ P: ' + r.bad.map(t => esc(t.n || 'ohne Namen')).join(', ') + '</div>' : '<div class="help" style="margin-top:10px">Für Zusagen den 85-%-Wert nehmen, intern mit dem Erwartungswert planen.</div>');
+      (r.bad.length ? '<div class="note y" style="margin-top:10px">⚠️ Nicht O ≤ M ≤ P: ' + r.bad.map(t => esc(t.n || 'ohne Namen')).join(', ') + '</div>' : '<div class="help" style="margin-top:10px">Für Zusagen den 85-%-Wert nehmen, intern mit dem Erwartungswert planen.</div>') + progress(es);
+  }
+  // Wie viel des Geschätzten ist im Projekt schon erledigt (über verknüpfte Aufgaben)
+  function progress(es) {
+    const g = C.estProgress(S(), es); if (!g.linked) return '';
+    const pc = g.eff ? Math.round(g.doneEff / g.eff * 100) : 0;
+    return '<div id="estProg" style="margin-top:10px"><div class="help" style="margin:0 0 4px">🔗 Im Projekt: ' + g.done + ' von ' + g.linked + ' verknüpften Aufgaben erledigt · ' + f1(g.doneEff) + ' von ' + f1(g.eff) + ' ' + esc(short(es.unit)) + ' (' + pc + ' %)</div><div class="meter"><i style="width:' + pc + '%;background:var(--g)"></i></div></div>';
   }
   // Export-Buttons werden nur einmal gebaut, damit ein Klick direkt nach dem Tippen nicht verloren geht
   function wireExport() {
@@ -332,6 +341,28 @@
       draw();
     });
   }
+  // Aufgaben zwischen Projekt und Schätzung übernehmen; die Verknüpfung bleibt sichtbar (🧮 / 🔗)
+  A.pickTasks = (mode, ests, p, after) => {
+    const toP = mode === 'toProject', items = [];
+    if (toP) ests.forEach(e => e.tasks.filter(t => t.n).forEach(t => { const lt = C.linkedTask(S(), e, t.id); items.push({ e, id: t.id, txt: t.n, grp: e.title, sub: f1(C.tE(t)) + ' ' + short(e.unit), dis: lt ? '✓ schon im Projekt' : '' }); }));
+    else p.tasks.forEach(t => { const e = t.eid && S().estimates.find(x => x.id === t.eid); items.push({ e: ests[0], id: t.id, txt: t.t, grp: '', sub: t.done ? 'erledigt' : t.due ? 'fällig ' + C.fmtD(t.due) : '', dis: e ? '✓ in „' + e.title + '“' : '' }); });
+    let last = null;
+    const list = items.map((it, i) => (toP && it.grp !== last ? (last = it.grp, '<h3 style="margin:10px 0 4px">🧮 ' + esc(it.grp) + '</h3>') : '') +
+      '<label class="pick' + (it.dis ? ' dis' : '') + '"><input type="checkbox" data-i="' + i + '"' + (it.dis ? ' disabled checked' : '') + '><div>' + esc(it.txt) + '<small>' + esc(it.dis || it.sub) + '</small></div></label>').join('');
+    A.sheet('<h4>' + (toP ? '🧮 Aufgaben aus Schätzung ins Projekt' : '📋 Aufgaben aus dem Projekt „' + esc(p.name) + '“') + '</h4><div class="help">' + (toP ? 'Werden als Aufgaben im Projekt angelegt und bleiben mit der Schätzung verknüpft. So siehst du später, wie viel des Geschätzten erledigt ist.' : 'Werden als Aufgaben in die Schätzung übernommen und bleiben verknüpft. Werte von gleichnamigen früheren Aufgaben werden vorgeschlagen.') + '</div>' +
+      '<div id="pkL">' + (list || '<div class="help">Keine Aufgaben vorhanden.</div>') + '</div><div class="acts"><button class="btn sec" id="pkC">Abbrechen</button><button class="btn" id="pkOk">Übernehmen</button></div>', () => {
+      $('pkC').onclick = A.closeSheet;
+      $('pkOk').onclick = () => {
+        const ch = [...$('pkL').querySelectorAll('input:checked:not(:disabled)')].map(c => items[+c.dataset.i]); if (!ch.length) return A.toast('Nichts ausgewählt');
+        let n = 0;
+        if (toP) ests.forEach(e => { const ids = ch.filter(x => x.e === e).map(x => x.id); if (ids.length) n += C.tasksToProject(S(), e, ids); });
+        else { n = C.tasksToEstimate(S(), ests[0], ch.map(x => x.id)); touchE(ests[0]); }
+        if (toP) p.updated = today();
+        A.commit(); A.closeSheet(); if (after) after(); else if (toP) A.go('project', { pid: p.id, ptab: 'tasks' }); else A.estimateEditor();
+        A.toast('🔗 ' + n + (n === 1 ? ' Aufgabe' : ' Aufgaben') + ' übernommen und verknüpft');
+      };
+    });
+  };
   function libSheet() {
     const L = S().lib;
     A.sheet('<h4>📚 Bibliothek</h4><h3>Aufgaben (' + L.tasks.length + ')</h3>' + (L.tasks.length ? L.tasks.map(t => '<div class="pick"><div><b>' + esc(t.n) + '</b>' + (t.d ? '<small>' + esc(t.d) + '</small>' : '') + '</div><span>' + [t.o, t.m, t.p].map(f1).join(' / ') + ' ' + esc(short(t.unit)) + '</span><button class="x" data-lt="' + t.id + '">✕</button></div>').join('') : '<div class="help">Leer. In einer Schätzung bei einer Aufgabe auf ⭐ klicken.</div>') +

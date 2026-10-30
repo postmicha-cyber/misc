@@ -61,7 +61,7 @@
         status: STATUS[p.status] ? p.status : 'g', prio: [1, 2, 3].includes(p.prio) ? p.prio : 2, due: validIso(p.due) ? p.due : '',
         next: str(p.next), notes: typeof p.notes === 'string' ? p.notes : '', aktNew: typeof p.aktNew === 'string' ? p.aktNew : '', pinned: !!p.pinned, archived: !!p.archived,
         created: validIso(p.created) ? p.created : q.created, updated: validIso(p.updated) ? p.updated : q.updated,
-        tasks: arr(p.tasks).filter(isObj).map(t => ({ id: id(t.id), t: str(t.t) || 'Aufgabe', due: validIso(t.due) ? t.due : '', done: !!t.done, who: str(t.who) })),
+        tasks: arr(p.tasks).filter(isObj).map(t => ({ id: id(t.id), t: str(t.t) || 'Aufgabe', due: validIso(t.due) ? t.due : '', done: !!t.done, who: str(t.who), eid: str(t.eid), etid: str(t.etid) })),
         log: arr(p.log).filter(isObj).map(l => ({ d: validIso(l.d) ? l.d : q.created, t: str(l.t), src: str(l.src) })).filter(l => l.t),
         hist: arr(p.hist).filter(x => isObj(x) && str(x.k)).map(x => ({ at: str(x.at), src: x.src === 'weclapp' ? 'weclapp' : 'ich', k: str(x.k), from: hv(x.from), to: hv(x.to), imp: str(x.imp) })).slice(-HIST_MAX),
         risks: arr(p.risks).filter(isObj).map(r => ({ id: id(r.id), n: str(r.n) || 'Risiko', w: clamp(r.w), a: clamp(r.a), m: str(r.m) })),
@@ -83,6 +83,9 @@
       });
       return q;
     });
+    // Verknüpfung Projektaufgabe → Schätzungsaufgabe nur behalten, wenn die Schätzung zum Projekt gehört und die Aufgabe noch existiert
+    const etids = new Map(s.estimates.map(e => [e.id, { pid: e.pid, t: new Set(e.tasks.map(t => t.id)) }]));
+    s.projects.forEach(p => { const used = new Set(); p.tasks.forEach(t => { const e = etids.get(t.eid), key = t.eid + '|' + t.etid; if (!e || e.pid !== p.id || !e.t.has(t.etid) || used.has(key)) { t.eid = ''; t.etid = ''; } else used.add(key); }); });
     const lib = isObj(src.lib) ? src.lib : {};
     s.lib.tasks = arr(lib.tasks).filter(isObj).map(t => ({ id: id(t.id), n: str(t.n), d: str(t.d), o: num(t.o), m: num(t.m), p: num(t.p), unit: UNITS.includes(t.unit) ? t.unit : 'Tage', used: num(t.used), auto: !!t.auto })).filter(t => t.n);
     s.lib.stories = arr(lib.stories).filter(isObj).map(x => ({ id: id(x.id), role: str(x.role), want: str(x.want), benefit: str(x.benefit), ac: arr(x.ac).map(str).filter(Boolean), prio: PRIO[x.prio] ? x.prio : 'must' })).filter(x => x.want);
@@ -483,6 +486,52 @@
     return bs >= 2 ? best : null;
   }
 
+  // ---------------- Nächster Schritt ↔ Aktuelles ----------------
+  // Der Entwurf für „Aktuelles“ folgt dem nächsten Schritt, solange er leer ist oder noch genau dem bisherigen Schritt entspricht.
+  // Hat man den Entwurf selbst anders formuliert, bleibt er unangetastet.
+  const aktLinked = p => !!p.wc && (!str(p.aktNew) || str(p.aktNew) === str(p.next));
+  function setNext(p, v) {
+    const val = typeof v === 'string' ? v : '';
+    if (aktLinked(p)) p.aktNew = val.trim();
+    p.next = val;
+    return p;
+  }
+  // Jüngster Eintrag aus weclapp-„Aktuelles“ als Vorschlag für den nächsten Schritt
+  function aktLatest(p, today) { const A = p.wc ? parseAkt(p.wc.akt, today) : { ent: [] }; const e = A.ent.find(x => x.t); return e ? e.t : ''; }
+
+  // ---------------- Aufgaben Projekt ↔ Schätzung ----------------
+  // Die Verknüpfung liegt an der Projektaufgabe (eid = Schätzung, etid = Aufgabe der Schätzung). Eine Quelle, keine Widersprüche.
+  function linkedTask(state, es, etid) {
+    const p = state.projects.find(x => x.id === es.pid); if (!p) return null;
+    return p.tasks.find(t => t.eid === es.id && t.etid === etid) || null;
+  }
+  // Ausgewählte Schätzungsaufgaben als Aufgaben ins Projekt übernehmen (schon übernommene werden übersprungen)
+  function tasksToProject(state, es, ids) {
+    const p = state.projects.find(x => x.id === es.pid); if (!p) return 0;
+    let n = 0;
+    es.tasks.filter(t => ids.includes(t.id) && str(t.n) && !linkedTask(state, es, t.id)).forEach(t => {
+      p.tasks.push({ id: uid(), t: str(t.n), due: '', done: false, who: '', eid: es.id, etid: t.id }); n++;
+    });
+    return n;
+  }
+  // Ausgewählte Projektaufgaben in die Schätzung übernehmen; Werte, wenn möglich, aus ähnlichen früheren Aufgaben
+  function tasksToEstimate(state, es, ids) {
+    const p = state.projects.find(x => x.id === es.pid); if (!p) return 0;
+    let n = 0;
+    p.tasks.filter(t => ids.includes(t.id) && !t.eid).forEach(t => {
+      const k = bestMatch(state, t.t, es.id), nt = { id: uid(), n: t.t, d: '', sid: '', o: '', m: '', p: '' };
+      if (k && normTxt(k.t.n) === normTxt(t.t)) { ['o', 'm', 'p'].forEach(x => nt[x] = conv(k.t[x], k.unit, es.unit)); nt.d = str(k.t.d); }
+      es.tasks.push(nt); t.eid = es.id; t.etid = nt.id; n++;
+    });
+    return n;
+  }
+  // Fortschritt der geschätzten Aufgaben im Projekt
+  function estProgress(state, es) {
+    const L = es.tasks.map(t => ({ t, pt: linkedTask(state, es, t.id) })).filter(x => x.pt);
+    const done = L.filter(x => x.pt.done);
+    return { linked: L.length, done: done.length, total: es.tasks.length, doneEff: done.reduce((a, x) => a + tE(x.t), 0), eff: es.tasks.reduce((a, t) => a + tE(t), 0) };
+  }
+
   // ---------------- Übernahme aus den bisherigen Apps ----------------
   // radar = Daten aus „Projekt-Radar“ (projektRadar.v1), pm = Daten aus „PM-Rechner“ (pmRechner.v1)
   function migrateFromApps(state, radar, pm, today) {
@@ -546,6 +595,7 @@
     recordChange, addHist, histText, aktDiff, HIST_LABEL,
     parseAkt, flags, severity, isActive, progress, focusItems, budget, budgetTotals, initials, weclappLink, aktPrefix, aktCompose, customerView, libUpsertTask, libUpsertStory,
     tE, tV, calcEstimate, conv, storyText, cloneEstimate, bestMatch, normTxt,
+    aktLinked, setNext, aktLatest, linkedTask, tasksToProject, tasksToEstimate, estProgress,
     migrateFromApps, shouldAutoSnapshot, pruneSnapshots
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Core; else root.Core = Core;

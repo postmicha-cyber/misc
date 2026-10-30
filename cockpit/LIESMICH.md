@@ -26,6 +26,16 @@ Empfohlen: Chrome oder Edge am Notebook. Dort kannst du einen festen Backup-Ordn
 
 Daten → 📥 Export-Datei wählen (Excel oder CSV). Erkannt werden u. a. Auftragsnummer, Kunde, Kommission, Aktuelles, Phase, Projektleiter, Consultant, Status, geplanter/gebuchter (abrechenbarer) Aufwand, Projekt Start/Ende. Vor dem Übernehmen zeigt eine Vorschau, was neu ist, was sich ändert und was nicht mehr im Export steht. Die Spaltenzuordnung lässt sich dort anpassen und wird gemerkt.
 
+## Nächster Schritt und „Aktuelles“
+
+Du pflegst nur noch den **nächsten Schritt**. Bei weclapp-Projekten wird er automatisch als neuer Eintrag für „Aktuelles“ vorgemerkt (mit Datum davor). Rechts mit 📋 kopieren, in weclapp einfügen, dann **✓ Eingetragen**. Willst du für weclapp etwas anderes schreiben, formuliere den Entwurf einfach selbst um; dann folgt er dem Schritt nicht mehr, bis du „Eingetragen“ klickst. Ist kein Schritt gesetzt, schlägt die App den jüngsten Eintrag aus weclapp vor.
+
+## Aufgaben in Projekt und Schätzung
+
+- In der Schätzung: **➜ Ins Projekt übernehmen** legt die geschätzten Aufgaben im Projekt an, **📋 Aus Projektaufgaben** holt vorhandene Projektaufgaben in die Schätzung (Werte gleichnamiger früherer Aufgaben werden vorgeschlagen).
+- Im Projekt unter Aufgaben: **🧮 Aus Schätzung übernehmen**.
+- Verknüpfte Aufgaben zeigen 🧮 bzw. 🔗; die Schätzung zeigt, wie viel des Geschätzten im Projekt erledigt ist.
+
 ## Änderungen nachvollziehen
 
 - **🕘 Änderungen**: jeder weclapp-Import mit allen geänderten Feldern je Projekt (vorher → nachher), dazu deine eigenen Änderungen an Status, nächstem Schritt, Termin, Priorität und Name.
