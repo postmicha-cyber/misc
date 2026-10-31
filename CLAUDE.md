@@ -19,3 +19,12 @@ npm test
 
 - Testkatalog: `tests/cockpit/TESTFAELLE.md`. Neue Funktion → neuer Testfall (Nummer im Testnamen). Gefundener Fehler → erst Test, dann Fix.
 - Erst committen, wenn alle Tests grün sind. GitHub Actions führt sie bei jedem Push erneut aus.
+
+## SonnenPilot (`solar/`)
+
+- Kernlogik (Strategie, Wetter, Simulation) gehört nach `solar/app/core.js` – ohne DOM und ohne Netz, im Browser und in Node nutzbar.
+- Growatt-Zugriff nur in `solar/growatt.js`, Regelschleife und API in `solar/server.js`, Oberfläche in `solar/app/app.js`.
+- **Zugangsdaten nie ins Repo:** `solar/.env` und `solar/data/` stehen in `.gitignore`. Der Zustand (`state.json`) speichert keine Growatt-Zugangsdaten (Test S22).
+- Der Server liefert nur Dateien aus `solar/app/` aus und verlangt für `/api/*` den Zugangsschlüssel (Test S27).
+- Befehle an den Speicher nur über `Core.needsUpdate` (Mindeständerung und Ruhezeit schonen die Growatt-Cloud).
+- Testkatalog: `tests/solar/TESTFAELLE.md`. Neue Funktion → neuer Testfall.

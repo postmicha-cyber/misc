@@ -1,1 +1,4 @@
 node_modules/
+# SonnenPilot: Zugangsdaten und Messdaten bleiben auf dem eigenen Gerät
+solar/.env
+solar/data/

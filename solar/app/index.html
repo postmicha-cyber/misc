@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SonnenPilot">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f3ec" media="(prefers-color-scheme: light)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>SonnenPilot</title>
+<style>
+  :root {
+    --bg: #f6f3ec; --card: #ffffff; --card2: #f1ede4; --line: #e3ddd0; --txt: #1d1a14; --dim: #6f6858;
+    --sun: #e89a0c; --sun-soft: #f6c95c55; --bat: #1f9d6b; --home: #2f6fe0; --warn: #c2410c; --bad: #c0262d;
+    --shadow: 0 1px 2px #0000000d, 0 4px 18px #0000000a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1117; --card: #161b23; --card2: #1d2430; --line: #29313e; --txt: #eef1f6; --dim: #94a0b4;
+      --sun: #f5b129; --sun-soft: #f5b12933; --bat: #34c48b; --home: #5b95ff; --warn: #fb923c; --bad: #f05a60;
+      --shadow: 0 1px 2px #0000004d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1117; --card: #161b23; --card2: #1d2430; --line: #29313e; --txt: #eef1f6; --dim: #94a0b4;
+    --sun: #f5b129; --sun-soft: #f5b12933; --bat: #34c48b; --home: #5b95ff; --warn: #fb923c; --bad: #f05a60;
+    --shadow: 0 1px 2px #0000004d;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--txt); font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif; }
+  body { min-height: 100dvh; padding: calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 84px); }
+  main { max-width: 640px; margin: 0 auto; }
+  header { max-width: 640px; margin: 0 auto 12px; display: flex; align-items: center; gap: 10px; }
+  header h1 { font-size: 22px; margin: 0; flex: 1; letter-spacing: -.01em; }
+  header h1 span { color: var(--sun); }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: var(--card2); color: var(--dim); white-space: nowrap; }
+  .pill.ok { color: var(--bat); } .pill.err { color: var(--bad); } .pill.demo { color: var(--sun); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .icon-btn { border: 0; background: var(--card); box-shadow: var(--shadow); width: 38px; height: 38px; border-radius: 12px; font-size: 18px; }
+  .card { background: var(--card); border-radius: 18px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 10px; font-weight: 600; }
+  .muted { color: var(--dim); font-size: 14px; }
+  .banner { border-radius: 14px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; }
+  .banner.err { background: color-mix(in srgb, var(--bad) 14%, var(--card)); color: var(--bad); }
+  .banner.demo { background: var(--sun-soft); }
+  .banner a { color: inherit; font-weight: 600; }
+
+  /* Energiefluss */
+  .flow { display: grid; grid-template-columns: 1fr 1.25fr 1fr; align-items: center; gap: 4px; text-align: center; position: relative; }
+  .node .big { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .node .lbl { font-size: 12px; color: var(--dim); }
+  .node .emo { font-size: 30px; line-height: 1.1; }
+  .ring { width: 118px; height: 118px; margin: 0 auto; position: relative; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .in { position: absolute; inset: 0; display: grid; place-content: center; }
+  .ring .in b { font-size: 28px; font-variant-numeric: tabular-nums; }
+  .ring .in small { font-size: 12px; color: var(--dim); }
+  .wire { height: 4px; border-radius: 2px; background: var(--line); position: relative; overflow: hidden; margin: 6px 4px 0; }
+  .wire.on::after { content: ""; position: absolute; top: 0; left: -30%; width: 30%; height: 100%; border-radius: 2px; background: var(--c); animation: run 1.4s linear infinite; }
+  .wire.rev.on::after { animation-direction: reverse; }
+  @keyframes run { to { left: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .wire.on::after { animation: none; left: 0; width: 100%; opacity: .5; } }
+
+  /* Automatik */
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--card2); border-radius: 12px; padding: 3px; gap: 3px; }
+  .seg button { border: 0; background: transparent; padding: 9px 4px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--dim); }
+  .seg button.on { background: var(--card); color: var(--txt); box-shadow: var(--shadow); }
+  .reason { font-size: 17px; font-weight: 600; margin: 12px 0 4px; }
+  .kv { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--dim); }
+  .kv b { color: var(--txt); font-weight: 600; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  input[type=range] { flex: 1; accent-color: var(--sun); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--line); background: var(--card2); border-radius: 99px; padding: 8px 12px; font-size: 14px; }
+  .chip:active { transform: scale(.97); }
+  .chip.stop { border-color: var(--warn); color: var(--warn); }
+  .btn { border: 0; border-radius: 12px; padding: 11px 16px; font-weight: 600; background: var(--sun); color: #1d1a14; }
+  .btn.sec { background: var(--card2); color: var(--txt); }
+
+  /* Wetter */
+  .wx { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .wx::-webkit-scrollbar { display: none; }
+  .wx div { min-width: 50px; text-align: center; font-size: 12px; color: var(--dim); background: var(--card2); border-radius: 12px; padding: 6px 2px; }
+  .wx div b { display: block; font-size: 20px; line-height: 1.3; }
+  .wx div i { font-style: normal; color: var(--sun); font-weight: 600; display: block; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+  .tile { background: var(--card2); border-radius: 12px; padding: 8px 10px; }
+  .tile b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; }
+  .tile span { font-size: 12px; color: var(--dim); }
+
+  /* Diagramme */
+  .chart { width: 100%; height: auto; display: block; touch-action: pan-y; user-select: none; }
+  .chart text { fill: var(--dim); font-size: 11px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); margin-top: 6px; }
+  .legend i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .tip { font-size: 13px; min-height: 20px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .steps { list-style: none; padding: 0; margin: 0; }
+  .steps li { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .steps li:first-child { border-top: 0; }
+  .steps time { color: var(--dim); min-width: 46px; font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 6px 4px; border-top: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-weight: 600; color: var(--dim); font-size: 12px; border-top: 0; }
+
+  /* Formulare */
+  label.f { display: block; margin: 10px 0; font-size: 14px; }
+  label.f > span { display: block; color: var(--dim); font-size: 13px; margin-bottom: 4px; }
+  input[type=number], input[type=text], input[type=password], input[type=url], select {
+    width: 100%; font: inherit; color: var(--txt); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 8px; }
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; font-size: 15px; }
+  .switch small { display: block; color: var(--dim); font-size: 12px; }
+  .switch input { width: 46px; height: 28px; appearance: none; background: var(--line); border-radius: 99px; position: relative; flex: none; transition: background .2s; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 3px #0003; }
+  .switch input:checked { background: var(--bat); }
+  .switch input:checked::after { left: 21px; }
+  .plane { border: 1px solid var(--line); border-radius: 14px; padding: 4px 12px; margin-bottom: 10px; }
+  .plane-head { display: flex; align-items: center; gap: 8px; }
+  .plane-head input { flex: 1; }
+  .del { border: 0; background: none; color: var(--bad); font-size: 20px; padding: 4px 8px; }
+  .save-bar { position: sticky; bottom: calc(env(safe-area-inset-bottom) + 72px); display: flex; gap: 8px; justify-content: flex-end; padding: 10px; margin: 0 -6px 14px;
+    background: color-mix(in srgb, var(--card) 90%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 16px; box-shadow: var(--shadow); z-index: 4; }
+  .nowrap { white-space: nowrap; }
+
+  nav { position: fixed; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--card) 92%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line); display: flex; justify-content: center; padding: 6px 8px calc(env(safe-area-inset-bottom) + 6px); z-index: 5; }
+  nav button { flex: 1; max-width: 140px; border: 0; background: none; padding: 6px 0; color: var(--dim); font-size: 11px; font-weight: 600; }
+  nav button b { display: block; font-size: 21px; line-height: 1.2; filter: grayscale(1); opacity: .7; }
+  nav button.on { color: var(--txt); }
+  nav button.on b { filter: none; opacity: 1; }
+  .hidden { display: none !important; }
+  .login { max-width: 420px; margin: 12vh auto 0; text-align: center; }
+  .login .card { text-align: left; }
+  .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 86px); transform: translateX(-50%); background: var(--txt); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 9; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sonnen<span>Pilot</span></h1>
+  <span id="pill" class="pill">verbinde …</span>
+  <button class="icon-btn" id="refresh" title="Aktualisieren" aria-label="Aktualisieren">↻</button>
+</header>
+<main id="view"></main>
+<nav id="nav">
+  <button data-v="now" class="on"><b>☀️</b>Jetzt</button>
+  <button data-v="plan"><b>🧭</b>Plan</button>
+  <button data-v="history"><b>📈</b>Verlauf</button>
+  <button data-v="settings"><b>⚙️</b>Einstellungen</button>
+</nav>
+<div id="toast" class="toast" role="status"></div>
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

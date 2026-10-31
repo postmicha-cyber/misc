@@ -1,0 +1,21 @@
+name: SonnenPilot Tests
+on:
+  push:
+    paths: ['solar/**', 'tests/solar/**', 'package.json', '.github/workflows/solar-tests.yml']
+  pull_request:
+    paths: ['solar/**', 'tests/solar/**', 'package.json', '.github/workflows/solar-tests.yml']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Unit- und Server-Tests
+        run: npm run test:solar:unit
+      - name: Playwright installieren
+        run: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
+      - name: Browser-Tests
+        run: node --test tests/solar/e2e.test.js

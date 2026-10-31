@@ -1,10 +1,12 @@
 {
   "name": "misc",
   "private": true,
-  "description": "Mini-Apps; Projekt-Cockpit mit automatischen Tests",
+  "description": "Mini-Apps; Projekt-Cockpit und SonnenPilot mit automatischen Tests",
   "scripts": {
-    "test": "node --test tests/cockpit/*.test.js",
+    "test": "node --test tests/cockpit/*.test.js tests/solar/*.test.js",
     "test:unit": "node --test tests/cockpit/core.test.js",
-    "test:e2e": "node --test tests/cockpit/e2e.test.js"
+    "test:e2e": "node --test tests/cockpit/e2e.test.js",
+    "test:solar": "node --test tests/solar/*.test.js",
+    "test:solar:unit": "node --test tests/solar/core.test.js tests/solar/server.test.js"
   }
 }

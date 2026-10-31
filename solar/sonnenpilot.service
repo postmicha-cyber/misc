@@ -1,0 +1,17 @@
+# systemd-Dienst für Raspberry Pi / Linux ohne Docker.
+# Installation:  sudo cp sonnenpilot.service /etc/systemd/system/ && sudo systemctl enable --now sonnenpilot
+# Pfad und Benutzer unten anpassen.
+[Unit]
+Description=SonnenPilot – Balkonkraftwerk-Speicher wettergesteuert
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/misc/solar
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=20
+
+[Install]
+WantedBy=multi-user.target
