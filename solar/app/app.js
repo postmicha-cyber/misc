@@ -134,6 +134,7 @@
     const S = App.S; let h = '';
     if (App.mode === 'demo') h += `<div class="banner demo">☀️ <b>Demo</b> mit simuliertem Speicher und Beispielwetter. Für deine Anlage den SonnenPilot-Server starten – Anleitung in <a href="https://github.com/postmicha-cyber/misc/tree/main/solar#readme" target="_blank" rel="noopener">solar/README.md</a>.</div>`;
     else if (S.simulated) h += `<div class="banner demo">Server läuft ohne Growatt-Zugangsdaten – der Speicher wird <b>simuliert</b>. Trage <code>GROWATT_USER</code> und <code>GROWATT_PASSWORD</code> in die <code>.env</code> ein.</div>`;
+    if (S.dryRun) h += `<div class="banner demo">🧪 <b>Probelauf:</b> SonnenPilot liest deinen Speicher, ändert aber nichts. Was er tun würde, steht unter Verlauf → Protokoll. Zum Scharfschalten <code>DRY_RUN=1</code> aus der <code>.env</code> entfernen.</div>`;
     if (S.error) h += `<div class="banner err">⚠️ ${esc(S.error)}</div>`;
     return h;
   }

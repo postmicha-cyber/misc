@@ -37,6 +37,8 @@ Benötigt wird Node.js 18 oder neuer, sonst nichts. Es gibt keine weiteren Paket
 
 ## Einrichtung
 
+> **Erst mal ausprobieren?** Auf dem Notebook testen, auch im Probelauf mit deinem echten Speicher, ohne dass etwas verändert wird: **[TEST-NOTEBOOK.md](TEST-NOTEBOOK.md)**.
+>
 > **Neu mit Raspberry Pi?** Die Schritt-für-Schritt-Anleitung von Einkauf bis App, mit FRITZ!Box und Ein-Befehl-Installation, steht in **[RASPBERRY-PI.md](RASPBERRY-PI.md)**.
 
 ### 1. Zugangsdaten eintragen

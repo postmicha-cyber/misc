@@ -221,3 +221,23 @@ test('S29 Installationsskript: gültiges Bash, nur Passwort-Hash in der .env, So
   assert.match(env, /^APP_KEY=[A-Za-z0-9_-]{12}$/m);
   assert.ok(!/=test$/m.test(env), 'kein Klartext-Passwort');
 });
+
+test('S30 Probelauf: echter Speicher wird nur gelesen, geplante Änderungen erscheinen einmal im Protokoll', async () => {
+  const w = world({ growatt: { soc: 95, ppv: 0, pac: 300, defaultPower: 300, high: 100, low: 10 } });
+  const svc = service(w, { env: { DRY_RUN: '1' } });
+  let snap = await svc.tick();
+  assert.equal(snap.dryRun, true);
+  assert.equal(w.g.calls.filter(x => x.path === '/noahDeviceApi/noah/set').length, 0, 'kein Befehl an den Speicher');
+  assert.equal(w.g.st.defaultPower, 300);
+  assert.equal(snap.plan.power, 120, 'Plan wird trotzdem berechnet');
+  const dry = snap.actions.filter(a => a.kind === 'probelauf');
+  assert.equal(dry.length, 1); assert.match(dry[0].text, /würde setzen: Leistung 300 → 120 W/);
+  svc.setNow(at(22) + 300);
+  snap = await svc.tick();
+  assert.equal(snap.actions.filter(a => a.kind === 'probelauf').length, 1, 'nicht bei jedem Durchlauf wiederholt');
+  await withServer(svc, async base => {
+    const r = await fetch(base + '/api/mode', { method: 'POST', headers: { 'x-app-key': 'schluessel' }, body: JSON.stringify({ mode: 'off' }) });
+    assert.equal(r.status, 200);
+  });
+  assert.equal(w.g.calls.filter(x => x.path === '/noahDeviceApi/noah/set').length, 0, 'auch Bedienung ändert im Probelauf nichts');
+});

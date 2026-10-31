@@ -59,7 +59,8 @@ function createService(o = {}) {
 
   const svc = {
     state, now, simulated: false, device: null, dev: null, info: null, infoAt: 0,
-    lastPlan: null, lastError: '', lastRun: 0, busy: false, dataDir
+    lastPlan: null, lastError: '', lastRun: 0, busy: false, dataDir,
+    dryRun: env.DRY_RUN === '1', dryLast: ''   // Probelauf: nur lesen, nichts am Speicher ändern
   };
 
   if (o.device) svc.device = o.device;
@@ -170,7 +171,15 @@ function createService(o = {}) {
         const p = Core.plan({ now: now(), soc: dev.soc, pvNow: dev.online ? dev.ppv : null, houseW, fc: state.forecast, s });
         p.houseW = houseW; p.gridW = gridW;
         svc.lastPlan = p;
-        if (dev.online) {
+        if (dev.online && svc.dryRun) {
+          const ch = Core.needsUpdate(dev, p, s);
+          const parts = [];
+          if (ch.power != null) parts.push('Leistung ' + (dev.setW == null ? '?' : dev.setW) + ' → ' + ch.power + ' W');
+          if (ch.soc) parts.push('Akkugrenzen ' + ch.soc.low + '–' + ch.soc.high + ' %');
+          const msg = parts.length ? 'würde setzen: ' + parts.join(', ') + ' · ' + p.reason : '';
+          if (msg && msg !== svc.dryLast) svc.act('probelauf', msg);
+          svc.dryLast = msg;
+        } else if (dev.online) {
           const ch = Core.needsUpdate(dev, p, s, opts.forcePower ? 0 : svc.setAt, now());
           if (ch.power != null) {
             try { await svc.device.setPower(ch.power); svc.setAt = now(); svc.act('leistung', (dev.setW == null ? '?' : dev.setW) + ' → ' + ch.power + ' W · ' + p.reason); if (svc.info) svc.info.setW = ch.power; dev.setW = ch.power; }
@@ -203,7 +212,7 @@ function createService(o = {}) {
     const d0 = Core.dayStartT(t, off);
     const since = o2.since != null ? Core.num(o2.since) : t - 36 * 3600;
     return {
-      now: t, simulated: svc.simulated, settings: s, device: svc.dev, info: svc.info, plan: svc.lastPlan,
+      now: t, simulated: svc.simulated, dryRun: svc.dryRun, settings: s, device: svc.dev, info: svc.info, plan: svc.lastPlan,
       error: svc.lastError, lastRun: svc.lastRun, forecast: fc ? { off: fc.off, tz: fc.tz, at: fc.at, demo: !!fc.demo, hours: fc.hours.filter(h => h.t >= since - 3600 && h.t < t + 50 * 3600) } : null,
       forecastToday: daySum(d0), forecastRest: fc ? Math.round(Core.energyBetween(fc, t, d0 + Core.DAY)) : null, forecastTomorrow: daySum(d0 + Core.DAY),
       projection: proj, samples: state.samples.filter(x => x.t >= since), actions: state.actions.slice(-60).reverse(),
@@ -278,7 +287,8 @@ function main() {
   const port = Number(process.env.PORT || 8787);
   const tick = Math.max(60, Number(process.env.TICK_SECONDS || (svc.state.settings.meterUrl ? 120 : 300)));
   createServer(svc).listen(port, process.env.HOST || '0.0.0.0', () => {
-    console.log('☀️  SonnenPilot läuft auf Port ' + port + (svc.simulated ? ' (SIMULATION – keine Growatt-Zugangsdaten)' : ''));
+    console.log('☀️  SonnenPilot läuft auf Port ' + port + (svc.simulated ? ' (SIMULATION – keine Growatt-Zugangsdaten)' : '') + (svc.dryRun ? ' (PROBELAUF – Speicher wird nur gelesen, nichts verändert)' : ''));
+    console.log('📱 Im Browser öffnen: http://localhost:' + port);
     console.log('🔑 Zugangsschlüssel für die App: ' + svc.state.appKey);
   });
   svc.save(true);

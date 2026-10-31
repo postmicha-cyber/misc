@@ -44,6 +44,7 @@ Neue Funktion → neuer Testfall. Gefundener Fehler → erst Test, dann Fix.
 | S27 | Zugangsschlüssel Pflicht, kein Zugriff außerhalb des App-Ordners (.env!) | Sicherheit im Heimnetz |
 | S28 | Einstellungen, Modus, Boost wirken sofort; Boost endet von selbst | Bedienung |
 | S29 | Installationsskript: gültiges Bash, speichert nur den Passwort-Hash, schützt Sonderzeichen im Benutzernamen | Sichere Ein-Befehl-Installation auf dem Pi |
+| S30 | Probelauf (`DRY_RUN=1`): nur lesen, keine Befehle an den Speicher, geplante Änderung einmal protokolliert | Gefahrlos testen am echten Gerät |
 
 ## Browser (`e2e.test.js`, Handy-Größe)
 
