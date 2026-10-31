@@ -43,6 +43,7 @@ Neue Funktion → neuer Testfall. Gefundener Fehler → erst Test, dann Fix.
 | S26 | Ohne Zugangsdaten: Simulation, Schlüssel wird erzeugt | Ausprobieren ohne Anlage |
 | S27 | Zugangsschlüssel Pflicht, kein Zugriff außerhalb des App-Ordners (.env!) | Sicherheit im Heimnetz |
 | S28 | Einstellungen, Modus, Boost wirken sofort; Boost endet von selbst | Bedienung |
+| S29 | Installationsskript: gültiges Bash, speichert nur den Passwort-Hash, schützt Sonderzeichen im Benutzernamen | Sichere Ein-Befehl-Installation auf dem Pi |
 
 ## Browser (`e2e.test.js`, Handy-Größe)
 

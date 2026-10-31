@@ -203,3 +203,21 @@ test('S28 HTTP: Einstellungen, Modus und Boost wirken sofort auf den Speicher', 
     assert.equal(bad.status, 500);
   });
 });
+
+test('S29 Installationsskript: gültiges Bash, nur Passwort-Hash in der .env, Sonderzeichen geschützt', () => {
+  const { execFileSync } = require('child_process');
+  const script = path.join(__dirname, '../../solar/install-pi.sh');
+  execFileSync('bash', ['-n', script]);
+  const src = fs.readFileSync(script, 'utf8');
+  // Den .env-Teil des Skripts mit Testwerten nachspielen
+  const dir = tmp();
+  fs.copyFileSync(path.join(__dirname, '../../solar/.env.example'), path.join(dir, '.env'));
+  const block = src.split('\n').filter(l => /^\s*(GH=|KEY=|GU=\$\(printf|sed -i)/.test(l)).map(l => l.replace('"$APP/.env"', '"$DIR/.env"').replace('cd "$APP"', 'cd "$SOLAR"')).join('\n');
+  execFileSync('bash', ['-c', 'set -e\n' + block], { env: Object.assign({}, process.env, { GU: 'a&b|c@x.de', GP: 'test', DIR: dir, SOLAR: path.join(__dirname, '../../solar') }) });
+  const env = fs.readFileSync(path.join(dir, '.env'), 'utf8');
+  assert.match(env, /^GROWATT_USER=a&b\|c@x\.de$/m);
+  assert.match(env, /^GROWATT_PASSWORD=$/m);
+  assert.match(env, /^GROWATT_PASSWORD_HASH=c98f6bcd4621d373cade4e832627b4f6$/m);
+  assert.match(env, /^APP_KEY=[A-Za-z0-9_-]{12}$/m);
+  assert.ok(!/=test$/m.test(env), 'kein Klartext-Passwort');
+});

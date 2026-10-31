@@ -37,6 +37,8 @@ Benötigt wird Node.js 18 oder neuer, sonst nichts. Es gibt keine weiteren Paket
 
 ## Einrichtung
 
+> **Neu mit Raspberry Pi?** Die Schritt-für-Schritt-Anleitung von Einkauf bis App, mit FRITZ!Box und Ein-Befehl-Installation, steht in **[RASPBERRY-PI.md](RASPBERRY-PI.md)**.
+
 ### 1. Zugangsdaten eintragen
 
 ```bash
